@@ -11,10 +11,11 @@ for d in "$HERE/install"/*/; do
   bash "$d/install.sh"
 done
 
-# Drop into zsh. orchard installs it and runs chsh, but the running
-# session predates chsh so it stays bash until next login — unless we
-# explicitly replace it. Skipped if the caller is already zsh (so
-# re-running from within zsh doesn't pile up nested shells).
+# First-time install: caller is still bash (chsh hasn't taken effect
+# for this session). Replace bash with zsh so the user lands on the
+# orchard prompt without a manual `exec zsh`. Subsequent re-runs are
+# already inside zsh — the new config picks up on the next interactive
+# session (reconnect SSH, or `exec zsh` manually).
 if [ "$(ps -p "$PPID" -o comm=)" != "zsh" ] && command -v zsh >/dev/null 2>&1; then
   exec zsh
 fi
