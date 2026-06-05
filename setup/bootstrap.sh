@@ -141,7 +141,10 @@ mkfs.ext4 -F -L root "$PART_ROOT"
 echo "Mounting..."
 mount "$PART_ROOT" /mnt
 mkdir -p /mnt/boot
-mount "$PART_EFI" /mnt/boot
+# fmask=0077,dmask=0077 hides the FAT files from non-root so bootctl's
+# random seed isn't world-readable. genfstab below picks up these
+# options and writes them into the new system's fstab.
+mount -o fmask=0077,dmask=0077 "$PART_EFI" /mnt/boot
 
 # ============================================================
 # Pacstrap base packages. Includes networkmanager + openssh + sudo

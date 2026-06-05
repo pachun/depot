@@ -9,6 +9,11 @@ if ! id "$USERNAME" >/dev/null 2>&1; then
   useradd -m -G wheel -s /bin/bash "$USERNAME"
 fi
 
-if [ "$(passwd -S "$USERNAME" 2>/dev/null | awk '{print $2}')" != "P" ]; then
-  passwd "$USERNAME" </dev/tty
-fi
+# Loop until the password is actually set. passwd exits non-zero on
+# mismatch / too-simple / etc.; without this loop a single typo aborts
+# the whole bootstrap and we have to wipe and start over. The loop
+# condition reads the password status (P = password set) so we exit
+# the moment passwd succeeds.
+while [ "$(passwd -S "$USERNAME" 2>/dev/null | awk '{print $2}')" != "P" ]; do
+  passwd "$USERNAME" </dev/tty || echo "Password not set; try again."
+done
