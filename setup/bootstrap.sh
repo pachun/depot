@@ -24,8 +24,21 @@ ROOT="$(cd "$HERE/.." && pwd)"
 # ============================================================
 
 read -rp "username: " USERNAME </dev/tty
+
+while :; do
+  read -srp "password: " USER_PASSWORD </dev/tty
+  echo
+  read -srp "confirm password: " USER_PASSWORD_CONFIRM </dev/tty
+  echo
+  if [ "$USER_PASSWORD" = "$USER_PASSWORD_CONFIRM" ]; then
+    break
+  fi
+  echo "Passwords don't match. Try again."
+done
+unset USER_PASSWORD_CONFIRM
+
 read -rp "hostname: " HOSTNAME </dev/tty
-export USERNAME HOSTNAME
+export USERNAME HOSTNAME USER_PASSWORD
 
 # ============================================================
 # Pick OS drive. Auto-detects NVMe; refuses SATA so the NAS's data
@@ -176,7 +189,7 @@ mount --bind "$ROOT" /mnt/depot-installer
 
 echo
 echo "Configuring new system..."
-arch-chroot /mnt env USERNAME="$USERNAME" HOSTNAME="$HOSTNAME" PART_ROOT="$PART_ROOT" bash <<'EOF'
+arch-chroot /mnt env USERNAME="$USERNAME" HOSTNAME="$HOSTNAME" USER_PASSWORD="$USER_PASSWORD" PART_ROOT="$PART_ROOT" bash <<'EOF'
 set -euo pipefail
 shopt -s nullglob
 # Connect each step's stdin to /dev/tty so interactive prompts (tzselect,
