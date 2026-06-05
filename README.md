@@ -10,7 +10,7 @@ or **(framework)**.
 
 ## 2. Create a bootable USB
 
-### On an Arch Machine
+### On an Arch machine
 
 Find the USB device. It'll be something like `/dev/sda` — make sure
 you've got the whole device, not a partition like `/dev/sda1`:
@@ -19,9 +19,8 @@ you've got the whole device, not a partition like `/dev/sda1`:
 lsblk
 ```
 
-Flash the ISO. Replace `/dev/sdX` with the device from above — the
-wrong path wipes the wrong disk. Replace the filename with the actual
-downloaded ISO name (it includes the date):
+Flash the ISO. Replace `/dev/sdX` with the device from above. Replace
+the filename with the actual downloaded ISO name (it includes the date):
 
 ```
 cd ~/downloads
@@ -42,8 +41,7 @@ Unmount it (replace `N` with the disk number):
 diskutil unmountDisk /dev/diskN
 ```
 
-Flash (note `rdisk` — raw access, much faster). Replace the filename with
-the actual downloaded ISO name:
+Flash (note `rdisk` — raw access, much faster):
 
 ```
 cd ~/Downloads
@@ -54,7 +52,8 @@ sudo dd if=archlinux-VERSION-x86_64.iso of=/dev/rdiskN bs=4m
 
 The nas is normally headless, but the install needs visible output. Plug
 a USB keyboard into one of the USB ports and a monitor into the HDMI
-port.
+port. Both come back out after the install — everything from then on
+happens over SSH.
 
 ## 4. (nas) Disable the vendor watchdog in BIOS
 
@@ -68,8 +67,6 @@ gets killed partway through.
 
 ## 5. Boot from USB
 
-Plug the USB drive into the device.
-
 - **(nas)** Power on, spam **Ctrl + F12**, pick the USB stick from the
   boot menu.
 - **(framework)** Power on, spam **F12**, select "Arch Linux install
@@ -77,102 +74,27 @@ Plug the USB drive into the device.
 
 ## 6. Connect to the network
 
-- **(nas)** Plug the nas into the router with an ethernet cable. Wired ethernet auto-DHCPs. Nothing to do.
+- **(nas)** Plug the nas into the router with an ethernet cable. Wired
+  ethernet auto-DHCPs. Nothing to do.
 - **(framework)** WiFi:
 
   ```
   iwctl --passphrase "NETWORK_PASSWORD" station wlan0 connect "NETWORK_NAME"
   ```
 
-## 7. Run archinstall
+## 7. Clone and run bootstrap
 
 ```
-archinstall
+pacman -Sy --noconfirm git
+git clone https://github.com/pachun/depot /tmp/depot
+bash /tmp/depot/setup/bootstrap.sh
 ```
 
-Work through the menu top to bottom. Anything not listed below, take the
-default:
+`bootstrap.sh` prompts for a username and hostname, detects the OS drive
+(NVMe — SATA drives are refused so the nas's data HDDs can never be
+mispicked), confirms with a `yes`, then partitions, pacstraps, configures
+the new system, runs `install.sh`, and reboots.
 
-- **Mirrors and Repositories** → United States
-- **Disk Configuration** → Use best-effort → Select the OS drive only
-  → ext4 → No separate /home. If asked about encryption: skip.
-  - **(nas)** the OS drive is the M.2 NVMe. **Do not** select any of
-    the 4 HDDs — they become the data pool later.
-  - **(framework)** the OS drive is the built-in SSD.
-- **Hostname**:
-  - **(nas)** `depot`
-  - **(framework)** `depot-fw`
-- **Authentication** → set a root password, create user
-  `whatever-username` with sudo
-- **Profile** → Minimal
-- **Network Configuration** → NetworkManager
-- **Timezone** → your timezone
-
-Install and reboot.
-
-## 8. First boot
-
-Sign in as `whatever-username`.
-
-- **(framework)** Reconnect to WiFi:
-
-  ```
-  nmtui
-  ```
-
-## 9. Set up SSH access
-
-```
-sudo pacman -S openssh
-sudo systemctl enable --now sshd
-```
-
-Find the IP address. Look for the active network interface — wired is
-probably `eno1` or `enp...`, WiFi is probably `wlan0` or `wlp...`, not
-`lo`:
-
-```
-ip -4 addr show
-```
-
-From any other machine on the same network:
-
-```
-ssh whatever-username@<ip-address>
-```
-
-Type `yes` the first time to accept the host key. Continue the rest of
-the steps from this SSH session.
-
-- **(nas)** Unplug the monitor and keyboard.
-- **(framework)** Leave the laptop sitting open and continue on the other machine.
-
-## 10. Add SSH key to GitHub
-
-Generate a key:
-
-```
-ssh-keygen -t ed25519 -C "your@email.address"
-```
-
-Press Enter to accept the default path and skip the passphrase.
-
-Print the public key:
-
-```
-cat ~/.ssh/id_ed25519.pub
-```
-
-Copy the output and [add it to GitHub](https://github.com/settings/ssh/new).
-
-## 11. Clone and install
-
-```
-sudo pacman -S git
-git clone git@github.com:pachun/depot.git ~/code/depot
-cd ~/code/depot
-./install.sh
-```
-
-`install.sh` is idempotent — re-run after editing configs to apply
-changes.
+When the new system boots, log in with the username and password you
+chose. From there it's the orchard CLI environment — zsh, nvim, tmux,
+etc. — plus `ufw` blocking everything except SSH.
