@@ -12,7 +12,11 @@ if [ -d "$ORCHARD/.git" ]; then
   git -C "$ORCHARD" pull
 else
   mkdir -p ~/code
-  git clone git@github.com:pachun/orchard.git "$ORCHARD"
+  # HTTPS clone so this works on a fresh machine before any SSH key has
+  # been generated and added to GitHub. After install.sh has run once,
+  # you can switch the remote to SSH manually if you want push access:
+  #   git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
+  git clone https://github.com/pachun/orchard.git "$ORCHARD"
 fi
 
 bash "$ORCHARD/setup/install.sh" cli
