@@ -179,9 +179,13 @@ echo "Configuring new system..."
 arch-chroot /mnt env USERNAME="$USERNAME" HOSTNAME="$HOSTNAME" PART_ROOT="$PART_ROOT" bash <<'EOF'
 set -euo pipefail
 shopt -s nullglob
+# Connect each step's stdin to /dev/tty so interactive prompts (tzselect,
+# passwd, etc.) read from the terminal instead of from this heredoc.
+# Without this redirection, anything inside one of the step scripts that
+# reads stdin pulls the next loop line from the heredoc and aborts.
 for d in /depot-installer/setup/bootstrap/*/; do
   for script in "$d"*.sh; do
-    bash "$script"
+    bash "$script" </dev/tty
   done
 done
 EOF
