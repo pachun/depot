@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# Create the primary user (member of wheel for sudo) and prompt for a
-# password. Reads USERNAME from the env exported by bootstrap.sh.
-# Idempotent: skips useradd if the user exists, and skips the password
-# prompt if a password is already set (passwd -S reports 'P' for set).
+# Create the primary user (member of wheel for sudo) with the password
+# collected by prompts.sh. Idempotent: skips useradd if the user exists,
+# and skips chpasswd if a password is already set (passwd -S reports
+# 'P' for set).
 set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$HERE/prompts.sh"
 
-if ! id "$USERNAME" >/dev/null 2>&1; then
-  useradd -m -G wheel -s /bin/bash "$USERNAME"
+if ! id "$INSTALL_USERNAME" >/dev/null 2>&1; then
+  useradd -m -G wheel -s /bin/bash "$INSTALL_USERNAME"
 fi
 
-# Password came in via env from bootstrap.sh's prompts at the very
-# start — chpasswd sets it without re-prompting. No retry loop needed
-# because bootstrap.sh already aborted on mismatch before partitioning.
-if [ "$(passwd -S "$USERNAME" 2>/dev/null | awk '{print $2}')" != "P" ]; then
-  echo "$USERNAME:$USER_PASSWORD" | chpasswd
+if [ "$(passwd -S "$INSTALL_USERNAME" 2>/dev/null | awk '{print $2}')" != "P" ]; then
+  echo "$INSTALL_USERNAME:$INSTALL_USER_PASSWORD" | chpasswd
 fi

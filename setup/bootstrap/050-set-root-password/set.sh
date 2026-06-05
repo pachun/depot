@@ -7,14 +7,16 @@
 # the live USB again.
 #
 # Reads the encrypted hash via getent shadow and applies it with
-# chpasswd -e, so the plaintext is never re-derived or stored.
-# Reads USERNAME from the env exported by bootstrap.sh.
+# chpasswd -e, so the plaintext is never re-derived or stored. Relies
+# on $INSTALL_USERNAME from the 040 step's prompts.sh — which is sourced
+# upfront by bootstrap.sh's frontload loop, so it's already in env by
+# the time this runs.
 set -euo pipefail
 
-hash=$(getent shadow "$USERNAME" | cut -d: -f2)
+hash=$(getent shadow "$INSTALL_USERNAME" | cut -d: -f2)
 case "$hash" in
   ""|"!"*|"*")
-    echo "050-set-root-password: $USERNAME has no password set" >&2
+    echo "050-set-root-password: $INSTALL_USERNAME has no password set" >&2
     exit 1
     ;;
 esac

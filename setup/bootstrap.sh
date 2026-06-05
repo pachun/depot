@@ -23,22 +23,14 @@ ROOT="$(cd "$HERE/.." && pwd)"
 # Prompts up front. Everything else runs unattended.
 # ============================================================
 
-read -rp "username: " USERNAME </dev/tty
-
-while :; do
-  read -srp "password: " USER_PASSWORD </dev/tty
-  echo
-  read -srp "confirm password: " USER_PASSWORD_CONFIRM </dev/tty
-  echo
-  if [ "$USER_PASSWORD" = "$USER_PASSWORD_CONFIRM" ]; then
-    break
-  fi
-  echo "Passwords don't match. Try again."
+# Phase 1: source every step's prompts.sh (if it has one) so all
+# interactive prompts happen up front, before anything is written to
+# disk. Each prompts.sh is idempotent — set.sh / create.sh sources its
+# own sibling prompts.sh at the top so standalone runs still work, but
+# the second source is a no-op once env vars are populated.
+for d in "$HERE/bootstrap"/*/; do
+  [ -f "$d/prompts.sh" ] && source "$d/prompts.sh"
 done
-unset USER_PASSWORD_CONFIRM
-
-read -rp "hostname: " HOSTNAME </dev/tty
-export USERNAME HOSTNAME USER_PASSWORD
 
 # ============================================================
 # Pick OS drive. Auto-detects NVMe; refuses SATA so the NAS's data
@@ -189,15 +181,22 @@ mount --bind "$ROOT" /mnt/depot-installer
 
 echo
 echo "Configuring new system..."
-arch-chroot /mnt env USERNAME="$USERNAME" HOSTNAME="$HOSTNAME" USER_PASSWORD="$USER_PASSWORD" PART_ROOT="$PART_ROOT" bash <<'EOF'
+arch-chroot /mnt env \
+  INSTALL_USERNAME="$INSTALL_USERNAME" \
+  INSTALL_HOSTNAME="$INSTALL_HOSTNAME" \
+  INSTALL_USER_PASSWORD="$INSTALL_USER_PASSWORD" \
+  PART_ROOT="$PART_ROOT" \
+  bash <<'EOF'
 set -euo pipefail
 shopt -s nullglob
 # Connect each step's stdin to /dev/tty so interactive prompts (tzselect,
-# passwd, etc.) read from the terminal instead of from this heredoc.
-# Without this redirection, anything inside one of the step scripts that
-# reads stdin pulls the next loop line from the heredoc and aborts.
+# etc.) read from the terminal instead of from this heredoc. Skip
+# prompts.sh — bootstrap.sh's Phase 1 already sourced them and exported
+# the resulting env vars; the step scripts source their own sibling
+# prompts.sh idempotently, which becomes a no-op here.
 for d in /depot-installer/setup/bootstrap/*/; do
   for script in "$d"*.sh; do
+    [ "$(basename "$script")" = "prompts.sh" ] && continue
     bash "$script" </dev/tty
   done
 done

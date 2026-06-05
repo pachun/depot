@@ -8,7 +8,7 @@
 # moving doesn't make sense across that boundary.
 set -euo pipefail
 
-DEST_DIR="/home/$USERNAME/code"
+DEST_DIR="/home/$INSTALL_USERNAME/code"
 DEST="$DEST_DIR/depot"
 
 mkdir -p "$DEST_DIR"
@@ -17,4 +17,4 @@ if [ ! -d "$DEST" ]; then
   cp -r /depot-installer "$DEST"
 fi
 
-chown -R "$USERNAME:$USERNAME" "$DEST_DIR"
+chown -R "$INSTALL_USERNAME:$INSTALL_USERNAME" "$DEST_DIR"
