@@ -52,8 +52,8 @@ sudo dd if=archlinux-VERSION-x86_64.iso of=/dev/rdiskN bs=4m
 
 The nas is normally headless, but the install needs visible output. Plug
 a USB keyboard into one of the USB ports and a monitor into the HDMI
-port. Both come back out after the install — everything from then on
-happens over SSH.
+port. Both come back out after step 10 — everything from then on happens
+over SSH.
 
 ## 4. (nas) Disable the vendor watchdog in BIOS
 
@@ -93,8 +93,83 @@ bash /tmp/depot/setup/bootstrap.sh
 `bootstrap.sh` prompts for a username and hostname, detects the OS drive
 (NVMe — SATA drives are refused so the nas's data HDDs can never be
 mispicked), confirms with a `yes`, then partitions, pacstraps, configures
-the new system, runs `install.sh`, and reboots.
+the new system, and reboots.
 
-When the new system boots, log in with the username and password you
-chose. From there it's the orchard CLI environment — zsh, nvim, tmux,
-etc. — plus `ufw` blocking everything except SSH.
+## 8. First boot
+
+Sign in with the username and password you chose.
+
+- **(framework)** Reconnect to WiFi:
+
+  ```
+  nmtui
+  ```
+
+- **(nas)** Wired ethernet auto-DHCPs. Nothing to do.
+
+## 9. Run install.sh
+
+```
+cd ~/code/depot
+./setup/install.sh
+```
+
+Clones orchard, sets up the CLI environment (zsh, nvim, tmux, mise,
+claude, git, etc.), and enables `ufw` with SSH allowed. Idempotent —
+re-run after editing configs to apply changes. When it finishes, you're
+dropped into zsh.
+
+## 10. SSH in from your main machine
+
+Find the new system's IP. Look for the active interface — wired is
+probably `eno1` or `enp...`, WiFi is probably `wlan0` or `wlp...`, not
+`lo`:
+
+```
+ip -4 addr show
+```
+
+From any other machine on the same network:
+
+```
+ssh <username>@<ip>
+```
+
+Type `yes` the first time to accept the host key. Continue the remaining
+steps from this SSH session.
+
+- **(nas)** Now safe to unplug the monitor and keyboard.
+- **(framework)** Leave the laptop sitting open (closing the lid would
+  suspend it). Continue on your main machine.
+
+## 11. Add SSH key to GitHub
+
+Generate a key on the new system:
+
+```
+ssh-keygen -t ed25519 -C "<username>@<hostname>"
+```
+
+Press Enter to accept the default path and skip the passphrase.
+
+Print the public key:
+
+```
+cat ~/.ssh/id_ed25519.pub
+```
+
+Copy the output and [add it to GitHub](https://github.com/settings/ssh/new).
+
+## 12. Switch repo remotes to SSH
+
+depot and orchard were both cloned via HTTPS so the install would work
+on a fresh box without auth. Switch them to SSH now so `git pull`
+inside install.sh (and any pushes you might want) work without prompts:
+
+```
+git -C ~/code/depot   remote set-url origin git@github.com:pachun/depot.git
+git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
+```
+
+From here on, re-running `./setup/install.sh` pulls the latest changes
+from both repos and applies them.

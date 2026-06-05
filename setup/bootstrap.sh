@@ -202,16 +202,14 @@ rmdir /mnt/depot-installer
 # Run install.sh as the user, inside chroot.
 # ============================================================
 
-echo
-echo "Running install.sh as $USERNAME inside chroot..."
-arch-chroot /mnt sudo -u "$USERNAME" -H bash "/home/$USERNAME/code/depot/setup/install.sh"
-
 # ============================================================
-# Finalize.
+# Done. install.sh is NOT run here — the chroot environment doesn't
+# have systemd or interactive zsh, so anything that uses
+# `systemctl --now`, `exec zsh`, etc. misbehaves. Bootstrap's job
+# ends at "boots into a configured Arch box"; install.sh is the
+# userland layer the user runs once they're logged in to the new
+# system. Same split as orchard.
 # ============================================================
 
 umount -R /mnt
-echo
-echo "Bootstrap complete. Rebooting in 5 seconds..."
-sleep 5
 reboot
