@@ -5,12 +5,12 @@
 # dependent service would surface as a failed run, not a silent
 # misconfiguration.
 #
-# The `docker` package on current Arch includes the compose v2 plugin
-# (`docker compose ...`), so a separate docker-compose package isn't
-# needed. Idempotent.
+# `docker` is the engine; `docker-compose` is a separate package on
+# Arch (unlike Docker Desktop on macOS/Windows where compose ships
+# bundled with the engine). Idempotent.
 set -euo pipefail
 
-sudo pacman -S --needed --noconfirm docker
+sudo pacman -S --needed --noconfirm docker docker-compose
 
 sudo systemctl enable --now docker.service
 

@@ -28,7 +28,7 @@ sudo \
   PGID="$(id -g)" \
   TZ="$(timedatectl show -p Timezone --value)" \
   HOME="$HOME" \
-  docker compose -f "$HERE/docker-compose.yml" up -d
+  docker-compose -f "$HERE/docker-compose.yml" up -d
 
 # Print the URL the user opens to do first-time setup.
 IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')
