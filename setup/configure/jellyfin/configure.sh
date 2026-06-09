@@ -30,10 +30,11 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
-# Print the URL the user opens to do first-time setup.
-IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')
-if [ -n "$IP" ]; then
-  echo
-  echo "Jellyfin: http://$IP:8096"
-  echo
-fi
+# Print the URL the user opens to do first-time setup. Uses the
+# machine's hostname — once tailscale is up (configured by the
+# tailscale feature) it resolves via MagicDNS from any tailnet
+# device. On the LAN before tailscale is set up, the LAN IP printed
+# by ufw's install is the fallback.
+echo
+echo "Jellyfin: http://$(hostname):8096"
+echo
