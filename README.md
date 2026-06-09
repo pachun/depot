@@ -116,8 +116,13 @@ cd ~/code/depot
 
 Clones orchard, sets up the CLI environment (zsh, nvim, tmux, mise,
 claude, git, etc.), and enables `ufw` with SSH allowed. Idempotent —
-re-run after editing configs to apply changes. When it finishes, you're
-dropped into zsh.
+re-run after editing configs to apply changes. When it finishes,
+you're dropped into zsh and the machine is SSH-able.
+
+Anything that needs a browser (tailscale auth, future OAuth flows)
+lives in `configure.sh` (step 13) — that part runs over SSH from your
+main machine so auth URLs can be copy-pasted into a real browser
+instead of typed from the TTY.
 
 ## 10. SSH in from your main machine
 
@@ -161,3 +166,20 @@ git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
 
 From here on, re-running `./setup/install.sh` pulls the latest changes
 from both repos and applies them.
+
+## 13. Run configure.sh
+
+```
+cd ~/code/depot
+./setup/configure.sh
+```
+
+Sets up the services this NAS exists to provide — tailscale (joins
+the tailnet), and eventually jellyfin, samba, and the arr stack. Run
+from this SSH session rather than the local TTY so anything browser-
+based (tailscale's auth URL, future OAuth flows) is one paste into
+your laptop's browser instead of a phone-typing exercise.
+
+Idempotent — re-run any time. Each feature only does work that isn't
+already done (tailscale skips `tailscale up` if you're already on
+the tailnet, etc.).
