@@ -36,5 +36,5 @@ sudo \
 # device. On the LAN before tailscale is set up, the LAN IP printed
 # by ufw's install is the fallback.
 echo
-echo "Jellyfin: http://$(hostname):8096"
+echo "Jellyfin: http://$HOSTNAME:8096"
 echo
