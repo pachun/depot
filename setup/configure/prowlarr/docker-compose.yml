@@ -1,0 +1,15 @@
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    # Bridge networking with a single mapped port. Prowlarr is purely
+    # a web app + outbound API client — nothing here needs host mode.
+    ports:
+      - 9696:9696
+    volumes:
+      - ${HOME}/library/.config/prowlarr:/config
+    restart: unless-stopped
