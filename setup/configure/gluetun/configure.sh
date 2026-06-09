@@ -8,8 +8,9 @@
 # WireGuard + NAT-PMP port forwarding for full inbound peer capacity.
 # Gluetun renews the forwarded port automatically every ~60s; the
 # allocated port is stable as long as we're on the same server.
-# summary.sh prints it so it can be pasted into qBittorrent's
-# Connection settings on first run.
+# qbit-port-sync.sh (called by gluetun's VPN_PORT_FORWARDING_UP_COMMAND
+# hook) pushes the port into qBittorrent's listening-port setting on
+# every allocation/rotation so it stays in sync without manual paste.
 #
 # FIREWALL_OUTBOUND_SUBNETS whitelists LAN, docker bridge, and tailnet
 # CGNAT so the qBittorrent WebUI keeps responding to clients on those
@@ -23,6 +24,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 mkdir -p ~/library/.config/gluetun
+
+# Make qbit-port-sync.sh available inside the gluetun container at
+# /gluetun/qbit-port-sync.sh (the bind-mount target). gluetun's
+# VPN_PORT_FORWARDING_UP_COMMAND env var invokes it whenever the
+# forwarded port changes.
+install -m 0755 "$HERE/qbit-port-sync.sh" ~/library/.config/gluetun/qbit-port-sync.sh
 
 # Migration safety: an older qBittorrent container (from before we
 # moved 8080/6881 publishing to gluetun) holds the ports gluetun is

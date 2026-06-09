@@ -238,13 +238,14 @@ install.
    only valid for the current session).
 2. **Tools → Options → Web UI → Authentication**: set a permanent
    Username and Password. Save → sign back in.
-3. **Tools → Options → Connection → Port used for incoming
-   connections**: paste the port `configure.sh` printed under
-   `Gluetun:` (the ProtonVPN NAT-PMP forwarded port). Without it,
-   only outbound peers connect and torrent throughput drops ~50%.
-   The port is stable as long as gluetun stays on the same VPN
-   server; if you see it change in a later summary run, update this
-   field to match.
+
+The listening port (the ProtonVPN NAT-PMP forwarded port) is
+auto-synced by gluetun's UP_COMMAND hook — you'll see it under
+`Gluetun:` in `configure.sh`'s summary and it's already been pushed
+into Tools → Options → Connection → "Port used for incoming
+connections" for you. If you ever turn off "Bypass authentication
+for clients on localhost" in the WebUI Authentication settings, the
+sync stops working and you'd need to paste the port manually.
 
 ### Prowlarr (port 9696)
 

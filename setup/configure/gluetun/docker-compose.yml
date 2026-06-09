@@ -22,6 +22,12 @@ services:
       - VPN_PORT_FORWARDING=on
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/forwarded_port
+      # Fires whenever a NAT-PMP port is allocated or rotates. The
+      # script pushes the new port into qBittorrent's listening-port
+      # setting via its WebUI API, so qBittorrent stays in sync with
+      # ProtonVPN without any manual paste. {{PORTS}} is gluetun's
+      # placeholder for the allocated port.
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh /gluetun/qbit-port-sync.sh {{PORTS}}
       # LAN (192.168/16) + Docker bridges (172.16/12) + Tailscale CGNAT
       # (100.64/10). Without these, gluetun's killswitch would drop
       # response packets on the qBittorrent WebUI when reached from
