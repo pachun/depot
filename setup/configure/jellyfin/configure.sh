@@ -15,7 +15,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
-mkdir -p ~/library/.config/jellyfin ~/library/media
+# Separate per-type folders so jellyfin can pick the right metadata
+# provider (movie vs. TV) for each library it scans.
+mkdir -p \
+  ~/library/.config/jellyfin \
+  ~/library/media/movies \
+  ~/library/media/shows
 
 sudo ufw allow 8096/tcp
 
