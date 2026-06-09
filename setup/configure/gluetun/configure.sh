@@ -24,6 +24,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$HERE/../docker/configure.sh"
 mkdir -p ~/library/.config/gluetun
 
+# Migration safety: an older qBittorrent container (from before we
+# moved 8080/6881 publishing to gluetun) holds the ports gluetun is
+# about to bind. Kill it if and only if it's still on the old config;
+# qBittorrent's own configure.sh runs after this and brings it back
+# up attached to gluetun's netns. The check makes this a no-op once
+# qBittorrent is already on the new config.
+QBIT_NETMODE=$(sudo docker inspect qbittorrent --format '{{.HostConfig.NetworkMode}}' 2>/dev/null || true)
+if [ -n "$QBIT_NETMODE" ] && [ "$QBIT_NETMODE" != "container:gluetun" ]; then
+  echo "Removing pre-gluetun qBittorrent container (will be recreated attached to gluetun)..."
+  sudo docker rm -f qbittorrent
+fi
+
 # 8080 (qBittorrent web UI) and 6881 (BitTorrent peer port) get
 # published from the gluetun container — qBittorrent shares its netns
 # and has no port mapping of its own. Rules are idempotent.
