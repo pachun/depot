@@ -1,0 +1,26 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 7878:7878
+    # Lets radarr reach prowlarr (9696) and qbittorrent (8080) by name
+    # rather than by docker-bridge IP. Same pattern as sonarr/prowlarr.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOME}/library/.config/radarr:/config
+      # Same in-container path as qbittorrent so radarr finds completed
+      # downloads at the exact path qbittorrent reports.
+      - ${HOME}/library/downloads:/downloads
+      # Radarr's "root folder" — imported/renamed movies land here.
+      # Lives under ~/library/media/movies so jellyfin's Movies library
+      # (configured to /media/movies inside its container) sees them.
+      # Same filesystem as /downloads so radarr hardlinks instead of
+      # copies, saving disk and preserving seeding from the original.
+      - ${HOME}/library/media/movies:/movies
+    restart: unless-stopped

@@ -264,7 +264,30 @@ install.
    - Test → Save. Every Sonarr import now triggers an immediate
      Jellyfin library scan.
 
-### Back to Prowlarr to wire Sonarr (port 9696)
+### Radarr (port 7878)
+
+Mirror of Sonarr for movies.
+
+1. First-launch screen: choose **Forms (Login Page)** authentication
+   → create a Radarr admin user.
+2. **Settings → Media Management → Root Folders → "+"** → `/movies`.
+3. **Settings → Download Clients → "+" → qBittorrent**:
+   - Host: `host.docker.internal`
+   - Port: `8080`
+   - Username/Password: same as the Sonarr step
+   - Category: `movies`
+   - Test → Save.
+4. **Settings → General**: toggle **Show Advanced Settings**, scroll
+   to **Security**, copy the **API Key**. Prowlarr needs it next.
+5. **Settings → Connect → "+" → Emby (Jellyfin)**:
+   - Host: `host.docker.internal`
+   - Port: `8096`
+   - API Key: same Jellyfin key Sonarr uses (one key works for both)
+   - Send Library Updates: on
+   - Notification Triggers: On Import, On Upgrade, On Rename
+   - Test → Save.
+
+### Back to Prowlarr to wire Sonarr and Radarr (port 9696)
 
 1. **Settings → Apps → "+" → Sonarr**:
    - Prowlarr Server: `http://host.docker.internal:9696`
@@ -272,9 +295,23 @@ install.
    - API Key: paste the Sonarr API key
    - Sync Categories: defaults
    - Test → Save.
-2. Verify: in Sonarr → **Settings → Indexers**, IPTorrents now
-   appears (marked managed by Prowlarr). Don't edit it there — edit
-   in Prowlarr and the change syncs.
+2. **Settings → Apps → "+" → Radarr**:
+   - Prowlarr Server: `http://host.docker.internal:9696`
+   - Radarr Server:   `http://host.docker.internal:7878`
+   - API Key: paste the Radarr API key
+   - Sync Categories: defaults
+   - Test → Save.
+3. Verify: in Sonarr and Radarr → **Settings → Indexers**, IPTorrents
+   appears in both (marked managed by Prowlarr). Don't edit there —
+   edit in Prowlarr and changes sync.
 
-After this the stack is fully wired. Adding a show in Sonarr ends
-with episodes appearing in Jellyfin without further clicks.
+### Jellyfin: enable real-time monitoring on Movies
+
+Same step you ran for Shows during Jellyfin setup, now repeated:
+
+1. Admin dashboard → **Libraries → Movies → "Manage Library"** →
+   expand **Advanced** → **Enable real time monitoring** → OK.
+
+After this the stack is fully wired. Adding a show in Sonarr or a
+movie in Radarr ends with the file appearing in Jellyfin without
+further clicks.
