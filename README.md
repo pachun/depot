@@ -200,9 +200,7 @@ install.
 4. Add a library named **Shows**:
    - Content Type: Shows
    - Folder: `/media/shows`
-5. Open the admin dashboard. The user menu only links to user
-   settings — the admin dashboard is at the **Jellyfin admin** URL
-   `configure.sh` printed (path is `/web/#/dashboard`).
+5. Open the admin dashboard (hamburger menu top-left → Dashboard).
 6. **Libraries → Shows → "Manage Library"** → expand **Advanced** →
    **Enable real time monitoring** → OK.
 7. **API Keys → "+"** → name it `sonarr` → OK. Copy the generated
