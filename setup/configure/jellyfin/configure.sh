@@ -40,6 +40,16 @@ sudo \
 # tailscale feature) it resolves via MagicDNS from any tailnet
 # device. On the LAN before tailscale is set up, the LAN IP printed
 # by ufw's install is the fallback.
-echo
-echo "Jellyfin: http://$HOSTNAME:8096"
-echo
+#
+# Repeated on every run (not just first) — the steps are short and
+# safe to re-read; checking actual setup state would mean hitting the
+# jellyfin API just to suppress a few echo lines.
+cat <<EOF
+
+Jellyfin: http://$HOSTNAME:8096
+  First run:
+  - Complete the setup wizard (admin user, preferred language).
+  - Add a Movies library: Content Type=Movies, folder=/media/movies
+  - Add a Shows library: Content Type=Shows, folder=/media/shows
+
+EOF

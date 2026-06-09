@@ -183,3 +183,9 @@ your laptop's browser instead of a phone-typing exercise.
 Idempotent — re-run any time. Each feature only does work that isn't
 already done (tailscale skips `tailscale up` if you're already on
 the tailnet, etc.).
+
+When the script finishes it prints a URL and a short "First run"
+block for every service it brought up — open each URL and follow the
+steps under it. The blocks repeat on every run since the manual
+state lives in the services themselves; safe to skim past on re-runs
+once a service is already configured.
