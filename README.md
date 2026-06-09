@@ -121,22 +121,10 @@ dropped into zsh.
 
 ## 10. SSH in from your main machine
 
-Find the new system's IP. Look for the active interface — wired is
-probably `eno1` or `enp...`, WiFi is probably `wlan0` or `wlp...`, not
-`lo`:
-
-```
-ip -4 addr show
-```
-
-From any other machine on the same network:
-
-```
-ssh <username>@<ip>
-```
-
-Type `yes` the first time to accept the host key. Continue the remaining
-steps from this SSH session.
+install.sh printed the SSH command at the end of step 9 — something
+like `ssh nick@192.168.1.53`. Run that from any other machine on the
+same network. Type `yes` the first time to accept the host key.
+Continue the remaining steps from this SSH session.
 
 - **(nas)** Now safe to unplug the monitor and keyboard.
 - **(framework)** Leave the laptop sitting open (closing the lid would

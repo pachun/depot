@@ -45,3 +45,14 @@ done
 
 sudo ufw --force enable
 sudo systemctl enable --now ufw
+
+# Print the SSH command the user will use to log in from another
+# machine, now that we've confirmed SSH is allowed through the firewall.
+# ip route get to 1.1.1.1 gives the LAN-facing IP without parsing every
+# interface, and stays correct on both wired and WiFi.
+IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')
+if [ -n "$IP" ]; then
+  echo
+  echo "SSH from another machine: ssh $USER@$IP"
+  echo
+fi
