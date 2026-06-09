@@ -21,6 +21,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# qBittorrent's network_mode below needs the gluetun container to
+# already exist, so we call its configure.sh directly rather than
+# leaning on dispatcher iteration order. Idempotent — same pattern
+# as the docker call above.
+bash "$HERE/../gluetun/configure.sh"
 
 mkdir -p ~/library/.config/qbittorrent ~/library/downloads
 

@@ -46,12 +46,25 @@ if [ -z "${WIREGUARD_PRIVATE_KEY:-}" ] || [ -z "${WIREGUARD_ADDRESSES:-}" ]; the
     echo "--- end ---" >&2
     exit 1
   fi
-
-  umask 077
-  {
-    echo "WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY"
-    echo "WIREGUARD_ADDRESSES=$WIREGUARD_ADDRESSES"
-  } > "$WG_ENV"
 fi
+
+# Strip IPv6 from WIREGUARD_ADDRESSES. ProtonVPN's Address line is
+# dual-stack (e.g. "10.2.0.2/32, 2a07:b944::2:2/128"); gluetun's
+# default mode doesn't enable IPv6 inside the container, so when it
+# sees an IPv6 address it tries to look up an IPv6 default route in
+# the netns, finds none (Docker IPv6 is off by default), and crashes
+# with `default route not found`. Keep only the IPv4 entry.
+#
+# Done outside the prompt branch so re-runs with a stale wg.env (one
+# written before this sanitize step existed) get fixed up too.
+WIREGUARD_ADDRESSES=$(echo "$WIREGUARD_ADDRESSES" | cut -d, -f1 | tr -d '[:space:]')
+
+# Re-persist after sanitize so the wg.env on disk matches the value
+# we'll actually pass to gluetun.
+umask 077
+{
+  echo "WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY"
+  echo "WIREGUARD_ADDRESSES=$WIREGUARD_ADDRESSES"
+} > "$WG_ENV"
 
 export WIREGUARD_PRIVATE_KEY WIREGUARD_ADDRESSES
