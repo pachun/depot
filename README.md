@@ -312,6 +312,38 @@ Same step you ran for Shows during Jellyfin setup, now repeated:
 1. Admin dashboard → **Libraries → Movies → "Manage Library"** →
    expand **Advanced** → **Enable real time monitoring** → OK.
 
-After this the stack is fully wired. Adding a show in Sonarr or a
-movie in Radarr ends with the file appearing in Jellyfin without
-further clicks.
+### Jellyseerr (port 5055)
+
+The discovery and request UI. Walks you through Jellyfin + Sonarr +
+Radarr connections in a single wizard at first launch.
+
+1. **Welcome screen → Sign in to Jellyfin**:
+   - Jellyfin URL: `http://host.docker.internal:8096`
+   - Username + password: your Jellyfin admin user (the one you
+     created during the Jellyfin wizard)
+2. **Configure Jellyfin**:
+   - Confirm both libraries (Movies, Shows) are detected
+   - Click Start Scan → Continue
+3. **Add Sonarr server**:
+   - Default Server: ✓ on (4K Server: off)
+   - Server Name: `Sonarr`
+   - Hostname: `host.docker.internal`
+   - Port: `8989`
+   - API Key: paste the Sonarr key
+   - Quality Profile: pick your default (e.g. `HD-1080p`)
+   - Root Folder: `/shows`
+   - Language Profile: defaults
+   - Enable Scan: on
+   - Test → Save.
+4. **Add Radarr server**:
+   - Same shape but Port: `7878`, API Key: Radarr key, Root Folder:
+     `/movies`.
+   - Test → Save.
+5. **Finish setup** — Jellyseerr lands on its home page with
+   trending content.
+
+After this the stack is fully wired. From Jellyseerr you can search,
+browse, and click Request on any movie or TV show; Jellyseerr hands
+the request to Sonarr/Radarr, which grab it via Prowlarr/IPTorrents
+and qBittorrent, and the file lands in Jellyfin within minutes of
+download completion.

@@ -1,0 +1,21 @@
+services:
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    # fallenbagel/jellyseerr (unlike the linuxserver images) doesn't
+    # use PUID/PGID — it runs as the container's internal node user
+    # (UID 1000). The host's first user is also UID 1000, so files
+    # written to the bind-mounted config directory end up owned by
+    # the host user without extra plumbing.
+    environment:
+      - TZ=${TZ}
+      - LOG_LEVEL=info
+    ports:
+      - 5055:5055
+    # Lets jellyseerr reach jellyfin (8096), sonarr (8989), and
+    # radarr (7878) by name rather than by docker-bridge IP.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOME}/library/.config/jellyseerr:/app/config
+    restart: unless-stopped
