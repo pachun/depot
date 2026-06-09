@@ -1,0 +1,30 @@
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    # PUID / PGID / TZ are substituted from the env that configure.sh
+    # passes through sudo. PUID/PGID matter so anything qbittorrent
+    # writes under the bind-mounted volumes is owned by the host user,
+    # not by root inside the container.
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+    # Bridge networking with explicit port mappings. Unlike jellyfin
+    # (which uses host networking for DLNA/AutoDiscovery), qbittorrent
+    # only needs its web UI and a single BitTorrent peer port reachable
+    # — bridge mode keeps it cleanly isolated and lets us put it on a
+    # shared docker network with sonarr/radarr later.
+    ports:
+      # Web UI for admin / monitoring.
+      - 8080:8080
+      # BitTorrent peer port (TCP + UDP). External peers connect here
+      # for downloads/uploads; without it we'd only ever connect
+      # outbound, which means awful seeding and bad ratios.
+      - 6881:6881
+      - 6881:6881/udp
+    volumes:
+      - ${HOME}/library/.config/qbittorrent:/config
+      - ${HOME}/library/downloads:/downloads
+    restart: unless-stopped
