@@ -1,0 +1,20 @@
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    # PUID / PGID / TZ get substituted from the env that configure.sh
+    # passes through sudo. PUID/PGID matter so anything jellyfin writes
+    # under the bind-mounted volumes is owned by the host user, not by
+    # root inside the container.
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    # Host networking simplifies discovery (DLNA, AutoDiscovery) and
+    # avoids the docker network double-NAT for streaming. Single-user
+    # NAS — security trade-off is fine.
+    network_mode: host
+    volumes:
+      - ${HOME}/library/.config/jellyfin:/config
+      - ${HOME}/library/media:/media
+    restart: unless-stopped
