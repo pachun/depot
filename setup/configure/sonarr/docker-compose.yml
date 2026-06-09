@@ -1,0 +1,28 @@
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 8989:8989
+    # Lets sonarr reach prowlarr (9696) and qbittorrent (8080) by name
+    # rather than by docker-bridge IP. See prowlarr/docker-compose.yml
+    # for the same rationale.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOME}/library/.config/sonarr:/config
+      # Same in-container path as qbittorrent so sonarr finds completed
+      # downloads at the exact path qbittorrent reports them at. Both
+      # mount the same host directory.
+      - ${HOME}/library/downloads:/downloads
+      # Sonarr's "root folder" — imported/renamed episodes land here.
+      # Lives under ~/library/media/shows so jellyfin's Shows library
+      # (configured to /media/shows inside its container) sees them.
+      # Same filesystem as /downloads so sonarr can hardlink instead of
+      # copy, saving disk + preserving seeding from the original file.
+      - ${HOME}/library/media/shows:/shows
+    restart: unless-stopped
