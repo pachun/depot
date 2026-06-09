@@ -120,7 +120,7 @@ re-run after editing configs to apply changes. When it finishes,
 you're dropped into zsh and the machine is SSH-able.
 
 Anything that needs a browser (tailscale auth, future OAuth flows)
-lives in `configure.sh` (step 13) — that part runs over SSH from your
+lives in `configure.sh` (step 14) — that part runs over SSH from your
 main machine so auth URLs can be copy-pasted into a real browser
 instead of typed from the TTY.
 
@@ -167,7 +167,32 @@ git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
 From here on, re-running `./setup/install.sh` pulls the latest changes
 from both repos and applies them.
 
-## 13. Run configure.sh
+## 13. Get a ProtonVPN WireGuard config
+
+qBittorrent's torrent traffic is routed through ProtonVPN (via a
+gluetun container) so the ISP can't see what's being seeded. Everything
+else on the box — Jellyfin streams, Sonarr/Radarr/Prowlarr/Jellyseerr
+web calls, Tailscale, package updates — stays on the regular network
+at LAN speed.
+
+You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
+
+1. Sign in at https://account.protonvpn.com/downloads.
+2. **WireGuard configuration**:
+   - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
+   - pick a P2P-capable server
+   - Create → Download → you get a `.conf` file.
+3. Copy it onto the NAS, e.g. from your laptop:
+
+   ```
+   scp ~/Downloads/proton.conf nick@framework-depot:/tmp/proton.conf
+   ```
+
+`configure.sh` will prompt for that path in the next step and extract
+the credentials it needs. The config is persisted to
+`~/library/.config/gluetun/wg.env`, so re-runs skip the prompt.
+
+## 14. Run configure.sh
 
 ```
 cd ~/code/depot
@@ -213,6 +238,13 @@ install.
    only valid for the current session).
 2. **Tools → Options → Web UI → Authentication**: set a permanent
    Username and Password. Save → sign back in.
+3. **Tools → Options → Connection → Port used for incoming
+   connections**: paste the port `configure.sh` printed under
+   `Gluetun:` (the ProtonVPN NAT-PMP forwarded port). Without it,
+   only outbound peers connect and torrent throughput drops ~50%.
+   The port is stable as long as gluetun stays on the same VPN
+   server; if you see it change in a later summary run, update this
+   field to match.
 
 ### Prowlarr (port 9696)
 

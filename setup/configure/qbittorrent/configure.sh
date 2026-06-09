@@ -4,26 +4,25 @@
 # land in ~/library/downloads/, and once the arr tools rename/import
 # them they move into ~/library/media/.
 #
+# Network: qBittorrent shares gluetun's network namespace, so all its
+# torrent traffic exits via the ProtonVPN WireGuard tunnel. The web UI
+# (8080) and BitTorrent peer port (6881) are published from gluetun's
+# compose, not from here. ufw rules for those ports live with gluetun
+# too.
+#
 # The linuxserver image generates a one-time admin password on first
 # start and writes it to the container's stdout. We surface it at the
 # end so you don't have to docker-logs around for it. After first
 # login, set a real password in Tools → Options → Web UI.
 #
 # Idempotent — `docker-compose up -d` is a no-op when the container is
-# already up; ufw rules and mkdir -p are too.
+# already up; mkdir -p is too.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
 mkdir -p ~/library/.config/qbittorrent ~/library/downloads
-
-# 8080 = web UI; 6881 = BitTorrent peer port (TCP for peer wire
-# protocol, UDP for DHT and uTP). Skipping the UDP rule degrades
-# peer discovery and download speeds.
-sudo ufw allow 8080/tcp
-sudo ufw allow 6881/tcp
-sudo ufw allow 6881/udp
 
 # Same env-passing pattern as jellyfin — group membership only kicks
 # in on next login, so this run still goes through sudo; PUID/PGID/TZ/
