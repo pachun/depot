@@ -16,15 +16,23 @@ services:
       - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
       # NAT-PMP port forwarding from ProtonVPN. PORT_FORWARD_ONLY=on
       # filters server selection to PMP-capable endpoints so we always
-      # get an inbound port. The allocated port is written to
-      # /gluetun/forwarded_port — summary.sh reads it.
+      # get an inbound port. STATUS_FILE writes the allocated port into
+      # the bind-mounted /gluetun volume (default would be /tmp/gluetun
+      # which is in-container only) — summary.sh reads it from there.
       - VPN_PORT_FORWARDING=on
       - PORT_FORWARD_ONLY=on
-      # LAN (192.168/16, 10/8) + Docker bridges (172.16/12) + Tailscale
-      # CGNAT (100.64/10). Without these, gluetun's killswitch would
-      # drop response packets on the qBittorrent WebUI when reached
-      # from clients on those networks.
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10
+      - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/forwarded_port
+      # LAN (192.168/16) + Docker bridges (172.16/12) + Tailscale CGNAT
+      # (100.64/10). Without these, gluetun's killswitch would drop
+      # response packets on the qBittorrent WebUI when reached from
+      # clients on those networks.
+      #
+      # Do NOT include 10.0.0.0/8: ProtonVPN's WireGuard gateway lives
+      # at 10.2.0.1, and whitelisting it as LAN makes gluetun send the
+      # NAT-PMP request out the bridge interface instead of through the
+      # tunnel. Port forwarding then dies with `i/o timeout` on
+      # 10.2.0.1:5351 after 9 retries.
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12,100.64.0.0/10
     # Published here because qBittorrent shares this netns. A netns
     # has exactly one set of port bindings and gluetun owns them.
     ports:
