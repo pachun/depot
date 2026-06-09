@@ -8,7 +8,8 @@
 #
 # Same dispatcher shape as install.sh — iterates configure/*/ in
 # alphabetical order; adding a feature is `mkdir configure/<name>` +
-# drop in a configure.sh and optional prompts.sh. Idempotent.
+# drop in a configure.sh and optional prompts.sh / summary.sh.
+# Idempotent.
 set -euo pipefail
 shopt -s nullglob
 
@@ -24,3 +25,13 @@ done
 for d in "$HERE/configure"/*/; do
   bash "$d/configure.sh"
 done
+
+# Phase 3: every feature's summary.sh prints its service URL(s). Run
+# last so all addresses land together at the bottom of the output
+# rather than scattered through Phase 2's chatter. See README step 13
+# for the first-run web-UI steps each URL needs.
+echo
+for d in "$HERE/configure"/*/; do
+  [ -f "$d/summary.sh" ] && bash "$d/summary.sh"
+done
+echo

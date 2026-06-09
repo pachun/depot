@@ -184,8 +184,97 @@ Idempotent — re-run any time. Each feature only does work that isn't
 already done (tailscale skips `tailscale up` if you're already on
 the tailnet, etc.).
 
-When the script finishes it prints a URL and a short "First run"
-block for every service it brought up — open each URL and follow the
-steps under it. The blocks repeat on every run since the manual
-state lives in the services themselves; safe to skim past on re-runs
-once a service is already configured.
+When the script finishes it prints a URL for every service it brought
+up. Each service needs a one-time first-run setup in its web UI; the
+steps below walk through it in dependency order. Re-runs of
+configure.sh don't undo any of it, so you only do this once per fresh
+install.
+
+### Jellyfin (port 8096)
+
+1. Open the URL `configure.sh` printed for Jellyfin in your browser.
+2. Setup wizard: pick a language, then create an admin user.
+3. Add a library named **Movies**:
+   - Content Type: Movies
+   - Folder: `/media/movies`
+4. Add a library named **Shows**:
+   - Content Type: Shows
+   - Folder: `/media/shows`
+5. Open the admin dashboard. The user menu only links to user
+   settings — the admin dashboard is at the **Jellyfin admin** URL
+   `configure.sh` printed (path is `/web/#/dashboard`).
+6. **Libraries → Shows → "Manage Library"** → expand **Advanced** →
+   **Enable real time monitoring** → OK.
+7. **API Keys → "+"** → name it `sonarr` → OK. Copy the generated
+   key; Sonarr needs it in a later step.
+
+### qBittorrent (port 8080)
+
+1. Sign in as `admin` + the **Temporary admin password**
+   `configure.sh` printed (rotates on every container restart, so
+   only valid for the current session).
+2. **Tools → Options → Web UI → Authentication**: set a permanent
+   Username and Password. Save → sign back in.
+
+### Prowlarr (port 9696)
+
+1. First-launch screen: choose **Forms (Login Page)** authentication
+   → create a Prowlarr admin user. Use a fresh username/password
+   just for Prowlarr — *not* your tracker login.
+2. Add IPTorrents as an indexer:
+   - **Indexers → "+"** → search **IPTorrents** → select it.
+   - To get the cookie + user-agent:
+     1. Open https://iptorrents.com in your browser, log in.
+     2. DevTools (F12) → Network tab → reload the page.
+     3. Click the first request → Headers → Request Headers.
+     4. Copy the values of the `Cookie:` and `User-Agent:` lines.
+   - Paste both into Prowlarr's matching fields → Test → Save.
+   - Note: the cookie expires periodically. When IPTorrents searches
+     start failing weeks/months later, re-grab the same way.
+
+### Sonarr (port 8989)
+
+1. First-launch screen: choose **Forms (Login Page)** authentication
+   → create a Sonarr admin user.
+2. **Settings → Media Management → Root Folders → "+"** → `/shows`.
+3. **Settings → Download Clients → "+" → qBittorrent**:
+   - Host: `host.docker.internal`
+   - Port: `8080`
+   - Username/Password: what you set in qBittorrent step 2
+   - Category: `tv`
+   - Test → Save.
+4. **Settings → General**: toggle **Show Advanced Settings**
+   (top-right), scroll to **Security**, copy the **API Key**. Prowlarr
+   needs it in the next section.
+5. **Settings → Profiles → Release Profiles → "+"**:
+   - Must Not Contain: `Complete.Season`, `Season.Pack`,
+     `Complete.Series`
+   - Indexer: Any
+   - Enabled: on
+   - Save. Forces individual-episode grabs so Jellyfin imports each
+     episode independently rather than waiting for a season pack to
+     finish.
+6. **Settings → Connect → "+" → Emby (Jellyfin)** (Jellyfin uses
+   Emby's API):
+   - Host: `host.docker.internal`
+   - Port: `8096`
+   - API Key: paste the Jellyfin key from the Jellyfin section
+   - Send Library Updates: on
+   - Notification Triggers: On Import, On Upgrade, On Rename
+   - Test → Save. Every Sonarr import now triggers an immediate
+     Jellyfin library scan.
+
+### Back to Prowlarr to wire Sonarr (port 9696)
+
+1. **Settings → Apps → "+" → Sonarr**:
+   - Prowlarr Server: `http://host.docker.internal:9696`
+   - Sonarr Server:   `http://host.docker.internal:8989`
+   - API Key: paste the Sonarr API key
+   - Sync Categories: defaults
+   - Test → Save.
+2. Verify: in Sonarr → **Settings → Indexers**, IPTorrents now
+   appears (marked managed by Prowlarr). Don't edit it there — edit
+   in Prowlarr and the change syncs.
+
+After this the stack is fully wired. Adding a show in Sonarr ends
+with episodes appearing in Jellyfin without further clicks.

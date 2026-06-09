@@ -36,20 +36,6 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
-# Surface the first-run temporary admin password from container logs.
-# The linuxserver image only prints this once on a fresh container —
-# on re-runs (or after the user sets a permanent password) no line
-# matches and we skip silently. The brief sleep gives the container's
-# init scripts time to log the line before we read.
-sleep 2
-PW=$(sudo docker logs qbittorrent 2>&1 \
-  | awk -F': ' '/temporary password/ {print $NF; exit}')
-
-cat <<EOF
-
-qBittorrent: http://$HOSTNAME:8080
-  First run:
-  - Sign in as admin / ${PW:-<temporary password from docker logs qbittorrent>}
-  - Tools → Options → Web UI: set a real username + password.
-
-EOF
+# URL and (first-run only) temporary admin password are printed by
+# summary.sh in configure.sh's Phase 3 so every service's address
+# lands together at the very end of the output.

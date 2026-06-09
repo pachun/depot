@@ -26,28 +26,4 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
-cat <<EOF
-
-Sonarr: http://$HOSTNAME:8989
-  First run:
-  - Authentication: Forms (Login Page) → create a Sonarr admin user
-    (separate from your tracker creds).
-  - Settings → Media Management → Root Folders → "+" → /shows
-  - Settings → Download Clients → "+" → qBittorrent
-      Host:     host.docker.internal
-      Port:     8080
-      Username/Password: what you set in qbittorrent's web UI
-      Category: tv (any tag — sonarr uses it to mark downloads)
-    Test → Save.
-  - Settings → General → Security: copy the API Key.
-
-  Then back in Prowlarr to sync your indexers into Sonarr:
-  - Settings → Apps → "+" → Sonarr
-      Prowlarr Server: http://host.docker.internal:9696
-      Sonarr Server:   http://host.docker.internal:8989
-      API Key:         (paste from Sonarr)
-      Sync Categories: defaults are fine.
-    Test → Save. From now on, every indexer added in Prowlarr
-    automatically appears in Sonarr without re-entering credentials.
-
-EOF
+# URL printed by summary.sh in configure.sh's Phase 3.

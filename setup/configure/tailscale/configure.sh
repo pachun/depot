@@ -13,18 +13,4 @@ if ! sudo tailscale status >/dev/null 2>&1; then
   sudo tailscale up
 fi
 
-# Print the tailnet hostname so the user knows the from-anywhere SSH
-# address. tailscale status --self --peers=false outputs one line for
-# this machine: <IP> <FQDN> <user> <os> <connection-status>.
-TAILNET_HOST=$(sudo tailscale status --self --peers=false 2>/dev/null | awk 'NR==1 {print $2}')
-TAILNET_IP=$(sudo tailscale ip -4 2>/dev/null | head -1)
-
-if [ -n "$TAILNET_HOST" ]; then
-  echo
-  echo "Tailscale: ssh $USER@$TAILNET_HOST"
-  echo
-elif [ -n "$TAILNET_IP" ]; then
-  echo
-  echo "Tailscale: ssh $USER@$TAILNET_IP"
-  echo
-fi
+# Tailnet SSH address printed by summary.sh in configure.sh's Phase 3.
