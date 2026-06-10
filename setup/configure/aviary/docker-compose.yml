@@ -21,6 +21,11 @@ services:
       # publishing on 8096. Faster than going out to Tailscale and back,
       # and avoids needing Tailscale's CA cert plumbed into the image.
       - JELLYFIN_URL=${JELLYFIN_URL}
+      # Public URL used by the user's browser for video stream playback;
+      # host.docker.internal isn't reachable from outside the container.
+      # configure.sh sets this to the tailnet HTTPS URL Jellyfin serves
+      # at via Tailscale Serve.
+      - JELLYFIN_PUBLIC_URL=${JELLYFIN_PUBLIC_URL}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
       - TZ=${TZ}
     ports:

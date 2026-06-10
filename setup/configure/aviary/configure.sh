@@ -119,6 +119,14 @@ if [ -z "$PHX_HOST" ]; then
   PHX_HOST="$HOSTNAME"
 fi
 
+# Browser-facing Jellyfin URL. The container reaches Jellyfin over
+# host.docker.internal for API calls (JELLYFIN_URL above), but video
+# playback URLs are loaded by the user's browser, which can't resolve
+# that. Point the browser at Jellyfin's Tailscale-served HTTPS address
+# so HLS streams (and image proxying, if we ever stop server-side
+# proxying it) work from any tailnet device.
+JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8096"
+
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
   HOME="$HOME" \
@@ -126,6 +134,7 @@ sudo \
   SECRET_KEY_BASE="$SECRET_KEY_BASE" \
   PHX_HOST="$PHX_HOST" \
   JELLYFIN_URL="$JELLYFIN_URL" \
+  JELLYFIN_PUBLIC_URL="$JELLYFIN_PUBLIC_URL" \
   JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
 
