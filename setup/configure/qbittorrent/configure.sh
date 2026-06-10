@@ -29,6 +29,26 @@ bash "$HERE/../gluetun/configure.sh"
 
 mkdir -p ~/library/.config/qbittorrent ~/library/downloads
 
+# Pre-seed qBittorrent.conf on a fresh install so that on its very
+# first start qBittorrent has "Bypass authentication for clients on
+# localhost" enabled. Required for gluetun's qbit-port-sync.sh hook
+# to push the NAT-PMP forwarded port into qBittorrent's listening
+# port without credentials.
+#
+# Only writes when the file doesn't exist yet — qBittorrent persists
+# its full state to this file on shutdown, so on every later run the
+# file already exists with the user's accumulated settings and we
+# leave it alone.
+QBIT_CONF_DIR=~/library/.config/qbittorrent/qBittorrent/config
+QBIT_CONF="$QBIT_CONF_DIR/qBittorrent.conf"
+mkdir -p "$QBIT_CONF_DIR"
+if [ ! -f "$QBIT_CONF" ]; then
+  cat > "$QBIT_CONF" <<'EOF'
+[Preferences]
+WebUI\LocalHostAuth=false
+EOF
+fi
+
 # Same env-passing pattern as jellyfin — group membership only kicks
 # in on next login, so this run still goes through sudo; PUID/PGID/TZ/
 # HOME are passed through explicitly because sudo otherwise resets the

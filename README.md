@@ -241,11 +241,14 @@ install.
 
 The listening port (the ProtonVPN NAT-PMP forwarded port) is
 auto-synced by gluetun's UP_COMMAND hook — you'll see it under
-`Gluetun:` in `configure.sh`'s summary and it's already been pushed
-into Tools → Options → Connection → "Port used for incoming
-connections" for you. If you ever turn off "Bypass authentication
-for clients on localhost" in the WebUI Authentication settings, the
-sync stops working and you'd need to paste the port manually.
+`Gluetun:` in `configure.sh`'s summary and Tools → Options →
+Connection → "Port used for incoming connections" already reflects
+it. configure.sh pre-seeds qBittorrent.conf on first install with
+**Bypass authentication for clients on localhost** = on, which is
+what lets the hook talk to qBittorrent's API without credentials.
+Don't turn that bypass off in WebUI → Authentication unless you're
+prepared to paste port numbers in by hand on every gluetun
+reconnect.
 
 ### Prowlarr (port 9696)
 
