@@ -28,7 +28,7 @@ done
 
 # Phase 3: every feature's summary.sh prints its service URL(s). Run
 # last so all addresses land together at the bottom of the output
-# rather than scattered through Phase 2's chatter. See README step 14
+# rather than scattered through Phase 2's chatter. See README step 15
 # for the first-run web-UI steps each URL needs.
 echo
 for d in "$HERE/configure"/*/; do

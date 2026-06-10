@@ -49,3 +49,11 @@ sudo \
   SECRET_KEY_BASE="$SECRET_KEY_BASE" \
   PHX_HOST="$HOSTNAME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
+
+# Expose aviary as HTTPS on 443 → reachable at
+# https://<hostname>.<tailnet>.ts.net/ with no port suffix. Phoenix
+# release's `force_ssl` + `url: [scheme: "https", port: 443]` are
+# already correct because Tailscale Serve sets X-Forwarded-Proto: https
+# upstream, so Plug.SSL sees the request as already-TLS and doesn't
+# redirect-loop.
+bash "$HERE/../tailscale/expose-https.sh" 443 4000

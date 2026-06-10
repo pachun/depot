@@ -60,6 +60,9 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
+# HTTPS on the same port via tailscale; HTTP stays available.
+bash "$HERE/../tailscale/expose-https.sh" 8080
+
 # URL and (first-run only) temporary admin password are printed by
 # summary.sh in configure.sh's Phase 3 so every service's address
 # lands together at the very end of the output.

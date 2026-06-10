@@ -35,5 +35,10 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
+# Expose as HTTPS on the same port number via tailscale — reachable
+# at https://<hostname>.<tailnet>.ts.net:8096. HTTP on the same port
+# stays available as a fallback.
+bash "$HERE/../tailscale/expose-https.sh" 8096
+
 # URLs are printed by summary.sh in configure.sh's Phase 3 so every
 # service's address lands together at the very end of the output.

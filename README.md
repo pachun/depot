@@ -120,7 +120,7 @@ re-run after editing configs to apply changes. When it finishes,
 you're dropped into zsh and the machine is SSH-able.
 
 Anything that needs a browser (tailscale auth, future OAuth flows)
-lives in `configure.sh` (step 14) — that part runs over SSH from your
+lives in `configure.sh` (step 15) — that part runs over SSH from your
 main machine so auth URLs can be copy-pasted into a real browser
 instead of typed from the TTY.
 
@@ -192,7 +192,24 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 the credentials it needs. The config is persisted to
 `~/library/.config/gluetun/wg.env`, so re-runs skip the prompt.
 
-## 14. Run configure.sh
+## 14. Enable Tailscale HTTPS certificates
+
+Each service is served over HTTPS through Tailscale (no extra reverse
+proxy — `tailscale serve --https=<port>` terminates TLS using a
+Let's Encrypt cert tied to your tailnet FQDN, auto-renewed). For that
+to work, the tailnet has to have HTTPS certificates enabled — it's a
+one-time per-tailnet toggle in the admin console.
+
+1. Open https://login.tailscale.com/admin/dns.
+2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
+
+This is a no-op for tailnets created recently (it's on by default
+now), but older tailnets need the toggle flipped explicitly.
+configure.sh's `tailscale serve` calls will fail with a clear error
+if it isn't on, so skipping this step won't silently break anything
+— it just bounces back here.
+
+## 15. Run configure.sh
 
 ```
 cd ~/code/depot

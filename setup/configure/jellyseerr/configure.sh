@@ -23,4 +23,7 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
+# HTTPS on the same port via tailscale; HTTP stays available.
+bash "$HERE/../tailscale/expose-https.sh" 5055
+
 # URL printed by summary.sh in configure.sh's Phase 3.
