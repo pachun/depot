@@ -107,12 +107,24 @@ sudo ufw allow 4000/tcp
 # --build forces a rebuild check on every run; layer cache makes the
 # unchanged case fast (Docker resolves the COPY layer against the
 # fetched source and finds everything cached).
+# PHX_HOST must be the full tailnet FQDN, not the short hostname.
+# Phoenix's prod URL config uses this for asset URLs and (crucially)
+# for LiveView's WebSocket origin check — a mismatch between the
+# requested Host header (which is the FQDN, because the browser hits
+# Tailscale Serve at framework-depot.<tailnet>.ts.net) and the
+# configured PHX_HOST blocks every WebSocket connect, so LiveView
+# shows the "Attempting to reconnect" flash forever.
+PHX_HOST=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+if [ -z "$PHX_HOST" ]; then
+  PHX_HOST="$HOSTNAME"
+fi
+
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
   HOME="$HOME" \
   SRC="$SRC" \
   SECRET_KEY_BASE="$SECRET_KEY_BASE" \
-  PHX_HOST="$HOSTNAME" \
+  PHX_HOST="$PHX_HOST" \
   JELLYFIN_URL="$JELLYFIN_URL" \
   JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
