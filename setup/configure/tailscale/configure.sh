@@ -6,7 +6,10 @@
 # logged in and connected, the up command is skipped.
 set -euo pipefail
 
-sudo pacman -S --needed --noconfirm tailscale
+# jq is used by https-url.sh to parse `tailscale status --json` for
+# the tailnet FQDN. Installed alongside tailscale so any feature using
+# the tailscale/* helpers gets it for free.
+sudo pacman -S --needed --noconfirm tailscale jq
 sudo systemctl enable --now tailscaled.service
 
 if ! sudo tailscale status >/dev/null 2>&1; then
