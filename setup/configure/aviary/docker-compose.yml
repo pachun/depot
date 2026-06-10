@@ -1,0 +1,28 @@
+services:
+  aviary:
+    build:
+      # Source clone lives at ~/library/apps/aviary; configure.sh
+      # passes its absolute path through SRC so this compose file
+      # doesn't have to know about the host's home directory.
+      context: ${SRC}
+    container_name: aviary
+    environment:
+      # PHX_SERVER=true is what tells the release to actually start
+      # the Endpoint — without it the release boots and idles.
+      - PHX_SERVER=true
+      # Phoenix uses PHX_HOST to construct absolute URLs (redirects,
+      # asset hosts). Set to this box's hostname so links land at
+      # http://<hostname>:4000/... — reachable over Tailscale MagicDNS
+      # from any device on the tailnet.
+      - PHX_HOST=${PHX_HOST}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - TZ=${TZ}
+    ports:
+      - 4000:4000
+    # Future: when aviary needs to call Jellyfin/Sonarr/Radarr/etc.
+    # over the host's bridge network, host.docker.internal resolves
+    # to the host. Already wired up so we don't have to redo the
+    # plumbing when those API calls start landing.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
