@@ -15,6 +15,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
+# sqlite is needed to harvest the Jellyfin API key (see the Jellyfin
+# integration block below). pacman -S --needed is a no-op when present.
+sudo pacman -S --needed --noconfirm sqlite
+
 SRC=~/library/apps/aviary
 mkdir -p "$(dirname "$SRC")"
 
@@ -37,6 +41,67 @@ if [ ! -f "$SECRET_FILE" ]; then
 fi
 SECRET_KEY_BASE=$(cat "$SECRET_FILE")
 
+# Jellyfin integration: aviary needs a base URL + API key to call the
+# Jellyfin REST API. URL is the internal docker-bridge path (faster
+# than going out to Tailscale and back, and doesn't need cert plumbing
+# inside the container). API key is harvested directly from Jellyfin's
+# own SQLite database — there's no manual paste step.
+#
+# Cached to ~/library/.config/aviary/.env on first successful harvest;
+# subsequent runs source the cache without re-querying.
+#
+# Skips gracefully (exit 0, doesn't block other features) if Jellyfin
+# isn't initialized yet OR no API key named 'aviary' exists. The user
+# message then is: create an 'aviary' API key in Jellyfin admin, re-run
+# configure.sh.
+AVIARY_ENV="$SECRET_DIR/.env"
+JELLYFIN_URL=http://host.docker.internal:8096
+
+if [ -f "$AVIARY_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$AVIARY_ENV"
+fi
+
+if [ -z "${JELLYFIN_API_KEY:-}" ]; then
+  # Find the Jellyfin db — recent versions land at data/data/jellyfin.db
+  # but older or migrated installs may have it at data/jellyfin.db. Use
+  # whichever exists and is non-empty.
+  JF_DB=""
+  for candidate in \
+    "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
+    "$HOME/library/.config/jellyfin/data/jellyfin.db"
+  do
+    if [ -s "$candidate" ]; then
+      JF_DB="$candidate"
+      break
+    fi
+  done
+
+  if [ -z "$JF_DB" ]; then
+    echo "Aviary skipped — Jellyfin's database doesn't exist yet."
+    echo "  Bring Jellyfin up and complete its first-run setup, then generate"
+    echo "  an 'aviary' API key (Dashboard → API Keys → '+'), then re-run"
+    echo "  configure.sh."
+    exit 0
+  fi
+
+  # Prefer a key explicitly named 'aviary'. Falling back to any key
+  # would risk accidentally adopting Sonarr/Radarr/Jellyseerr's
+  # credentials, which audit-trails want kept distinct.
+  JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
+    "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null || true)
+
+  if [ -z "$JELLYFIN_API_KEY" ]; then
+    echo "Aviary skipped — no API key named 'aviary' in Jellyfin yet."
+    echo "  Generate one in Jellyfin admin (Dashboard → API Keys → '+',"
+    echo "  name it 'aviary'), then re-run configure.sh."
+    exit 0
+  fi
+
+  umask 077
+  echo "JELLYFIN_API_KEY=$JELLYFIN_API_KEY" > "$AVIARY_ENV"
+fi
+
 sudo ufw allow 4000/tcp
 
 # --build forces a rebuild check on every run; layer cache makes the
@@ -48,6 +113,8 @@ sudo \
   SRC="$SRC" \
   SECRET_KEY_BASE="$SECRET_KEY_BASE" \
   PHX_HOST="$HOSTNAME" \
+  JELLYFIN_URL="$JELLYFIN_URL" \
+  JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
 
 # Expose aviary as HTTPS on 443 → reachable at

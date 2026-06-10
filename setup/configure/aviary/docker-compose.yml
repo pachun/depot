@@ -16,6 +16,12 @@ services:
       # from any device on the tailnet.
       - PHX_HOST=${PHX_HOST}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      # Jellyfin reach from inside the container — host.docker.internal
+      # routes back to the host's bridge gateway, where Jellyfin is
+      # publishing on 8096. Faster than going out to Tailscale and back,
+      # and avoids needing Tailscale's CA cert plumbed into the image.
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
       - TZ=${TZ}
     ports:
       - 4000:4000
