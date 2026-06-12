@@ -120,6 +120,23 @@ if [ -z "${JELLYSEERR_API_KEY:-}" ] && [ -s "$JELLYSEERR_SETTINGS" ]; then
 fi
 JELLYSEERR_API_KEY="${JELLYSEERR_API_KEY:-}"
 
+# Sonarr integration — aviary triggers downloads through Sonarr when
+# users hit Watch on a show/season/episode and polls Sonarr's queue
+# for download progress to drive the per-button state. Harvested from
+# Sonarr's config.xml (same automation pattern as Jellyfin and
+# Jellyseerr — no manual paste step).
+SONARR_URL=http://host.docker.internal:8989
+SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
+
+if [ -z "${SONARR_API_KEY:-}" ] && [ -s "$SONARR_CONFIG" ]; then
+  SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" 2>/dev/null | head -1 || true)
+  if [ -n "$SONARR_API_KEY" ]; then
+    umask 077
+    echo "SONARR_API_KEY=$SONARR_API_KEY" >> "$AVIARY_ENV"
+  fi
+fi
+SONARR_API_KEY="${SONARR_API_KEY:-}"
+
 sudo ufw allow 4000/tcp
 
 # --build forces a rebuild check on every run; layer cache makes the
@@ -145,6 +162,13 @@ fi
 # proxying it) work from any tailnet device.
 JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8096"
 
+# Aviary's SQLite DB lives on the host (mounted into the container
+# at /data) so it survives docker-compose --build wipes of the
+# container's writable layer. Create the dir first so the bind
+# mount doesn't fail on a fresh box.
+AVIARY_DATA_DIR="$HOME/library/.config/aviary/data"
+mkdir -p "$AVIARY_DATA_DIR"
+
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
   HOME="$HOME" \
@@ -156,7 +180,16 @@ sudo \
   JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
   JELLYSEERR_URL="$JELLYSEERR_URL" \
   JELLYSEERR_API_KEY="$JELLYSEERR_API_KEY" \
+  SONARR_URL="$SONARR_URL" \
+  SONARR_API_KEY="$SONARR_API_KEY" \
+  AVIARY_DATA_DIR="$AVIARY_DATA_DIR" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
+
+# Run migrations against the prod DB. Phoenix releases deliberately
+# don't auto-migrate on boot; this explicit call keeps the schema in
+# sync with the deployed code and is loud about doing so. Idempotent
+# — Ecto skips migrations already applied.
+docker exec aviary bin/aviary eval "Aviary.Release.migrate()" >/dev/null
 
 # Expose aviary as HTTPS on 443 → reachable at
 # https://<hostname>.<tailnet>.ts.net/ with no port suffix. Phoenix

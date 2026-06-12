@@ -32,7 +32,22 @@ services:
       # touches Jellyseerr directly, so a public URL isn't needed.
       - JELLYSEERR_URL=${JELLYSEERR_URL}
       - JELLYSEERR_API_KEY=${JELLYSEERR_API_KEY}
+      # Sonarr — drives the three-tier download buttons (Watch show /
+      # Watch season / Play episode) and the per-button download
+      # progress polling.
+      - SONARR_URL=${SONARR_URL}
+      - SONARR_API_KEY=${SONARR_API_KEY}
+      # SQLite database path inside the container — matches the
+      # mounted volume below. Without this the file lives in the
+      # container's writable layer and gets wiped on every rebuild.
+      - DATABASE_PATH=/data/aviary.db
       - TZ=${TZ}
+    volumes:
+      # Persist aviary's SQLite DB on the host so it survives
+      # `docker-compose up --build` (which is what configure.sh
+      # runs on every deploy). The host directory is created by
+      # configure.sh before docker-compose runs.
+      - ${AVIARY_DATA_DIR}:/data
     ports:
       - 4000:4000
     # Future: when aviary needs to call Jellyfin/Sonarr/Radarr/etc.
