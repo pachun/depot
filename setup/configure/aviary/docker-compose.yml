@@ -6,6 +6,15 @@ services:
       # doesn't have to know about the host's home directory.
       context: ${SRC}
     container_name: aviary
+    # Override the aviary image's `USER nobody` (uid 65534) so the
+    # container runs as the host user who owns AVIARY_DATA_DIR.
+    # Without this override the bind-mounted /data is unwritable by
+    # `nobody` and `Aviary.Release.migrate()` times out with
+    # `DBConnection connection not available` after 6 s — SQLite
+    # can't open the db file. configure.sh injects HOST_UID /
+    # HOST_GID from `id -u` / `id -g`, so the DB stays inspectable
+    # from the host without sudo.
+    user: "${HOST_UID}:${HOST_GID}"
     environment:
       # PHX_SERVER=true is what tells the release to actually start
       # the Endpoint — without it the release boots and idles.

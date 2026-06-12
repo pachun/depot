@@ -166,8 +166,20 @@ JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8096"
 # at /data) so it survives docker-compose --build wipes of the
 # container's writable layer. Create the dir first so the bind
 # mount doesn't fail on a fresh box.
+#
+# We also pass the host uid/gid through to the compose file so the
+# container runs as the same user that owns the data dir. The
+# aviary image's `USER nobody` (uid 65534) directive would otherwise
+# leave the container unable to write the bind-mounted dir (which
+# `mkdir` creates as nick:nick 755). The symptom of that mismatch
+# was `Aviary.Release.migrate()` timing out with `DBConnection
+# connection not available` after 6 s — SQLite spinning on permission
+# denied. Keeping ownership as nick also means the DB stays
+# inspectable from the host without sudo.
 AVIARY_DATA_DIR="$HOME/library/.config/aviary/data"
 mkdir -p "$AVIARY_DATA_DIR"
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
 
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
@@ -183,6 +195,8 @@ sudo \
   SONARR_URL="$SONARR_URL" \
   SONARR_API_KEY="$SONARR_API_KEY" \
   AVIARY_DATA_DIR="$AVIARY_DATA_DIR" \
+  HOST_UID="$HOST_UID" \
+  HOST_GID="$HOST_GID" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
 
 # Run migrations against the prod DB. Phoenix releases deliberately
