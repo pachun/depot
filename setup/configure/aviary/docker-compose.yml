@@ -27,6 +27,11 @@ services:
       # at via Tailscale Serve.
       - JELLYFIN_PUBLIC_URL=${JELLYFIN_PUBLIC_URL}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      # Jellyseerr powers the release-calendar widget. Internal docker
+      # bridge path matches the Jellyfin pattern — the browser never
+      # touches Jellyseerr directly, so a public URL isn't needed.
+      - JELLYSEERR_URL=${JELLYSEERR_URL}
+      - JELLYSEERR_API_KEY=${JELLYSEERR_API_KEY}
       - TZ=${TZ}
     ports:
       - 4000:4000

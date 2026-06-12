@@ -35,6 +35,39 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
+# Intro Skipper plugin — auto-detects intros (and credits, recaps,
+# previews, commercials) via audio fingerprinting and exposes the
+# resulting timestamps on each episode via a REST endpoint. Aviary
+# uses this to render the in-player "Skip Intro" pill. Version is
+# pinned to the Jellyfin 10.11 build; bump in lockstep with Jellyfin
+# major upgrades.
+#
+# Idempotent: presence of the DLL at the pinned version is the
+# "already installed" signal, so reruns skip the download and the
+# Jellyfin restart entirely.
+INTRO_SKIPPER_VERSION="1.10.11.21"
+INTRO_SKIPPER_DIR="$HOME/library/.config/jellyfin/data/plugins/Intro Skipper_${INTRO_SKIPPER_VERSION}"
+
+if [ ! -f "$INTRO_SKIPPER_DIR/IntroSkipper.dll" ]; then
+  echo "Installing Jellyfin Intro Skipper plugin v${INTRO_SKIPPER_VERSION}..."
+  TMPZIP=$(mktemp -t intro-skipper-XXXXXX.zip)
+  trap "rm -f '$TMPZIP'" EXIT
+
+  curl -sfL \
+    "https://github.com/intro-skipper/intro-skipper/releases/download/10.11/v${INTRO_SKIPPER_VERSION}/intro-skipper-v${INTRO_SKIPPER_VERSION}.zip" \
+    -o "$TMPZIP"
+
+  mkdir -p "$INTRO_SKIPPER_DIR"
+  unzip -q -o "$TMPZIP" -d "$INTRO_SKIPPER_DIR"
+
+  # Plugins are loaded only at Jellyfin startup, so a restart is
+  # required for the new DLL to take effect. After this, the plugin's
+  # background scan begins automatically and progresses through the
+  # library over hours; episodes get timestamps as their seasons
+  # complete fingerprinting.
+  docker restart jellyfin >/dev/null
+fi
+
 # Expose as HTTPS on the same port number via tailscale — reachable
 # at https://<hostname>.<tailnet>.ts.net:8096. HTTP on the same port
 # stays available as a fallback.

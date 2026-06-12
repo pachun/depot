@@ -248,6 +248,15 @@ install.
 7. **API Keys → "+"** → name it `sonarr` → OK. Copy the generated
    key; Sonarr needs it in a later step.
 
+`configure.sh` also installs the
+[Intro Skipper plugin](https://github.com/intro-skipper/intro-skipper)
+automatically — no setup needed. Once Jellyfin restarts with the
+plugin loaded, a background scan starts fingerprinting each season's
+intros (takes minutes-to-hours depending on library size). As shows
+finish scanning, aviary's player surfaces a "Skip Intro" pill during
+intros. Status visible at **Dashboard → Scheduled Tasks → "Detect
+Introductions"** if you want to watch progress.
+
 ### qBittorrent (port 8080)
 
 1. Sign in as `admin` + the **Temporary admin password**

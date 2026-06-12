@@ -102,6 +102,24 @@ if [ -z "${JELLYFIN_API_KEY:-}" ]; then
   echo "JELLYFIN_API_KEY=$JELLYFIN_API_KEY" > "$AVIARY_ENV"
 fi
 
+# Jellyseerr integration — powers the release-calendar widget on the
+# show detail page (next-episode air dates via TMDB sync). Same
+# harvest pattern as Jellyfin: read the API key from Jellyseerr's
+# settings.json so there's no manual paste step. Optional — if
+# Jellyseerr isn't initialized yet, aviary just falls back to the
+# trailer treatment for every show.
+JELLYSEERR_URL=http://host.docker.internal:5055
+JELLYSEERR_SETTINGS="$HOME/library/.config/jellyseerr/settings.json"
+
+if [ -z "${JELLYSEERR_API_KEY:-}" ] && [ -s "$JELLYSEERR_SETTINGS" ]; then
+  JELLYSEERR_API_KEY=$(jq -r '.main.apiKey // empty' "$JELLYSEERR_SETTINGS" 2>/dev/null || true)
+  if [ -n "$JELLYSEERR_API_KEY" ]; then
+    umask 077
+    echo "JELLYSEERR_API_KEY=$JELLYSEERR_API_KEY" >> "$AVIARY_ENV"
+  fi
+fi
+JELLYSEERR_API_KEY="${JELLYSEERR_API_KEY:-}"
+
 sudo ufw allow 4000/tcp
 
 # --build forces a rebuild check on every run; layer cache makes the
@@ -136,6 +154,8 @@ sudo \
   JELLYFIN_URL="$JELLYFIN_URL" \
   JELLYFIN_PUBLIC_URL="$JELLYFIN_PUBLIC_URL" \
   JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
+  JELLYSEERR_URL="$JELLYSEERR_URL" \
+  JELLYSEERR_API_KEY="$JELLYSEERR_API_KEY" \
   docker-compose -f "$HERE/docker-compose.yml" up -d --build
 
 # Expose aviary as HTTPS on 443 → reachable at
