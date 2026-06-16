@@ -60,8 +60,10 @@ download_dir = /downloads/incomplete
 complete_dir = /downloads
 # host_whitelist is comma-separated allowed Host header values.
 # Includes the tailnet FQDN (so the browser can reach us via
-# tailscale serve), plus the short hostname for SSH-tunnel access.
-host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost
+# tailscale serve), the short hostname for SSH-tunnel access, and
+# host.docker.internal which is how Sonarr/Radarr reach SABnzbd
+# from inside their own containers.
+host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost, host.docker.internal
 api_logging = 0
 inet_exposure = 4
 
@@ -111,14 +113,22 @@ EOF
 fi
 
 # Repair an existing sabnzbd.ini's host_whitelist if it doesn't yet
-# include the tailnet FQDN — useful for installs that predated this
+# match the canonical list — useful for installs that predated this
 # fix. The container restart needed to apply this happens further
 # below via the SABnzbd API (mode=restart), which restarts the python
 # process WITHOUT cycling the docker container — sidesteps the host-
 # port-already-bound dance.
+#
+# host.docker.internal is needed because that's the hostname Sonarr
+# and Radarr use to reach SABnzbd from inside their own containers
+# (configured during arr_register_sabnzbd below). Without it on the
+# whitelist, SABnzbd rejects every arr download request with
+# "Refused connection with hostname 'host.docker.internal'".
+SABNZBD_WHITELIST="${TAILNET_FQDN}, $HOSTNAME, localhost, host.docker.internal"
+
 if [ -n "$TAILNET_FQDN" ] && [ -f "$SABNZBD_INI" ]; then
-  if ! grep -q "^host_whitelist.*${TAILNET_FQDN}" "$SABNZBD_INI"; then
-    sed -i "s|^host_whitelist = .*|host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost|" \
+  if ! grep -q "^host_whitelist = ${SABNZBD_WHITELIST}\$" "$SABNZBD_INI"; then
+    sed -i "s|^host_whitelist = .*|host_whitelist = ${SABNZBD_WHITELIST}|" \
       "$SABNZBD_INI"
     SABNZBD_NEEDS_RESTART=1
   fi
