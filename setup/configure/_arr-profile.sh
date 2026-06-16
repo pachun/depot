@@ -210,6 +210,33 @@ ARR_FORMAT_BAD_GROUPS=$(cat <<'JSON'
 JSON
 )
 
+# 2160p / 4K UHD releases — typically HEVC 10-bit + HDR or Dolby
+# Vision. Server-side transcoding to browser-playable h264 SDR is
+# prohibitively heavy even with hardware acceleration, and most
+# transcodes either fail to start or produce stuttering at low
+# bitrate. Banning the resolution at the auto-grab stage forces
+# 1080p (which direct-streams or transcodes cleanly), without
+# touching the user's option to Interactive-Search override on a
+# per-episode basis when they explicitly know what they want.
+ARR_FORMAT_RES_2160P=$(cat <<'JSON'
+{
+  "name": "Resolution: 2160p / 4K",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "matches 2160p",
+      "implementation": "ResolutionSpecification",
+      "negate": false,
+      "required": true,
+      "fields": [
+        {"name": "value", "value": 2160}
+      ]
+    }
+  ]
+}
+JSON
+)
+
 # Convenience wrapper called by each arr's configure.sh — does the
 # whole opinionated bootstrap in one call. Idempotent end-to-end.
 arr_apply_opinionated_policy() {
@@ -224,9 +251,12 @@ arr_apply_opinionated_policy() {
     "Theater Cam / Telesync / Screener" "$ARR_FORMAT_CAM_TS"
   arr_upsert_custom_format "$base_url" "$api_key" \
     "Banned Release Groups" "$ARR_FORMAT_BAD_GROUPS"
+  arr_upsert_custom_format "$base_url" "$api_key" \
+    "Resolution: 2160p / 4K" "$ARR_FORMAT_RES_2160P"
 
   arr_apply_profile_policy "$base_url" "$api_key" \
     "Audio Description" \
     "Theater Cam / Telesync / Screener" \
-    "Banned Release Groups"
+    "Banned Release Groups" \
+    "Resolution: 2160p / 4K"
 }
