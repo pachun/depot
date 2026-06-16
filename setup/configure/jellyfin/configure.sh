@@ -79,54 +79,69 @@ fi
 # exists yet (first-run wizard hasn't been done) — re-running this
 # script after the wizard completes picks it up. The encoding POST
 # itself is idempotent.
-JF_DB=""
-for candidate in \
-  "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
-  "$HOME/library/.config/jellyfin/data/jellyfin.db"
-do
-  if [ -s "$candidate" ]; then
-    JF_DB="$candidate"
-    break
-  fi
-done
+#
+# Wrapped in a subshell + `|| true` so that any failure inside this
+# optional block can never propagate up and kill the dispatcher
+# (Phase 2 in setup/configure.sh runs under set -e — a non-zero exit
+# here would skip the Phase 3 summary print).
+(
+  set +e
 
-if [ -n "$JF_DB" ]; then
-  JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
-    "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null || true)
-
-  if [ -n "$JELLYFIN_API_KEY" ]; then
-    # Wait for Jellyfin to be answering on the API after the recreate.
-    # First container start after the docker-compose diff (devices:)
-    # takes ~5-10s before /System/Info responds.
-    for _ in $(seq 1 30); do
-      if curl -sf -H "X-Emby-Token: $JELLYFIN_API_KEY" \
-           "http://localhost:8096/System/Info" >/dev/null 2>&1; then
-        break
-      fi
-      sleep 1
-    done
-
-    CURRENT_ENC=$(curl -s -H "X-Emby-Token: $JELLYFIN_API_KEY" \
-      "http://localhost:8096/System/Configuration/encoding")
-
-    if [ -n "$CURRENT_ENC" ]; then
-      PATCHED=$(echo "$CURRENT_ENC" | jq '
-        .HardwareAccelerationType = "qsv"
-        | .EnableHardwareEncoding = true
-        | .HardwareDecodingCodecs = ["h264", "hevc", "mpeg2video", "vc1", "vp8", "vp9"]
-        | .EnableDecodingColorDepth10Hevc = true
-        | .EnableDecodingColorDepth10Vp9 = true
-        | .AllowHevcEncoding = true
-      ')
-
-      curl -s -X POST \
-        -H "X-Emby-Token: $JELLYFIN_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d "$PATCHED" \
-        "http://localhost:8096/System/Configuration/encoding" >/dev/null
+  JF_DB=""
+  for candidate in \
+    "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
+    "$HOME/library/.config/jellyfin/data/jellyfin.db"
+  do
+    if [ -s "$candidate" ]; then
+      JF_DB="$candidate"
+      break
     fi
-  fi
-fi
+  done
+
+  [ -n "$JF_DB" ] || exit 0
+
+  JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
+    "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null)
+  [ -n "$JELLYFIN_API_KEY" ] || exit 0
+
+  # Wait for the API to come back after the container recreate. The
+  # first boot after a devices: change can be slow — bump to 90s so
+  # we don't time out before Jellyfin finishes loading plugins.
+  api_up=0
+  for _ in $(seq 1 90); do
+    if curl -sf -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+         "http://localhost:8096/System/Info" >/dev/null 2>&1; then
+      api_up=1
+      break
+    fi
+    sleep 1
+  done
+  [ "$api_up" = "1" ] || exit 0
+
+  CURRENT_ENC=$(curl -s -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+    "http://localhost:8096/System/Configuration/encoding" 2>/dev/null)
+
+  # Bail unless we got back valid JSON. Jellyfin sometimes returns an
+  # HTML 502 from the reverse-proxy edge during boot — jq on that
+  # would fail and (with assignment-via-substitution) trip set -e on
+  # the next line.
+  echo "$CURRENT_ENC" | jq empty >/dev/null 2>&1 || exit 0
+
+  PATCHED=$(echo "$CURRENT_ENC" | jq '
+    .HardwareAccelerationType = "qsv"
+    | .EnableHardwareEncoding = true
+    | .HardwareDecodingCodecs = ["h264", "hevc", "mpeg2video", "vc1", "vp8", "vp9"]
+    | .EnableDecodingColorDepth10Hevc = true
+    | .EnableDecodingColorDepth10Vp9 = true
+    | .AllowHevcEncoding = true
+  ')
+
+  curl -s -X POST \
+    -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "$PATCHED" \
+    "http://localhost:8096/System/Configuration/encoding" >/dev/null 2>&1
+) || true
 
 # Expose as HTTPS on the same port number via tailscale — reachable
 # at https://<hostname>.<tailnet>.ts.net:8096. HTTP on the same port
