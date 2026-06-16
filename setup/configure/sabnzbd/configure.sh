@@ -133,6 +133,19 @@ fi
 # no-op when no mapping is present.
 sudo tailscale serve --https=8085 off >/dev/null 2>&1 || true
 
+# Defensive: a failed `docker restart` (e.g., from the earlier
+# version's port collision) can leave the container in a state
+# where it's "Up" but has no port bindings — docker-compose up -d
+# then won't touch it, and curl localhost:8085 just refuses.
+# Force-recreate when we can't see 8085 in the container's port
+# bindings.
+if docker inspect sabnzbd >/dev/null 2>&1; then
+  if ! docker ps --filter name=sabnzbd --format '{{.Ports}}' | grep -q '8085'; then
+    echo "  sabnzbd container's port mapping is missing — recreating"
+    docker rm -f sabnzbd >/dev/null
+  fi
+fi
+
 sudo \
   PUID="$(id -u)" \
   PGID="$(id -g)" \
