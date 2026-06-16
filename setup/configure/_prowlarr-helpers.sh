@@ -57,15 +57,19 @@ prowlarr_register_newznab() {
     "${base_url}/api/v1/appprofile" \
     | jq -r 'sort_by(.id) | .[0].id // 1')
 
+  # Usenet indexers MUST have redirect enabled (Prowlarr enforces this
+  # in validation — newznab releases are NZB-file links the download
+  # client needs to fetch via the indexer's redirect URL). Torrent
+  # indexers can have either setting; we leave it true for symmetry.
   local payload
   payload=$(cat <<EOF
 {
   "name": "$indexer_name",
   "enable": true,
-  "redirect": false,
+  "redirect": true,
   "supportsRss": true,
   "supportsSearch": true,
-  "supportsRedirect": false,
+  "supportsRedirect": true,
   "priority": 25,
   "downloadClientId": 0,
   "appProfileId": $app_profile_id,
