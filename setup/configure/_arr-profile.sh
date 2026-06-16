@@ -113,8 +113,18 @@ arr_apply_profile_policy() {
     updated=$(echo "$profile" | jq --argjson cfs "$cf_table" '
       . as $doc
       | .language = {id: 1, name: "English"}
-      # minFormatScore=0 ensures a -10000 score actually disqualifies.
+      # Upgrades must be on. Without this Sonarr/Radarr ignore the
+      # format-score cutoff entirely — a 1080p file with score -20000
+      # is considered "complete" and never appears in Cutoff Unmet,
+      # so the audit-and-replace flow we rely on can never fire.
+      | .upgradeAllowed = true
+      # minFormatScore=0 ensures a -10000 score actually disqualifies a
+      # release at search time; cutoffFormatScore=0 ensures an existing
+      # file with negative score shows up in Cutoff Unmet for
+      # upgrading. Both at 0 by Sonarr default but explicit here for
+      # clarity (and so depot owns the policy end-to-end).
       | .minFormatScore = 0
+      | .cutoffFormatScore = 0
       | .formatItems = (
           # Bump banned formats already in the list to -10000.
           ($doc.formatItems // [])
