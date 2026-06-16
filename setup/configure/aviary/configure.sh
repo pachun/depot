@@ -241,6 +241,11 @@ docker exec aviary bin/aviary eval "Aviary.Release.migrate()" >/dev/null
 # Name field, we update an existing entry if one is already there.
 if [ -n "$SONARR_API_KEY" ]; then
   AVIARY_WEBHOOK_URL="http://host.docker.internal:4000/api/sonarr/webhook"
+  # SONARR_URL points the aviary container at sonarr via the docker
+  # bridge alias `host.docker.internal`. This curl runs on the host
+  # itself, where that alias doesn't resolve — use localhost (sonarr
+  # binds host port 8989) so the registration succeeds without DNS.
+  SONARR_HOST_URL="http://localhost:8989"
 
   PAYLOAD=$(cat <<EOF
 {
@@ -278,7 +283,7 @@ EOF
 )
 
   EXISTING_ID=$(curl -s -H "X-Api-Key: $SONARR_API_KEY" \
-    "${SONARR_URL}/api/v3/notification" \
+    "${SONARR_HOST_URL}/api/v3/notification" \
     | jq -r '.[] | select(.name=="Aviary") | .id' | head -1)
 
   if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
@@ -286,13 +291,13 @@ EOF
       -H "X-Api-Key: $SONARR_API_KEY" \
       -H "Content-Type: application/json" \
       -d "$PAYLOAD" \
-      "${SONARR_URL}/api/v3/notification/${EXISTING_ID}" >/dev/null
+      "${SONARR_HOST_URL}/api/v3/notification/${EXISTING_ID}" >/dev/null
   else
     curl -s -X POST \
       -H "X-Api-Key: $SONARR_API_KEY" \
       -H "Content-Type: application/json" \
       -d "$PAYLOAD" \
-      "${SONARR_URL}/api/v3/notification" >/dev/null
+      "${SONARR_HOST_URL}/api/v3/notification" >/dev/null
   fi
 fi
 
