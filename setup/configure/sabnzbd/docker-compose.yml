@@ -1,0 +1,23 @@
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 8085:8080
+    # Lets sabnzbd reach sonarr (8989) / radarr (7878) by name for the
+    # default category-completion notification path. Same pattern as
+    # the arr containers.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOME}/library/.config/sabnzbd:/config
+      # Same in-container path as qbittorrent so sonarr/radarr find
+      # completed downloads at the same /downloads root they already
+      # know about. Hardlink-friendly with /shows and /movies because
+      # everything lives on one filesystem under ~/library.
+      - ${HOME}/library/downloads:/downloads
+    restart: unless-stopped

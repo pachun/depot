@@ -209,7 +209,34 @@ configure.sh's `tailscale serve` calls will fail with a clear error
 if it isn't on, so skipping this step won't silently break anything
 — it just bounces back here.
 
-## 15. Run configure.sh
+## 15. Sign up for the Usenet stack (before running configure.sh)
+
+depot's primary download path is Usenet — torrents stay configured as
+a fallback in Prowlarr but Usenet wins on ties (no ratio risk on
+mis-grabs, full-line-speed downloads, no need to be picky about which
+release to pick the first time).
+
+Two accounts, one provider + one indexer, ~$11/mo combined.
+
+1. **Frugal Usenet** — the provider (the disks holding the content).
+   Sign up at https://www.frugalusenet.com — pick the unlimited plan
+   (~$8/mo). Keep your newsreader username + password handy;
+   `configure.sh` prompts for them once.
+2. **NZBGeek** — the indexer (the search index over what's posted to
+   Usenet). Sign up at https://nzbgeek.info, then in your account
+   settings → API, copy the API key. `configure.sh` prompts for it
+   once.
+
+The credentials are persisted to
+`~/library/.config/depot/usenet.env` (mode 600) and the same file is
+read on every subsequent `configure.sh` run, so you only enter them
+once. Edit the file directly to rotate.
+
+You can skip this step on a first deploy and add Usenet later by
+re-running `configure.sh` — sabnzbd/prowlarr just skip themselves
+gracefully if the credentials aren't there yet.
+
+## 16. Run configure.sh
 
 ```
 cd ~/code/depot
@@ -221,6 +248,10 @@ the tailnet), and eventually jellyfin, samba, and the arr stack. Run
 from this SSH session rather than the local TTY so anything browser-
 based (tailscale's auth URL, future OAuth flows) is one paste into
 your laptop's browser instead of a phone-typing exercise.
+
+First run will prompt for: your Frugal username + password, and the
+NZBGeek API key (see step 15). Subsequent runs are silent — the env
+file holds the answers.
 
 Idempotent — re-run any time. Each feature only does work that isn't
 already done (tailscale skips `tailscale up` if you're already on
@@ -349,21 +380,40 @@ Mirror of Sonarr for movies.
 
 ### Back to Prowlarr to wire Sonarr and Radarr (port 9696)
 
-1. **Settings → Apps → "+" → Sonarr**:
-   - Prowlarr Server: `http://host.docker.internal:9696`
-   - Sonarr Server:   `http://host.docker.internal:8989`
-   - API Key: paste the Sonarr API key
-   - Sync Categories: defaults
-   - Test → Save.
-2. **Settings → Apps → "+" → Radarr**:
-   - Prowlarr Server: `http://host.docker.internal:9696`
-   - Radarr Server:   `http://host.docker.internal:7878`
-   - API Key: paste the Radarr API key
-   - Sync Categories: defaults
-   - Test → Save.
-3. Verify: in Sonarr and Radarr → **Settings → Indexers**, IPTorrents
-   appears in both (marked managed by Prowlarr). Don't edit there —
-   edit in Prowlarr and changes sync.
+depot now wires the Prowlarr → Sonarr/Radarr Applications
+automatically over Prowlarr's REST API (and the NZBGeek indexer too —
+see the next section). No manual setup needed on a fresh deploy.
+
+If you're verifying after `configure.sh` finishes, check **Settings →
+Apps** in Prowlarr — Sonarr and Radarr should both be present, and
+in each arr's **Settings → Indexers** the indexers Prowlarr knows
+about should appear (marked managed by Prowlarr).
+
+If you had a manual setup before depot started doing this, the
+upsert is keyed by name — re-running `configure.sh` will overwrite
+the existing entries with depot's known-good config. Edit
+`setup/configure/_prowlarr-helpers.sh` if you need to customize.
+
+### SABnzbd (port 8085)
+
+Everything's automated. `configure.sh` brings up the SABnzbd
+container, templates `sabnzbd.ini` with the three Frugal servers
+(see step 15), registers SABnzbd as a download client in both
+Sonarr (category `tv`) and Radarr (category `movies`) via their
+REST APIs, and tells Prowlarr to point its NZBGeek indexer at this
+SABnzbd. No web-UI clicks required.
+
+First-run: visit the URL `configure.sh` prints to set a SABnzbd web
+password if you want one (optional — the API key is what the arrs
+use, and that's already wired). Otherwise leave it open behind
+tailscale.
+
+If you ever want to add a second Newznab indexer alongside
+NZBGeek, the simplest path is to drop a second
+`INDEXER_<NAME>_URL` + `INDEXER_<NAME>_API_KEY` pair into
+`~/library/.config/depot/usenet.env` and add a matching
+`prowlarr_register_newznab` call in
+`setup/configure/prowlarr/configure.sh`.
 
 ### Jellyfin: enable real-time monitoring on Movies
 

@@ -202,7 +202,34 @@ ARR_FORMAT_BAD_GROUPS=$(cat <<'JSON'
       "negate": false,
       "required": true,
       "fields": [
-        {"name": "value", "value": "^(YIFY|YTS.*|KOGI|aXXo|mSD)$"}
+        {"name": "value", "value": "^(YIFY|YTS.*|KOGI|Kitsune|aXXo|mSD)$"}
+      ]
+    }
+  ]
+}
+JSON
+)
+
+# HEVC / x265 / H.265 — modern, efficient codec but a non-starter for
+# browser playback. Browsers can't direct-stream HEVC, so every play
+# needs Jellyfin to transcode the file to h264. Even with hardware
+# acceleration that's expensive; without it (QSV currently broken on
+# framework-depot) it's effectively unplayable. Score -10000 to keep
+# Sonarr/Radarr from auto-grabbing HEVC content — user can still
+# Interactive-Search Override on a per-episode basis if no h264
+# alternative exists for a specific show.
+ARR_FORMAT_HEVC=$(cat <<'JSON'
+{
+  "name": "Codec: HEVC / x265",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "HEVC video codec",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": [
+        {"name": "value", "value": "\\b(HEVC|H[._\\-]?265|x265)\\b"}
       ]
     }
   ]
@@ -253,10 +280,13 @@ arr_apply_opinionated_policy() {
     "Banned Release Groups" "$ARR_FORMAT_BAD_GROUPS"
   arr_upsert_custom_format "$base_url" "$api_key" \
     "Resolution: 2160p / 4K" "$ARR_FORMAT_RES_2160P"
+  arr_upsert_custom_format "$base_url" "$api_key" \
+    "Codec: HEVC / x265" "$ARR_FORMAT_HEVC"
 
   arr_apply_profile_policy "$base_url" "$api_key" \
     "Audio Description" \
     "Theater Cam / Telesync / Screener" \
     "Banned Release Groups" \
-    "Resolution: 2160p / 4K"
+    "Resolution: 2160p / 4K" \
+    "Codec: HEVC / x265"
 }
