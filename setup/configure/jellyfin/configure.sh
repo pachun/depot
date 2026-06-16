@@ -84,6 +84,7 @@ fi
 # optional block can never propagate up and kill the dispatcher
 # (Phase 2 in setup/configure.sh runs under set -e — a non-zero exit
 # here would skip the Phase 3 summary print).
+echo "Configuring Jellyfin hardware acceleration (QSV)..."
 (
   set +e
 
@@ -98,25 +99,33 @@ fi
     fi
   done
 
-  [ -n "$JF_DB" ] || exit 0
+  [ -n "$JF_DB" ] || { echo "  skipped: jellyfin.db not found"; exit 0; }
 
   JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
     "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null)
-  [ -n "$JELLYFIN_API_KEY" ] || exit 0
+  [ -n "$JELLYFIN_API_KEY" ] || {
+    echo "  skipped: no 'aviary' API key in Jellyfin yet"
+    exit 0
+  }
 
-  # Wait for the API to come back after the container recreate. The
-  # first boot after a devices: change can be slow — bump to 90s so
-  # we don't time out before Jellyfin finishes loading plugins.
+  # Wait for the API to respond. Use /System/Info/Public — it doesn't
+  # require auth, so a stale/wrong API key doesn't make every iteration
+  # 401 and burn the full window. 30s is enough for the common case
+  # (container already up, API responsive on first try); fresh-boot
+  # delays are dominated by Jellyfin plugin loading which runs in the
+  # background and doesn't block /System/Info/Public.
   api_up=0
-  for _ in $(seq 1 90); do
-    if curl -sf -H "X-Emby-Token: $JELLYFIN_API_KEY" \
-         "http://localhost:8096/System/Info" >/dev/null 2>&1; then
+  for _ in $(seq 1 30); do
+    if curl -sf "http://localhost:8096/System/Info/Public" >/dev/null 2>&1; then
       api_up=1
       break
     fi
     sleep 1
   done
-  [ "$api_up" = "1" ] || exit 0
+  [ "$api_up" = "1" ] || {
+    echo "  skipped: Jellyfin API didn't respond within 30s"
+    exit 0
+  }
 
   CURRENT_ENC=$(curl -s -H "X-Emby-Token: $JELLYFIN_API_KEY" \
     "http://localhost:8096/System/Configuration/encoding" 2>/dev/null)
@@ -125,7 +134,10 @@ fi
   # HTML 502 from the reverse-proxy edge during boot — jq on that
   # would fail and (with assignment-via-substitution) trip set -e on
   # the next line.
-  echo "$CURRENT_ENC" | jq empty >/dev/null 2>&1 || exit 0
+  echo "$CURRENT_ENC" | jq empty >/dev/null 2>&1 || {
+    echo "  skipped: encoding config endpoint returned non-JSON"
+    exit 0
+  }
 
   PATCHED=$(echo "$CURRENT_ENC" | jq '
     .HardwareAccelerationType = "qsv"
@@ -141,12 +153,24 @@ fi
     -H "Content-Type: application/json" \
     -d "$PATCHED" \
     "http://localhost:8096/System/Configuration/encoding" >/dev/null 2>&1
+
+  echo "  enabled QSV + 10-bit HEVC decode."
 ) || true
 
-# Expose as HTTPS on the same port number via tailscale — reachable
-# at https://<hostname>.<tailnet>.ts.net:8096. HTTP on the same port
-# stays available as a fallback.
-bash "$HERE/../tailscale/expose-https.sh" 8096
+# Expose Jellyfin via tailscale on a DIFFERENT port from the Jellyfin
+# bind so the two don't race for port 8096. Jellyfin uses
+# `network_mode: host` and binds [::]:8096 (IPv6 wildcard) on the host
+# network namespace; tailscale serve also binds tailnet IPs:8096. The
+# IPv6 wildcard conflicts with tailscale's specific tailnet IPv6 bind,
+# so whichever started first wins the race and the other fails. After
+# any Jellyfin container restart (e.g. a devices: change), tailscale
+# was already holding the port and Jellyfin couldn't rebind.
+#
+# Moving tailscale serve to 8443 sidesteps the bind conflict entirely.
+# User-facing HTTPS lives at https://<host>.<tailnet>.ts.net:8443/ and
+# tailscale proxies to http://localhost:8096 where Jellyfin listens.
+# Plain HTTP on 8096 over the tailnet still works.
+bash "$HERE/../tailscale/expose-https.sh" 8443 8096
 
 # URLs are printed by summary.sh in configure.sh's Phase 3 so every
 # service's address lands together at the very end of the output.

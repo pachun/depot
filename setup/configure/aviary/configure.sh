@@ -185,7 +185,11 @@ fi
 # that. Point the browser at Jellyfin's Tailscale-served HTTPS address
 # so HLS streams (and image proxying, if we ever stop server-side
 # proxying it) work from any tailnet device.
-JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8096"
+#
+# Port 8443 (not 8096): Jellyfin's own bind on the host network owns
+# 8096, so tailscale serve for Jellyfin lives on 8443 to avoid the
+# bind conflict. See jellyfin/configure.sh for the full story.
+JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8443"
 
 # Aviary's SQLite DB lives on the host (mounted into the container
 # at /data) so it survives docker-compose --build wipes of the
