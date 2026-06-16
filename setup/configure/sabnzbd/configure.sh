@@ -32,6 +32,14 @@ mkdir -p \
 
 sudo ufw allow 8085/tcp
 
+# SABnzbd rejects any request whose Host header isn't in its
+# host_whitelist (defaults to localhost / 127.0.0.1 only). Tailscale
+# serve forwards us as framework-depot.<tailnet>.ts.net:8085, so
+# without adding that FQDN to host_whitelist every request 404s with
+# "Hostname verification failed." Resolve at deploy-time so the value
+# tracks your actual tailnet name.
+TAILNET_FQDN=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+
 # Template sabnzbd.ini on first run only. SABnzbd writes to this file
 # whenever the user changes settings in its web UI, so re-templating
 # every run would clobber those edits. Initial template seeds the
@@ -50,10 +58,10 @@ host = 0.0.0.0
 port = 8080
 download_dir = /downloads/incomplete
 complete_dir = /downloads
-# Allow API calls + web UI from the docker bridge (host.docker.internal
-# resolves to a 172.x address). Empty list means anyone reachable,
-# which is fine on a single-user box behind tailscale.
-host_whitelist =
+# host_whitelist is comma-separated allowed Host header values.
+# Includes the tailnet FQDN (so the browser can reach us via
+# tailscale serve), plus the short hostname for SSH-tunnel access.
+host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost
 api_logging = 0
 inet_exposure = 4
 
@@ -100,6 +108,23 @@ password = $USENET_PASSWORD
 priority = 2
 enable = 1
 EOF
+fi
+
+# Repair an existing sabnzbd.ini if the whitelist is missing the
+# tailnet FQDN — useful for installs that predated this fix. Only
+# touches the line if it's empty or doesn't already contain the FQDN.
+# Restarts the container afterward so SABnzbd actually re-reads the
+# file (it loads the ini at startup, no hot-reload).
+if [ -n "$TAILNET_FQDN" ] && [ -f "$SABNZBD_INI" ]; then
+  if ! grep -q "^host_whitelist.*${TAILNET_FQDN}" "$SABNZBD_INI"; then
+    sed -i "s|^host_whitelist = .*|host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost|" \
+      "$SABNZBD_INI"
+    # restart only if the container's already running (fresh installs
+    # haven't started it yet — the up -d below handles those).
+    if docker inspect sabnzbd >/dev/null 2>&1; then
+      docker restart sabnzbd >/dev/null
+    fi
+  fi
 fi
 
 sudo \
