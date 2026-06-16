@@ -47,6 +47,16 @@ prowlarr_register_newznab() {
   # tells Prowlarr "use this indexer for both TV and movies."
   local categories='[2000,2010,2020,2030,2040,2045,2050,2060,5000,5010,5020,5030,5040,5045,5050,5060,5070,5080]'
 
+  # appProfileId: Prowlarr's per-indexer "App Profile" assignment.
+  # Required field — POSTing without it 400s with "App Profile Id must
+  # be greater than 0". Prowlarr seeds id=1 ("Standard") on first
+  # boot, which is what we want; resolve dynamically so a user who
+  # renamed/reordered profiles in the UI still gets a valid id.
+  local app_profile_id
+  app_profile_id=$(curl -s -H "X-Api-Key: $api_key" \
+    "${base_url}/api/v1/appprofile" \
+    | jq -r 'sort_by(.id) | .[0].id // 1')
+
   local payload
   payload=$(cat <<EOF
 {
@@ -58,6 +68,7 @@ prowlarr_register_newznab() {
   "supportsRedirect": false,
   "priority": 25,
   "downloadClientId": 0,
+  "appProfileId": $app_profile_id,
   "implementation": "Newznab",
   "implementationName": "Newznab",
   "configContract": "NewznabSettings",
@@ -79,21 +90,48 @@ EOF
     "${base_url}/api/v1/indexer" \
     | jq -r --arg n "$indexer_name" '.[] | select(.name==$n) | .id' | head -1)
 
+  local resp
   if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
     local with_id
     with_id=$(echo "$payload" | jq --arg id "$existing_id" '.id = ($id | tonumber)')
-    curl -s -X PUT \
+    resp=$(curl -s -w $'\n%{http_code}' -X PUT \
       -H "X-Api-Key: $api_key" \
       -H "Content-Type: application/json" \
       -d "$with_id" \
-      "${base_url}/api/v1/indexer/${existing_id}" >/dev/null
+      "${base_url}/api/v1/indexer/${existing_id}")
+    prowlarr_check_response "PUT indexer $indexer_name" "$resp"
   else
-    curl -s -X POST \
+    resp=$(curl -s -w $'\n%{http_code}' -X POST \
       -H "X-Api-Key: $api_key" \
       -H "Content-Type: application/json" \
       -d "$payload" \
-      "${base_url}/api/v1/indexer" >/dev/null
+      "${base_url}/api/v1/indexer")
+    prowlarr_check_response "POST indexer $indexer_name" "$resp"
   fi
+}
+
+# Helper: takes a label and a curl response that was captured with
+# `-w $'\n%{http_code}'` (last line = status code, everything before =
+# body). Prints a clear warning on non-2xx instead of letting the
+# failure disappear into /dev/null. Returns non-zero on failure so a
+# caller can exit if it cares, but most callers should let
+# configure.sh continue.
+prowlarr_check_response() {
+  local label="$1"
+  local resp="$2"
+  local status="${resp##*$'\n'}"
+  local body="${resp%$'\n'*}"
+
+  if [[ "$status" =~ ^2 ]]; then
+    return 0
+  fi
+
+  echo "  WARN: ${label} returned HTTP ${status}"
+  if [ -n "$body" ]; then
+    echo "        ${body}" | head -c 500
+    echo
+  fi
+  return 1
 }
 
 # Upsert a Sonarr-or-Radarr Application in Prowlarr. The Application
@@ -157,19 +195,22 @@ EOF
     "${base_url}/api/v1/applications" \
     | jq -r --arg n "$impl" '.[] | select(.name==$n) | .id' | head -1)
 
+  local resp
   if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
     local with_id
     with_id=$(echo "$payload" | jq --arg id "$existing_id" '.id = ($id | tonumber)')
-    curl -s -X PUT \
+    resp=$(curl -s -w $'\n%{http_code}' -X PUT \
       -H "X-Api-Key: $api_key" \
       -H "Content-Type: application/json" \
       -d "$with_id" \
-      "${base_url}/api/v1/applications/${existing_id}" >/dev/null
+      "${base_url}/api/v1/applications/${existing_id}")
+    prowlarr_check_response "PUT application $impl" "$resp"
   else
-    curl -s -X POST \
+    resp=$(curl -s -w $'\n%{http_code}' -X POST \
       -H "X-Api-Key: $api_key" \
       -H "Content-Type: application/json" \
       -d "$payload" \
-      "${base_url}/api/v1/applications" >/dev/null
+      "${base_url}/api/v1/applications")
+    prowlarr_check_response "POST application $impl" "$resp"
   fi
 }
