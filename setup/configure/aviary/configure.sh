@@ -148,6 +148,20 @@ if [ -z "${SONARR_API_KEY:-}" ] && [ -s "$SONARR_CONFIG" ]; then
 fi
 SONARR_API_KEY="${SONARR_API_KEY:-}"
 
+# Radarr integration — Sonarr's movie sibling. Powers the Watch button
+# + progress chip on the movie detail page. Same harvest pattern.
+RADARR_URL=http://host.docker.internal:7878
+RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+
+if [ -z "${RADARR_API_KEY:-}" ] && [ -s "$RADARR_CONFIG" ]; then
+  RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" 2>/dev/null | head -1 || true)
+  if [ -n "$RADARR_API_KEY" ]; then
+    umask 077
+    echo "RADARR_API_KEY=$RADARR_API_KEY" >> "$AVIARY_ENV"
+  fi
+fi
+RADARR_API_KEY="${RADARR_API_KEY:-}"
+
 sudo ufw allow 4000/tcp
 
 # --build forces a rebuild check on every run; layer cache makes the
@@ -206,6 +220,8 @@ sudo \
   SONARR_URL="$SONARR_URL" \
   SONARR_API_KEY="$SONARR_API_KEY" \
   SONARR_WEBHOOK_SECRET="$SONARR_WEBHOOK_SECRET" \
+  RADARR_URL="$RADARR_URL" \
+  RADARR_API_KEY="$RADARR_API_KEY" \
   AVIARY_DATA_DIR="$AVIARY_DATA_DIR" \
   HOST_UID="$HOST_UID" \
   HOST_GID="$HOST_GID" \
