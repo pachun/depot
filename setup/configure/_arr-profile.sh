@@ -156,6 +156,57 @@ arr_apply_profile_policy() {
       -d "$updated" \
       "$base_url/api/v3/qualityprofile/$pid" >/dev/null
   done
+
+  # Sonarr/Radarr cache qualityCutoffNotMet on each episode/movie
+  # file at import time. A profile change here doesn't auto-recompute
+  # that flag — the next scheduled rescan (~12h) eventually picks it
+  # up, but Cutoff Unmet stays empty in the UI until then. Fire a
+  # RescanSeries / RescanMovie command per series/movie now so the
+  # new format scores propagate immediately.
+  arr_force_rescan "$base_url" "$api_key"
+}
+
+# Fires a per-series rescan in Sonarr (or per-movie in Radarr) so
+# the format-score and cutoff flags are recomputed against the
+# current profile. Detects which arr by hitting /api/v3/series
+# first — Sonarr returns a list, Radarr 404s. Async on the arr side;
+# returns immediately.
+arr_force_rescan() {
+  local base_url="$1"
+  local api_key="$2"
+
+  # Try Sonarr-style first.
+  local series_ids
+  series_ids=$(curl -s -H "X-Api-Key: $api_key" \
+    "$base_url/api/v3/series" 2>/dev/null \
+    | jq -r 'if type == "array" then .[].id else empty end' 2>/dev/null)
+
+  if [ -n "$series_ids" ]; then
+    for sid in $series_ids; do
+      curl -s -X POST \
+        -H "X-Api-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"RescanSeries\", \"seriesId\": $sid}" \
+        "$base_url/api/v3/command" >/dev/null
+    done
+    return
+  fi
+
+  # Otherwise try Radarr.
+  local movie_ids
+  movie_ids=$(curl -s -H "X-Api-Key: $api_key" \
+    "$base_url/api/v3/movie" 2>/dev/null \
+    | jq -r 'if type == "array" then .[].id else empty end' 2>/dev/null)
+
+  if [ -n "$movie_ids" ]; then
+    for mid in $movie_ids; do
+      curl -s -X POST \
+        -H "X-Api-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"RescanMovie\", \"movieId\": $mid}" \
+        "$base_url/api/v3/command" >/dev/null
+    done
+  fi
 }
 
 # The three opinionated custom-format JSON payloads. Defined here so
