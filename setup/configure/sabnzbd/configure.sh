@@ -110,22 +110,28 @@ enable = 1
 EOF
 fi
 
-# Repair an existing sabnzbd.ini if the whitelist is missing the
-# tailnet FQDN — useful for installs that predated this fix. Only
-# touches the line if it's empty or doesn't already contain the FQDN.
-# Restarts the container afterward so SABnzbd actually re-reads the
-# file (it loads the ini at startup, no hot-reload).
+# Repair an existing sabnzbd.ini's host_whitelist if it doesn't yet
+# include the tailnet FQDN — useful for installs that predated this
+# fix. The container restart needed to apply this happens further
+# below via the SABnzbd API (mode=restart), which restarts the python
+# process WITHOUT cycling the docker container — sidesteps the host-
+# port-already-bound dance.
 if [ -n "$TAILNET_FQDN" ] && [ -f "$SABNZBD_INI" ]; then
   if ! grep -q "^host_whitelist.*${TAILNET_FQDN}" "$SABNZBD_INI"; then
     sed -i "s|^host_whitelist = .*|host_whitelist = ${TAILNET_FQDN}, $HOSTNAME, localhost|" \
       "$SABNZBD_INI"
-    # restart only if the container's already running (fresh installs
-    # haven't started it yet — the up -d below handles those).
-    if docker inspect sabnzbd >/dev/null 2>&1; then
-      docker restart sabnzbd >/dev/null
-    fi
+    SABNZBD_NEEDS_RESTART=1
   fi
 fi
+
+# Cleanup: an earlier version of this script exposed SABnzbd via
+# tailscale serve on port 8085 — the same port docker-proxy binds
+# for the container's host mapping. The two race at container-
+# restart time (docker can't rebind a port tailscale's already
+# holding), so we tear down that old mapping unconditionally before
+# bringing the container up. tailscale serve --off is idempotent;
+# no-op when no mapping is present.
+sudo tailscale serve --https=8085 off >/dev/null 2>&1 || true
 
 sudo \
   PUID="$(id -u)" \
@@ -134,7 +140,12 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
-bash "$HERE/../tailscale/expose-https.sh" 8085
+# Tailscale serve on 8086 (NOT 8085) — 8085 is docker-proxy's host
+# bind for the container. Keeping them on different host ports means
+# docker can restart the container cleanly without fighting tailscale
+# for the same socket. User-facing HTTPS URL is therefore :8086;
+# plain HTTP on 8085 over the tailnet still works.
+bash "$HERE/../tailscale/expose-https.sh" 8086 8085
 
 # Read back the API key SABnzbd is actually using (either the one we
 # just wrote, or whatever the user has set via the UI on a prior run).
@@ -158,6 +169,25 @@ if [ "$api_up" != "1" ]; then
   echo "        Re-run setup/configure.sh once SABnzbd is up to register it with"
   echo "        Sonarr/Radarr."
   exit 0
+fi
+
+# Apply any pending config changes (host_whitelist sed above) by
+# asking SABnzbd to restart its python process. This does NOT cycle
+# the container — it just re-reads sabnzbd.ini in place. The API
+# call goes via localhost which SABnzbd always treats as authorized
+# regardless of host_whitelist.
+if [ "${SABNZBD_NEEDS_RESTART:-0}" = "1" ]; then
+  curl -s "http://localhost:8085/api?mode=restart&apikey=$SABNZBD_API_KEY&output=json" \
+    >/dev/null
+  # Wait for the daemon to come back.
+  sleep 2
+  for _ in $(seq 1 30); do
+    if curl -sf "http://localhost:8085/api?mode=version&apikey=$SABNZBD_API_KEY&output=json" \
+         >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
 fi
 
 # Register SABnzbd as a download client in Sonarr (TV → tv category)
