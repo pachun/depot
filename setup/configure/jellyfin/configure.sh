@@ -68,6 +68,66 @@ if [ ! -f "$INTRO_SKIPPER_DIR/IntroSkipper.dll" ]; then
   docker restart jellyfin >/dev/null
 fi
 
+# Enable Intel QuickSync hardware-accelerated transcoding via the
+# System/Configuration/encoding REST API. Without this, Jellyfin runs
+# every transcode on the CPU and 1080p eats every core — the iGPU
+# we passed through via /dev/dri above sits idle. Patches only the
+# fields aviary cares about (accel type, decode codecs, 10-bit
+# decode), leaving any other user customization intact.
+#
+# Skips gracefully on a fresh Jellyfin where no 'aviary' API key
+# exists yet (first-run wizard hasn't been done) — re-running this
+# script after the wizard completes picks it up. The encoding POST
+# itself is idempotent.
+JF_DB=""
+for candidate in \
+  "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
+  "$HOME/library/.config/jellyfin/data/jellyfin.db"
+do
+  if [ -s "$candidate" ]; then
+    JF_DB="$candidate"
+    break
+  fi
+done
+
+if [ -n "$JF_DB" ]; then
+  JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
+    "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null || true)
+
+  if [ -n "$JELLYFIN_API_KEY" ]; then
+    # Wait for Jellyfin to be answering on the API after the recreate.
+    # First container start after the docker-compose diff (devices:)
+    # takes ~5-10s before /System/Info responds.
+    for _ in $(seq 1 30); do
+      if curl -sf -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+           "http://localhost:8096/System/Info" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+
+    CURRENT_ENC=$(curl -s -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+      "http://localhost:8096/System/Configuration/encoding")
+
+    if [ -n "$CURRENT_ENC" ]; then
+      PATCHED=$(echo "$CURRENT_ENC" | jq '
+        .HardwareAccelerationType = "qsv"
+        | .EnableHardwareEncoding = true
+        | .HardwareDecodingCodecs = ["h264", "hevc", "mpeg2video", "vc1", "vp8", "vp9"]
+        | .EnableDecodingColorDepth10Hevc = true
+        | .EnableDecodingColorDepth10Vp9 = true
+        | .AllowHevcEncoding = true
+      ')
+
+      curl -s -X POST \
+        -H "X-Emby-Token: $JELLYFIN_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$PATCHED" \
+        "http://localhost:8096/System/Configuration/encoding" >/dev/null
+    fi
+  fi
+fi
+
 # Expose as HTTPS on the same port number via tailscale — reachable
 # at https://<hostname>.<tailnet>.ts.net:8096. HTTP on the same port
 # stays available as a fallback.
