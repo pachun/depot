@@ -41,6 +41,17 @@ if [ ! -f "$SECRET_FILE" ]; then
 fi
 SECRET_KEY_BASE=$(cat "$SECRET_FILE")
 
+# Shared secret Sonarr's Connect webhook will send back in the
+# `x-aviary-secret` header. Same generate-once-and-persist pattern —
+# rotating it would break the webhook until Sonarr's notification is
+# re-registered, and we don't gain anything by churning it.
+WEBHOOK_SECRET_FILE="$SECRET_DIR/sonarr_webhook_secret"
+if [ ! -f "$WEBHOOK_SECRET_FILE" ]; then
+  openssl rand -hex 32 > "$WEBHOOK_SECRET_FILE"
+  chmod 600 "$WEBHOOK_SECRET_FILE"
+fi
+SONARR_WEBHOOK_SECRET=$(tr -d '\n' < "$WEBHOOK_SECRET_FILE")
+
 # Jellyfin integration: aviary needs a base URL + API key to call the
 # Jellyfin REST API. URL is the internal docker-bridge path (faster
 # than going out to Tailscale and back, and doesn't need cert plumbing
@@ -194,6 +205,7 @@ sudo \
   JELLYSEERR_API_KEY="$JELLYSEERR_API_KEY" \
   SONARR_URL="$SONARR_URL" \
   SONARR_API_KEY="$SONARR_API_KEY" \
+  SONARR_WEBHOOK_SECRET="$SONARR_WEBHOOK_SECRET" \
   AVIARY_DATA_DIR="$AVIARY_DATA_DIR" \
   HOST_UID="$HOST_UID" \
   HOST_GID="$HOST_GID" \
@@ -204,6 +216,69 @@ sudo \
 # sync with the deployed code and is loud about doing so. Idempotent
 # — Ecto skips migrations already applied.
 docker exec aviary bin/aviary eval "Aviary.Release.migrate()" >/dev/null
+
+# Register (or update) a Webhook Connect notification in Sonarr that
+# POSTs back to aviary on health-state events. Aviary uses those
+# events to re-fire EpisodeSearch for anything that failed to grab
+# during the unhealthy window (most commonly: qBittorrent
+# unreachable mid-grab). Idempotent — keyed by the notification
+# Name field, we update an existing entry if one is already there.
+if [ -n "$SONARR_API_KEY" ]; then
+  AVIARY_WEBHOOK_URL="http://host.docker.internal:4000/api/sonarr/webhook"
+
+  PAYLOAD=$(cat <<EOF
+{
+  "name": "Aviary",
+  "implementation": "Webhook",
+  "implementationName": "Webhook",
+  "configContract": "WebhookSettings",
+  "tags": [],
+  "fields": [
+    {"name": "url", "value": "$AVIARY_WEBHOOK_URL"},
+    {"name": "method", "value": 1},
+    {"name": "username", "value": ""},
+    {"name": "password", "value": ""},
+    {"name": "headers", "value": [{"key": "x-aviary-secret", "value": "$SONARR_WEBHOOK_SECRET"}]}
+  ],
+  "onGrab": false,
+  "onDownload": false,
+  "onUpgrade": false,
+  "onRename": false,
+  "onSeriesAdd": false,
+  "onSeriesDelete": false,
+  "onEpisodeFileDelete": false,
+  "onEpisodeFileDeleteForUpgrade": false,
+  "onHealthIssue": false,
+  "onHealthRestored": true,
+  "onApplicationUpdate": true,
+  "onManualInteractionRequired": false,
+  "supportsOnGrab": true,
+  "supportsOnDownload": true,
+  "supportsOnHealthIssue": true,
+  "supportsOnHealthRestored": true,
+  "supportsOnApplicationUpdate": true
+}
+EOF
+)
+
+  EXISTING_ID=$(curl -s -H "X-Api-Key: $SONARR_API_KEY" \
+    "${SONARR_URL}/api/v3/notification" \
+    | jq -r '.[] | select(.name=="Aviary") | .id' | head -1)
+
+  if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+    curl -s -X PUT \
+      -H "X-Api-Key: $SONARR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d "$PAYLOAD" \
+      "${SONARR_URL}/api/v3/notification/${EXISTING_ID}" >/dev/null
+  else
+    curl -s -X POST \
+      -H "X-Api-Key: $SONARR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d "$PAYLOAD" \
+      "${SONARR_URL}/api/v3/notification" >/dev/null
+  fi
+fi
 
 # Expose aviary as HTTPS on 443 → reachable at
 # https://<hostname>.<tailnet>.ts.net/ with no port suffix. Phoenix

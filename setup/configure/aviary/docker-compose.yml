@@ -46,6 +46,11 @@ services:
       # progress polling.
       - SONARR_URL=${SONARR_URL}
       - SONARR_API_KEY=${SONARR_API_KEY}
+      # Shared secret Sonarr's Connect webhook sends in the
+      # x-aviary-secret header. configure.sh generates and persists
+      # this at $SECRET_DIR/sonarr_webhook_secret, and also registers
+      # the matching Sonarr notification pointing at this aviary.
+      - SONARR_WEBHOOK_SECRET=${SONARR_WEBHOOK_SECRET}
       # SQLite database path inside the container — matches the
       # mounted volume below. Without this the file lives in the
       # container's writable layer and gets wiped on every rebuild.
