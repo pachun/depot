@@ -22,7 +22,8 @@ TARGETS=$(sudo docker logs unpackerr 2>&1 \
   | sed 's/; $//')
 
 if [ -n "$TARGETS" ]; then
-  echo "Unpackerr:      running ($TARGETS)"
+  # echo "Unpackerr:      running ($TARGETS)"
+  echo "Unpackerr:      running"
 else
   echo "Unpackerr:      running"
 fi
