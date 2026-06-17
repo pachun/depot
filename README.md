@@ -8,22 +8,10 @@ A self-hosted home media server built to run on a [UGreen NAS](https://www.ugree
 
 ## 1. Create a bootable USB drive
 
-[Download the Arch ISO](https://archlinux.org/download/)
-
-Plug the USB drive into your machine.
-
-Find its name (Something like `/dev/sda`, not a partition like `/dev/sda1`):
-
-```
-lsblk
-```
-
-Flash the ISO (replacing `/dev/sdX` and `filename.iso`):
-
-```
-cd ~/downloads
-sudo dd if=filename.iso of=/dev/sdX bs=4M status=progress oflag=sync
-```
+- [Download the Arch ISO](https://archlinux.org/download/)
+- Plug the USB drive into your machine.
+- Find its name (run `lsblk` and look for something like `/dev/sda`, not a partition like `/dev/sda1`
+- Flash the ISO `sudo dd if=ARCH_ISO_FILE.iso of=/dev/DRIVE_NAME bs=4M status=progress oflag=sync`
 
 ## 2. Prevent recurring NAS shutdowns
 
@@ -63,7 +51,7 @@ cd ~/code/depot && ./arch/configure.sh
 
 ## 6. SSH into the NAS from your favorite machine
 
-The prior step prints an SSH command. Run it from your favorite machine to continue from there.
+The prior step prints an SSH command. Run it from your favorite machine and continue from there.
 
 ## 7. SSH-authenticate with GitHub
 
@@ -80,6 +68,9 @@ Copy the output and [add it to GitHub](https://github.com/settings/ssh/new).
 git -C ~/code/depot   remote set-url origin git@github.com:pachun/depot.git
 git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
 ```
+
+[Orchard](https://github.com/pachun/orchard) is my dotfile setup. Depot installs
+it for familiarity when SSHing into the NAS.
 
 Re-running `./arch/configure.sh` now pulls and applies the latest from both repos.
 
@@ -105,6 +96,8 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 ## 11. Sign up for [Frugal Usenet](https://www.frugalusenet.com) and [NZBGeek](https://nzbgeek.info)
 
 ## 12. Sign up for [IPTorrents](https://iptorrents.com)
+
+You can [email me](mailto:nick@pachulski.me) for an invite.
 
 ## 13. Install depot
 
