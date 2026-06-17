@@ -62,7 +62,7 @@ After an automatic reboot, sign in.
 ## 5. Configure Arch
 
 ```
-cd ~/code/depot && ./arch/configure.sh
+~/code/depot/arch/configure.sh
 ```
 
 ## 6. SSH into the NAS from your favorite machine
@@ -112,7 +112,7 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 ## 11. Install depot
 
 ```
-cd ~/code/depot && ./services/configure.sh
+~/code/depot/services/configure.sh
 ```
 
 **`services/configure.sh` is idempotent**. Re-run it any time.
