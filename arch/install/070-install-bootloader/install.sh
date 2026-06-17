@@ -24,8 +24,8 @@ editor no
 EOF
 
 cat > /boot/loader/entries/depot.conf <<EOF
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /initramfs-linux.img
+title   Arch Linux LTS
+linux   /vmlinuz-linux-lts
+initrd  /initramfs-linux-lts.img
 options root=PARTUUID=$ROOT_PARTUUID rw
 EOF

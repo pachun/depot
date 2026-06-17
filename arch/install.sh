@@ -159,7 +159,12 @@ mount -o fmask=0077,dmask=0077 "$PART_EFI" /mnt/boot
 
 echo
 echo "Installing base packages (pacstrap)..."
-pacstrap -K /mnt base linux linux-headers linux-firmware vim git networkmanager openssh sudo
+# linux-lts (not linux) because ZFS DKMS lags upstream kernel releases
+# by months and reliably supports LTS. Booting current `linux` against
+# stock zfs-dkms hits "module zfs not found" because the build can't
+# compile against the newer kernel API. LTS gives us a kernel ZFS
+# tracks, and the NAS doesn't need the latest features.
+pacstrap -K /mnt base linux-lts linux-lts-headers linux-firmware vim git networkmanager openssh sudo
 
 # ============================================================
 # fstab.
