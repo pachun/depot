@@ -4,13 +4,13 @@
 
 # depot
 
-A self-hosted home media server with a [beautiful, no-cruft UI](https://github.com/pachun/aviary), built to run on a [UGreen NAS](https://www.ugreen.com/).
+A self-hosted home media server with a [beautiful, no-cruft UI](https://github.com/pachun/aviary).
 
 <p align="center">
   <img src="screenshot.png" alt="aviary home page" width="600" />
 </p>
 
-Depot is made to run on a UGreen NAS, but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging which keeps streaming regular while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail, have a new one swapped in, and rebuild the pool.
+Depot was made to run on a [UGreen NAS](https://www.ugreen.com/), but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging which keeps streaming regular while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail, have a new one swapped in, and rebuild the pool.
 
 You'll also need some accounts:
 
