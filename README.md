@@ -56,7 +56,7 @@ The prior step prints an SSH command. Run it from your favorite machine and cont
 ## 7. SSH-authenticate with GitHub
 
 ```
-ssh-keygen -t ed25519 -C "your@email.address" # leave prompts blank
+ssh-keygen -t ed25519 -C "your@email.address"
 cat ~/.ssh/id_ed25519.pub
 ```
 
