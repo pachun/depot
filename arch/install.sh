@@ -159,7 +159,7 @@ mount -o fmask=0077,dmask=0077 "$PART_EFI" /mnt/boot
 
 echo
 echo "Installing base packages (pacstrap)..."
-pacstrap -K /mnt base linux linux-firmware vim git networkmanager openssh sudo
+pacstrap -K /mnt base linux linux-headers linux-firmware vim git networkmanager openssh sudo
 
 # ============================================================
 # fstab.

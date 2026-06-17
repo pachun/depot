@@ -58,29 +58,11 @@ if command -v zpool >/dev/null 2>&1 \
 elif [ ${#SELECTED_HDD_NAMES[@]} -eq 0 ]; then
   echo "Storage: no HDDs picked at prompt time — skipping pool creation."
 else
-  # Install the archzfs repo + zfs-dkms + zfs-utils. zfs is out of the
-  # official Arch repos because of the CDDL licensing situation; the
-  # archzfs community repo packages it. Key ID from
-  # https://github.com/archzfs/archzfs/wiki — pinned here so a key
-  # rotation isn't a silent supply-chain change.
-  if ! command -v zpool >/dev/null 2>&1; then
-    ARCHZFS_KEY="DDF7DB817396A49B2A2723F7403BD972F75D9D76"
-    sudo pacman-key --recv-keys "$ARCHZFS_KEY"
-    sudo pacman-key --lsign-key "$ARCHZFS_KEY"
-
-    if ! grep -q '^\[archzfs\]' /etc/pacman.conf; then
-      sudo tee -a /etc/pacman.conf >/dev/null <<'EOF'
-
-[archzfs]
-Server = https://archzfs.com/$repo/$arch
-EOF
-    fi
-
-    sudo pacman -Sy --needed --noconfirm \
-      linux-headers zfs-dkms zfs-utils
-
-    # Load the kernel module so zpool commands work this session
-    # without a reboot.
+  # zfs-dkms + zfs-utils were installed during the bootstrap chroot
+  # phase (arch/install/095-install-zfs/) so the DKMS module was built
+  # against the matching pacstrap'd kernel + headers — no version
+  # drift. All we need here is to load the module.
+  if ! lsmod | grep -q '^zfs'; then
     sudo modprobe zfs
   fi
 
