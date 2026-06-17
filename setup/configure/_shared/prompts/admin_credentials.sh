@@ -20,7 +20,7 @@ mkdir -p "$(dirname "$ADMIN_ENV")"
 [ -f "$ADMIN_ENV" ] && source "$ADMIN_ENV"
 
 if [ -z "${ADMIN_USERNAME:-}" ]; then
-  read -r -p "Admin username (used across Jellyfin, Sonarr, Radarr, qBittorrent, Prowlarr, Jellyseerr): " ADMIN_USERNAME
+  read -r -p "Admin username: " ADMIN_USERNAME
 fi
 
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
