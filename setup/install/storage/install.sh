@@ -3,8 +3,11 @@
 # Runs after bootstrap, before configure.sh, so every depot bind-
 # mount under ~/library lands on redundant storage automatically.
 #
-# Configuration:
-#   - 4 disks, RAIDZ1 (single-parity), ~84 TB usable across 4×28 TB.
+# Lists all rotational disks, lets the operator pick which ones go
+# in the pool (minimum 3 for RAIDZ1). No fixed disk count.
+#
+# Pool configuration:
+#   - RAIDZ1 (single-parity)
 #   - compression=lz4 (cheap, ~3-5% savings on media)
 #   - atime=off (no metadata write on every read)
 #   - recordsize=1M (good for large media reads; small-file write
@@ -18,11 +21,10 @@
 #     Email alerts need additional SMTP setup and stay outside this
 #     script.
 #
-# Idempotent on every layer: if the pool already exists every step
-# short-circuits; if the box doesn't have exactly 4 non-boot disks
-# (e.g., the Framework dev box), skip cleanly.
+# Idempotent: if the pool already exists every step short-circuits;
+# if there are no rotational disks at all (e.g., the Framework dev
+# box), skip cleanly.
 #
-# Safety: pool creation is gated on the user typing an exact phrase.
 # No -f / --force on zpool create — if any drive has a stray
 # signature, the create fails and the user has to wipe it first
 # rather than auto-destroying potentially-real data.
@@ -39,37 +41,53 @@ if command -v zpool >/dev/null 2>&1 \
   exit 0
 fi
 
-# Disk detection: find every whole disk that isn't the boot disk.
-# pkname maps a partition back to its parent disk; if /dev/nvme0n1p2
-# is mounted at /, the boot disk is nvme0n1 and the script ignores
-# it.
-BOOT_PART=$(findmnt -no SOURCE /)
-BOOT_DISK=$(lsblk -dno pkname "$BOOT_PART" 2>/dev/null || true)
-if [ -z "$BOOT_DISK" ]; then
-  BOOT_DISK=$(echo "$BOOT_PART" | sed -E 's@^/dev/@@; s/p?[0-9]+$//')
-fi
-
-mapfile -t CANDIDATES < <(
-  lsblk -dno NAME,TYPE,SIZE \
-    | awk -v boot="$BOOT_DISK" '$2 == "disk" && $1 != boot { print $1 " " $3 }'
+# Internal SATA-attached spinning disks only. ROTA alone is
+# unreliable (USB-to-SATA bridges sometimes pass the rotational bit
+# through incorrectly — a flash USB can report ROTA=1), so combining
+# with TRAN=sata gates the picker on bus type too.
+mapfile -t HDD_NAMES < <(
+  lsblk -dno NAME,TYPE,ROTA,TRAN | awk '$2 == "disk" && $3 == "1" && $4 == "sata" { print $1 }'
 )
 
-CANDIDATE_COUNT=${#CANDIDATES[@]}
-
-if [ "$CANDIDATE_COUNT" -eq 0 ]; then
-  echo "storage skipped — no non-boot disks present (likely a dev box)."
+if [ ${#HDD_NAMES[@]} -eq 0 ]; then
+  echo "No spinning disks found — skipping pool creation."
   exit 0
 fi
 
-if [ "$CANDIDATE_COUNT" -ne 4 ]; then
-  echo "ERROR: storage expects exactly 4 non-boot disks for a RAIDZ1" >&2
-  echo "       pool. Found $CANDIDATE_COUNT:" >&2
-  for c in "${CANDIDATES[@]}"; do
-    echo "         $c" >&2
-  done
-  echo "       Boot disk: $BOOT_DISK" >&2
-  echo "       Adjust install/storage/install.sh or fix hardware before" >&2
-  echo "       re-running." >&2
+echo ""
+echo "Spinning disks:"
+i=1
+for name in "${HDD_NAMES[@]}"; do
+  size=$(lsblk -dno SIZE "/dev/$name")
+  model=$(lsblk -dno MODEL "/dev/$name" | tr -s ' ')
+  serial=$(lsblk -dno SERIAL "/dev/$name")
+  rota=$(lsblk -dno ROTA "/dev/$name")
+  tran=$(lsblk -dno TRAN "/dev/$name")
+  printf "  %d) %-6s %-7s %-32s %-22s rota=%s tran=%s\n" \
+    "$i" "$name" "$size" "$model" "$serial" "$rota" "$tran"
+  i=$((i+1))
+done
+
+echo ""
+read -r -p "Pick disks for the pool (space- or comma-separated indices): " selection
+selection=$(echo "$selection" | tr ',' ' ')
+
+SELECTED_NAMES=()
+for idx in $selection; do
+  if [[ ! "$idx" =~ ^[0-9]+$ ]] || [ "$idx" -lt 1 ] || [ "$idx" -gt ${#HDD_NAMES[@]} ]; then
+    echo "Invalid index: $idx" >&2
+    exit 1
+  fi
+  SELECTED_NAMES+=("${HDD_NAMES[$((idx-1))]}")
+done
+
+if [ ${#SELECTED_NAMES[@]} -eq 0 ]; then
+  echo "No disks picked. Skipping pool creation."
+  exit 0
+fi
+
+if [ ${#SELECTED_NAMES[@]} -lt 3 ]; then
+  echo "RAIDZ1 needs at least 3 disks. Selected: ${#SELECTED_NAMES[@]}." >&2
   exit 1
 fi
 
@@ -102,28 +120,26 @@ fi
 # Resolve each /dev/sdX to a stable /dev/disk/by-id/ path. ZFS
 # stores these in the pool metadata, so a SATA-cable reshuffle or
 # controller re-numbering doesn't confuse the import on next boot.
-# Prefer ata-* / nvme-* paths over scsi-* / wwn-* because they're
-# the most human-readable.
+# Prefer ata-* / nvme-* paths because they're the most readable.
 disk_ids=()
-for entry in "${CANDIDATES[@]}"; do
-  name=${entry%% *}
+for name in "${SELECTED_NAMES[@]}"; do
   id_path=$(find /dev/disk/by-id/ -maxdepth 1 -lname "*/$name" \
     | grep -E '/(ata|nvme)-' | head -1)
   if [ -z "$id_path" ]; then
     id_path=$(find /dev/disk/by-id/ -maxdepth 1 -lname "*/$name" | head -1)
   fi
   if [ -z "$id_path" ]; then
-    echo "ERROR: no stable by-id path for /dev/$name" >&2
+    echo "No stable by-id path for /dev/$name" >&2
     exit 1
   fi
   disk_ids+=("$id_path")
 done
 
-# The big scary confirmation. Type the phrase or no pool gets made.
 echo ""
 echo "About to create RAIDZ1 pool '$POOL_NAME' across:"
-for entry in "${CANDIDATES[@]}"; do
-  echo "  /dev/${entry%% *}   (${entry#* })"
+for name in "${SELECTED_NAMES[@]}"; do
+  size=$(lsblk -dno SIZE "/dev/$name")
+  echo "  /dev/$name   ($size)"
 done
 echo ""
 echo "Stable by-id paths (what ZFS will store):"
