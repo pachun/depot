@@ -4,7 +4,23 @@
 
 # depot
 
-A self-hosted home media server built to run on a [UGreen NAS](https://www.ugreen.com/).
+A self-hosted home media server with a [beautiful, no-cruft UI](https://github.com/pachun/aviary), built to run on a [UGreen NAS](https://www.ugreen.com/).
+
+<p align="center">
+  <img src="screenshot.png" alt="aviary home page" width="600" />
+</p>
+
+Depot is made to run on a UGreen NAS, but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging which keeps streaming regular while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail, have a new one swapped in, and rebuild the pool.
+
+You'll also need some accounts:
+
+- [Tailscale](https://tailscale.com) (free)
+- [ProtonVPN](https://protonvpn.com) (paid ~$5/mo)
+- [Frugal Usenet](https://www.frugalusenet.com) (paid ~$60/yr)
+- [NZBGeek](https://nzbgeek.info) (paid ~$15/yr)
+- [IPTorrents](https://iptorrents.com) (invite only)
+
+[Email me](mailto:nick@pachulski.me) if you want an IPTorrents invite.
 
 ## 1. Create a bootable USB drive
 
@@ -93,13 +109,7 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 1. Open https://login.tailscale.com/admin/dns.
 2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
 
-## 11. Sign up for [Frugal Usenet](https://www.frugalusenet.com) and [NZBGeek](https://nzbgeek.info)
-
-## 12. Sign up for [IPTorrents](https://iptorrents.com)
-
-You can [email me](mailto:nick@pachulski.me) for an invite.
-
-## 13. Install depot
+## 11. Install depot
 
 ```
 cd ~/code/depot && ./services/configure.sh
@@ -107,6 +117,6 @@ cd ~/code/depot && ./services/configure.sh
 
 **`services/configure.sh` is idempotent**. Re-run it any time.
 
-## 14. Open Aviary in your browser
+## 12. Open Aviary in your browser
 
 Sign in with the admin credentials from earlier.
