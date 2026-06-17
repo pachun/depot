@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="depot.png" alt="depot" width="400" />
+</p>
+
 # depot
 
 A self-hosted home media server built to run on a [UGreen NAS](https://www.ugreen.com/).
