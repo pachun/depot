@@ -27,14 +27,40 @@ sudo \
 # HTTPS on the same port via tailscale; HTTP stays available.
 bash "$HERE/../tailscale/expose-https.sh" 9696
 
-# Register the Newznab indexer (NZBGeek) and the Sonarr+Radarr
-# Applications via Prowlarr's REST API. Both operations are
-# idempotent — looking up by name and PUT-ing if present, POST-ing if
-# new. Skipped gracefully on a fresh deploy where Prowlarr hasn't
+# Drive Prowlarr's first-run admin setup via /initialize.json. Skip
+# gracefully on a server where auth is already configured (the call
+# 409s, which arr_initialize_auth treats as success).
+ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+if [ -f "$ADMIN_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$ADMIN_ENV"
+  if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+    # shellcheck disable=SC1091
+    source "$HERE/../_arr-auth.sh"
+
+    # Wait for Prowlarr to come up — fresh containers need 5-10s.
+    for _ in $(seq 1 30); do
+      if curl -sf "http://localhost:9696/api/v1/system/status" >/dev/null 2>&1 \
+         || curl -sf "http://localhost:9696/initialize.json" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+
+    arr_initialize_auth \
+      "http://localhost:9696" \
+      "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "Prowlarr"
+  fi
+fi
+
+# Register indexers + Sonarr/Radarr Applications via Prowlarr's REST
+# API. All operations idempotent — lookup-by-name then PUT or POST.
+# Skipped gracefully on a fresh deploy where Prowlarr hasn't
 # generated its API key yet OR where the user hasn't provided an
 # indexer API key. Re-running picks both up.
 PROWLARR_CONFIG="$HOME/library/.config/prowlarr/config.xml"
 USENET_ENV="$HOME/library/.config/depot/usenet.env"
+IPT_ENV="$HOME/library/.config/depot/iptorrents.env"
 
 if [ -s "$PROWLARR_CONFIG" ]; then
   PROWLARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$PROWLARR_CONFIG" | head -1)
@@ -59,6 +85,21 @@ if [ -s "$PROWLARR_CONFIG" ]; then
           "NZBGeek" \
           "${INDEXER_NZBGEEK_URL:-https://api.nzbgeek.info}" \
           "$INDEXER_NZBGEEK_API_KEY"
+      fi
+    fi
+
+    # IPTorrents — reads the cookie + user-agent the user pasted in
+    # during prowlarr/prompts.sh. The cookie expires periodically;
+    # edit iptorrents.env + re-run configure.sh to refresh.
+    if [ -f "$IPT_ENV" ]; then
+      # shellcheck disable=SC1090
+      source "$IPT_ENV"
+      if [ -n "${IPT_COOKIE:-}" ] && [ -n "${IPT_USERAGENT:-}" ]; then
+        prowlarr_register_iptorrents \
+          "http://localhost:9696" \
+          "$PROWLARR_API_KEY" \
+          "$IPT_COOKIE" \
+          "$IPT_USERAGENT"
       fi
     fi
 

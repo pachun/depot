@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# Prompts for the Newznab indexer API key (NZBGeek) that prowlarr's
-# configure.sh registers via API. Persists to the same usenet.env
-# file sabnzbd/prompts.sh uses — one secret store for the whole
-# Usenet stack.
+# Prompts for everything Prowlarr's configure.sh needs:
+#   - admin user/password (shared across all services)
+#   - Newznab API key (NZBGeek)
+#   - IPTorrents browser session cookie + user-agent
+#
+# Persists Usenet stuff to usenet.env (shared with sabnzbd's prompts)
+# and the IPT stuff to iptorrents.env. Each gets sourced by the
+# corresponding configure.sh.
 #
 # Sourced (not executed) by setup/configure.sh's Phase 1.
+
+HERE_PROMPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$HERE_PROMPTS/../_admin-creds.sh"
 
 USENET_ENV="$HOME/library/.config/depot/usenet.env"
 mkdir -p "$(dirname "$USENET_ENV")"
@@ -54,3 +62,49 @@ INDEXER_NZBGEEK_API_KEY=$INDEXER_NZBGEEK_API_KEY
 EOF
 } > "$USENET_ENV"
 chmod 600 "$USENET_ENV"
+
+# IPTorrents — a tracker that can't be authenticated via API key, only
+# a logged-in browser session cookie + the User-Agent that came with
+# it. Print copy-paste-friendly instructions; the user fills two
+# fields once and depot wires the indexer into Prowlarr.
+IPT_ENV="$HOME/library/.config/depot/iptorrents.env"
+
+# shellcheck disable=SC1090
+[ -f "$IPT_ENV" ] && source "$IPT_ENV"
+
+if [ -z "${IPT_COOKIE:-}" ] || [ -z "${IPT_USERAGENT:-}" ]; then
+  cat <<'INSTRUCTIONS'
+
+  ── IPTorrents setup ───────────────────────────────────────────────
+  IPTorrents needs a browser session cookie + the User-Agent that
+  came with it. Steps:
+
+    1. Open https://iptorrents.com in your browser and log in.
+    2. Press F12 to open DevTools. Click the Network tab.
+    3. Reload the page (Cmd+R or Ctrl+R).
+    4. Click the very first request in the list (the page itself).
+    5. In the Headers tab, scroll to "Request Headers".
+    6. Copy the value of "Cookie:" and paste below.
+    7. After that prompts, do the same for "User-Agent:".
+  ───────────────────────────────────────────────────────────────────
+
+INSTRUCTIONS
+fi
+
+if [ -z "${IPT_COOKIE:-}" ]; then
+  read -r -p "IPTorrents Cookie: " IPT_COOKIE
+fi
+
+if [ -z "${IPT_USERAGENT:-}" ]; then
+  read -r -p "IPTorrents User-Agent: " IPT_USERAGENT
+fi
+
+umask 077
+cat > "$IPT_ENV" <<EOF
+# Auto-managed by depot's prowlarr/prompts.sh. The cookie expires
+# periodically; when IPTorrents searches start failing weeks/months
+# later, edit the values here and re-run setup/configure.sh.
+IPT_COOKIE=$IPT_COOKIE
+IPT_USERAGENT=$IPT_USERAGENT
+EOF
+chmod 600 "$IPT_ENV"

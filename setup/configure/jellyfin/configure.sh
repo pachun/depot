@@ -35,6 +35,58 @@ sudo \
   HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
+# Drive Jellyfin's first-run wizard via the Startup API — admin user
+# creation, Movies + Shows libraries, real-time monitoring,
+# aviary + sonarr API keys — so no browser tab needs to be opened on
+# a fresh deploy. Idempotent: jellyfin_needs_bootstrap returns false
+# on a server where the wizard already completed, and every individual
+# upsert checks for existing state before creating.
+#
+# Skips gracefully if admin.env isn't there (someone running just
+# jellyfin/configure.sh without going through the dispatcher's Phase
+# 1 prompts). Re-running through the dispatcher fills the gap.
+ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+if [ -f "$ADMIN_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$ADMIN_ENV"
+
+  if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+    # shellcheck disable=SC1091
+    source "$HERE/../_jellyfin-bootstrap.sh"
+
+    echo "Bootstrapping Jellyfin..."
+    JF_URL="http://localhost:8096"
+
+    if jellyfin_wait_for_api "$JF_URL"; then
+      if jellyfin_needs_bootstrap "$JF_URL"; then
+        echo "  running first-run wizard"
+        jellyfin_run_startup_wizard "$JF_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+        # After Startup/Complete, Jellyfin restarts internally — wait
+        # for the API to come back before logging in.
+        sleep 3
+        jellyfin_wait_for_api "$JF_URL"
+      else
+        echo "  wizard already complete — skipping"
+      fi
+
+      JF_TOKEN=$(jellyfin_login "$JF_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
+      if [ -n "$JF_TOKEN" ]; then
+        echo "  upserting Movies library"
+        jellyfin_upsert_library "$JF_URL" "$JF_TOKEN" "Movies" "movies" "/media/movies"
+
+        echo "  upserting Shows library"
+        jellyfin_upsert_library "$JF_URL" "$JF_TOKEN" "Shows" "tvshows" "/media/shows"
+
+        echo "  upserting aviary + sonarr API keys"
+        jellyfin_upsert_api_key "$JF_URL" "$JF_TOKEN" "aviary" >/dev/null
+        jellyfin_upsert_api_key "$JF_URL" "$JF_TOKEN" "sonarr" >/dev/null
+      else
+        echo "  WARN: login failed — bootstrap steps after this skipped"
+      fi
+    fi
+  fi
+fi
+
 # Intro Skipper plugin — auto-detects intros (and credits, recaps,
 # previews, commercials) via audio fingerprinting and exposes the
 # resulting timestamps on each episode via a REST endpoint. Aviary

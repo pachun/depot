@@ -63,6 +63,95 @@ sudo \
 # HTTPS on the same port via tailscale; HTTP stays available.
 bash "$HERE/../tailscale/expose-https.sh" 8080
 
-# URL and (first-run only) temporary admin password are printed by
-# summary.sh in configure.sh's Phase 3 so every service's address
-# lands together at the very end of the output.
+# Drive the qBittorrent first-run admin setup: scrape the temp
+# password the LSIO image logs on first boot, log in, change to
+# ADMIN_USERNAME / ADMIN_PASSWORD, create the tv + movies categories
+# Sonarr/Radarr expect, and add the docker bridge subnet to the
+# auth-bypass list so arr containers reaching qBit at
+# host.docker.internal don't need to handshake every call.
+#
+# Idempotent: on a second run the temp password is gone and we
+# successfully log in with the admin creds instead — the rest of
+# the steps then no-op on already-correct state.
+ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+if [ -f "$ADMIN_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$ADMIN_ENV"
+
+  if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+    echo "Bootstrapping qBittorrent..."
+
+    QBIT_URL="http://localhost:8080"
+
+    # Wait for qBit to come up. Fresh container needs ~5-10s.
+    for _ in $(seq 1 30); do
+      if curl -sf "$QBIT_URL/api/v2/app/version" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+
+    # First-run: LSIO logs the temp password as
+    #   "A temporary password is provided for this session: <TEMPPASS>"
+    # or older variants. Scrape from container logs; fall back to
+    # "adminadmin" (LSIO's older default) if scrape misses.
+    TEMP_PASS=$(docker logs qbittorrent 2>&1 \
+      | grep -oP '(?<=temporary password is provided for this session: )\S+' \
+      | tail -1)
+    [ -z "$TEMP_PASS" ] && TEMP_PASS="adminadmin"
+
+    qbit_cookie_jar=$(mktemp)
+    trap 'rm -f "$qbit_cookie_jar"' EXIT
+
+    # Try the admin creds first (idempotent path); fall back to temp.
+    qbit_login() {
+      curl -s -c "$qbit_cookie_jar" -X POST \
+        --data-urlencode "username=$1" \
+        --data-urlencode "password=$2" \
+        -o /dev/null -w '%{http_code}' \
+        "$QBIT_URL/api/v2/auth/login"
+    }
+
+    LOGIN_STATUS=$(qbit_login "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
+    if [ "$LOGIN_STATUS" != "200" ]; then
+      LOGIN_STATUS=$(qbit_login "admin" "$TEMP_PASS")
+    fi
+
+    if [ "$LOGIN_STATUS" = "200" ]; then
+      # Update credentials + auth-bypass settings. setPreferences takes
+      # a JSON blob in a `json` form field — URL-encode it to keep the
+      # quoting honest.
+      PREFS=$(jq -nc \
+        --arg user "$ADMIN_USERNAME" \
+        --arg pass "$ADMIN_PASSWORD" \
+        '{
+          web_ui_username: $user,
+          web_ui_password: $pass,
+          bypass_local_auth: true,
+          bypass_auth_subnet_whitelist_enabled: true,
+          bypass_auth_subnet_whitelist: "172.16.0.0/12,127.0.0.0/8"
+        }')
+      curl -s -b "$qbit_cookie_jar" -X POST \
+        --data-urlencode "json=$PREFS" \
+        "$QBIT_URL/api/v2/app/setPreferences" >/dev/null
+
+      # Create tv + movies categories Sonarr/Radarr expect. Idempotent
+      # — qBit returns 200 even if the category already exists.
+      curl -s -b "$qbit_cookie_jar" -X POST \
+        --data-urlencode "category=tv" \
+        --data-urlencode "savePath=/downloads" \
+        "$QBIT_URL/api/v2/torrents/createCategory" >/dev/null
+      curl -s -b "$qbit_cookie_jar" -X POST \
+        --data-urlencode "category=movies" \
+        --data-urlencode "savePath=/downloads" \
+        "$QBIT_URL/api/v2/torrents/createCategory" >/dev/null
+
+      echo "  admin creds + categories applied"
+    else
+      echo "  WARN: couldn't log into qBittorrent (status $LOGIN_STATUS)"
+    fi
+  fi
+fi
+
+# URL is printed by summary.sh in configure.sh's Phase 3 so every
+# service's address lands together at the very end of the output.

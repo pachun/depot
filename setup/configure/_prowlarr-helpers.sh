@@ -146,6 +146,81 @@ prowlarr_check_response() {
   return 1
 }
 
+# Upsert IPTorrents as an indexer in Prowlarr. Same upsert-by-name
+# pattern as Newznab, but with the IPTorrents implementation +
+# cookie/UA auth fields that the user pasted in during prompts.sh.
+#
+# Args:
+#   1: prowlarr base URL
+#   2: prowlarr API key
+#   3: IPT browser session cookie
+#   4: IPT browser user-agent
+prowlarr_register_iptorrents() {
+  local base_url="$1"
+  local api_key="$2"
+  local ipt_cookie="$3"
+  local ipt_useragent="$4"
+
+  local app_profile_id
+  app_profile_id=$(curl -s -H "X-Api-Key: $api_key" \
+    "${base_url}/api/v1/appprofile" \
+    | jq -r 'sort_by(.id) | .[0].id // 1')
+
+  local categories='[2000,2010,2020,2030,2040,2045,2050,2060,5000,5010,5020,5030,5040,5045,5050,5060,5070,5080]'
+
+  local payload
+  payload=$(cat <<EOF
+{
+  "name": "IPTorrents",
+  "enable": true,
+  "redirect": false,
+  "supportsRss": true,
+  "supportsSearch": true,
+  "supportsRedirect": false,
+  "priority": 25,
+  "downloadClientId": 0,
+  "appProfileId": $app_profile_id,
+  "implementation": "IPTorrents",
+  "implementationName": "IPTorrents",
+  "configContract": "IPTorrentsSettings",
+  "protocol": "torrent",
+  "privacy": "private",
+  "fields": [
+    {"name": "baseUrl", "value": "https://iptorrents.com"},
+    {"name": "cookie", "value": $(jq -Rn --arg c "$ipt_cookie" '$c')},
+    {"name": "userAgent", "value": $(jq -Rn --arg u "$ipt_useragent" '$u')},
+    {"name": "categories", "value": $categories}
+  ],
+  "tags": []
+}
+EOF
+  )
+
+  local existing_id
+  existing_id=$(curl -s -H "X-Api-Key: $api_key" \
+    "${base_url}/api/v1/indexer" \
+    | jq -r '.[] | select(.name=="IPTorrents") | .id' | head -1)
+
+  local resp
+  if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
+    local with_id
+    with_id=$(echo "$payload" | jq --arg id "$existing_id" '.id = ($id | tonumber)')
+    resp=$(curl -s -w $'\n%{http_code}' -X PUT \
+      -H "X-Api-Key: $api_key" \
+      -H "Content-Type: application/json" \
+      -d "$with_id" \
+      "${base_url}/api/v1/indexer/${existing_id}")
+    prowlarr_check_response "PUT indexer IPTorrents" "$resp"
+  else
+    resp=$(curl -s -w $'\n%{http_code}' -X POST \
+      -H "X-Api-Key: $api_key" \
+      -H "Content-Type: application/json" \
+      -d "$payload" \
+      "${base_url}/api/v1/indexer")
+    prowlarr_check_response "POST indexer IPTorrents" "$resp"
+  fi
+}
+
 # Upsert a Sonarr-or-Radarr Application in Prowlarr. The Application
 # bridge is what makes Prowlarr push indexer config TO the arrs —
 # without it the arrs never learn what Prowlarr knows.

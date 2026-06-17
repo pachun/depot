@@ -29,15 +29,36 @@ sudo \
 # HTTPS on the same port via tailscale; HTTP stays available.
 bash "$HERE/../tailscale/expose-https.sh" 7878
 
-# Opinionated release-picker policy: English-only language on every
-# quality profile, and -10000 custom-format scores for Audio
-# Description tracks, theater cam-rips/telesync/screener, and a
-# small set of known low-quality release groups. See
-# _arr-profile.sh for the full payloads + logic.
+# Drive Radarr's first-run admin setup via /initialize.json.
+ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+if [ -f "$ADMIN_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$ADMIN_ENV"
+  if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+    # shellcheck disable=SC1091
+    source "$HERE/../_arr-auth.sh"
+
+    for _ in $(seq 1 30); do
+      if curl -sf "http://localhost:7878/api/v3/system/status" >/dev/null 2>&1 \
+         || curl -sf "http://localhost:7878/initialize.json" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+
+    arr_initialize_auth \
+      "http://localhost:7878" \
+      "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "Radarr"
+  fi
+fi
+
+# Opinionated release-picker policy + first-class bootstrap (root
+# folder, qBit download client, Jellyfin notification). All
+# idempotent.
 #
 # Skips gracefully on a fresh Radarr install where config.xml
 # doesn't exist yet — re-running this script post-Radarr-setup
-# picks it up. The arr-profile helper itself is idempotent.
+# picks it up.
 RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
 if [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1)
@@ -45,6 +66,26 @@ if [ -s "$RADARR_CONFIG" ]; then
     # shellcheck disable=SC1091
     source "$HERE/../_arr-profile.sh"
     arr_apply_opinionated_policy "http://localhost:7878" "$RADARR_API_KEY"
+
+    # shellcheck disable=SC1091
+    source "$HERE/../_prowlarr-helpers.sh"   # for prowlarr_check_response
+    # shellcheck disable=SC1091
+    source "$HERE/../_arr-bootstrap.sh"
+
+    arr_upsert_root_folder \
+      "http://localhost:7878" "$RADARR_API_KEY" "/movies"
+
+    if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+      arr_upsert_qbittorrent_client \
+        "http://localhost:7878" "$RADARR_API_KEY" \
+        "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "movies"
+    fi
+
+    JF_KEY=$(arr_lookup_jellyfin_api_key "sonarr")
+    if [ -n "$JF_KEY" ]; then
+      arr_upsert_jellyfin_notification \
+        "http://localhost:7878" "$RADARR_API_KEY" "$JF_KEY"
+    fi
   fi
 fi
 
