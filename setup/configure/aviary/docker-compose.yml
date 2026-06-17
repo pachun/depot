@@ -1,7 +1,7 @@
 services:
   aviary:
     build:
-      # Source clone lives at ~/library/apps/aviary; configure.sh
+      # Source clone lives at ~/hdds/apps/aviary; configure.sh
       # passes its absolute path through SRC so this compose file
       # doesn't have to know about the host's home directory.
       context: ${SRC}

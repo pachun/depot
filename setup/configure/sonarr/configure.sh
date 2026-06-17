@@ -3,7 +3,7 @@
 # qbittorrent (download), and manages the library of shows you've
 # subscribed to. When a new episode drops, sonarr asks prowlarr to
 # search every configured indexer, sends the best grab to qbittorrent,
-# then imports/renames the completed file into ~/library/media/shows
+# then imports/renames the completed file into ~/hdds/media/tv
 # where jellyfin sees it.
 #
 # Idempotent.
@@ -13,9 +13,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$HERE/../docker/configure.sh"
 
 mkdir -p \
-  ~/library/.config/sonarr \
-  ~/library/downloads \
-  ~/library/media/shows
+  ~/hdds/.config/sonarr \
+  ~/hdds/seeding \
+  ~/downloading/usenet \
+  ~/hdds/media/tv
 
 sudo ufw allow 8989/tcp
 
@@ -31,7 +32,7 @@ bash "$HERE/../tailscale/expose-https.sh" 8989
 
 # Drive Sonarr's first-run admin setup via /initialize.json. Idempotent
 # — arr_create_admin treats 409 (already configured) as success.
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -60,7 +61,7 @@ fi
 # Skips gracefully on a fresh Sonarr install where config.xml
 # doesn't exist yet — re-running this script post-Sonarr-setup
 # picks it up.
-SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
+SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
 if [ -s "$SONARR_CONFIG" ]; then
   SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1 || true)
   if [ -n "$SONARR_API_KEY" ]; then
@@ -73,7 +74,7 @@ if [ -s "$SONARR_CONFIG" ]; then
     # shellcheck disable=SC1091
     source "$HERE/../_shared/arr/set_library_directory.sh"
     arr_set_library_directory \
-      "http://localhost:8989" "$SONARR_API_KEY" "/shows"
+      "http://localhost:8989" "$SONARR_API_KEY" "/tv"
 
     # qBittorrent download client. Reads creds from admin.env (same
     # ones used for qBit's own admin user).

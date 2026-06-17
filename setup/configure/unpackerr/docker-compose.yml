@@ -3,32 +3,30 @@ services:
     image: golift/unpackerr:latest
     container_name: unpackerr
     # No web UI; no published ports. The container is a daemon that
-    # watches the /downloads tree, extracts archives as they appear,
+    # watches the download trees, extracts archives as they appear,
     # and pokes Sonarr/Radarr's APIs to re-trigger import once a
     # release that was a RAR/7z lands as a usable .mkv on disk.
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
-      # Sonarr integration. URL reaches the host via the docker bridge
-      # gateway (same pattern as every other arr-stack service). Path
-      # must match what Sonarr's queue reports for completed downloads
-      # — both containers mount the same host dir at /downloads.
-      # API key is harvested from sonarr/config.xml by configure.sh.
+      # Both tiers exposed to the arrs — qBit completes on the HDD
+      # pool at /seeding, SAB on the SSD at /usenet. Same in-container
+      # paths the arr containers use, so the arr's queue path matches
+      # what unpackerr sees.
       - UN_SONARR_0_URL=http://host.docker.internal:8989
       - UN_SONARR_0_API_KEY=${SONARR_API_KEY}
-      - UN_SONARR_0_PATHS_0=/downloads
-      # Radarr integration. Same shape as Sonarr; unpackerr handles
-      # the two stacks identically and tells each *arr its own files
-      # are ready when extraction finishes.
+      - UN_SONARR_0_PATHS_0=/seeding
+      - UN_SONARR_0_PATHS_1=/usenet
       - UN_RADARR_0_URL=http://host.docker.internal:7878
       - UN_RADARR_0_API_KEY=${RADARR_API_KEY}
-      - UN_RADARR_0_PATHS_0=/downloads
+      - UN_RADARR_0_PATHS_0=/seeding
+      - UN_RADARR_0_PATHS_1=/usenet
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      # Same host dir as qBittorrent / Sonarr / Radarr. unpackerr
-      # needs read+write here — it extracts archives in place, then
-      # cleans up the archive itself after a 5-minute grace period.
-      - ${HOME}/library/downloads:/downloads
+      # Read+write needed — unpackerr extracts archives in place, then
+      # cleans up the archive after a 5-minute grace period.
+      - ${HOME}/hdds/seeding:/seeding
+      - ${HOME}/downloading/usenet:/usenet
     restart: unless-stopped

@@ -19,6 +19,12 @@ services:
       - TZ=${TZ}
       - WEBUI_PORT=8080
     volumes:
-      - ${HOME}/library/.config/qbittorrent:/config
-      - ${HOME}/library/downloads:/downloads
+      - ${HOME}/hdds/.config/qbittorrent:/config
+      # Two storage tiers: incomplete downloads on the SSD (random-
+      # write workload qBit will pound), completed torrents on the
+      # HDD pool (where qBit keeps seeding from). Container path =
+      # last segment of host path everywhere — no translation needed
+      # when reading qBit logs against the filesystem.
+      - ${HOME}/downloading/torrents:/torrents
+      - ${HOME}/hdds/seeding:/seeding
     restart: unless-stopped

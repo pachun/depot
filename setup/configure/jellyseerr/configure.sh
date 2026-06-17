@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
-mkdir -p ~/library/.config/jellyseerr
+mkdir -p ~/hdds/.config/jellyseerr
 
 sudo ufw allow 5055/tcp
 
@@ -34,7 +34,7 @@ bash "$HERE/../tailscale/expose-https.sh" 5055
 # Skips gracefully if dependent services don't exist yet (Jellyfin
 # api key, sonarr/radarr config). Re-running configure.sh after they
 # do picks them up.
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -80,7 +80,7 @@ if [ -f "$ADMIN_ENV" ]; then
 
       # 3) Wire Sonarr.
       SONARR_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' \
-        "$HOME/library/.config/sonarr/config.xml" 2>/dev/null | head -1 || true)
+        "$HOME/hdds/.config/sonarr/config.xml" 2>/dev/null | head -1 || true)
       if [ -n "$SONARR_KEY" ]; then
         curl -s -X POST -H "Content-Type: application/json" \
           -c /tmp/js-cookie -b /tmp/js-cookie \
@@ -103,7 +103,7 @@ if [ -f "$ADMIN_ENV" ]; then
 
       # 4) Wire Radarr.
       RADARR_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' \
-        "$HOME/library/.config/radarr/config.xml" 2>/dev/null | head -1 || true)
+        "$HOME/hdds/.config/radarr/config.xml" 2>/dev/null | head -1 || true)
       if [ -n "$RADARR_KEY" ]; then
         curl -s -X POST -H "Content-Type: application/json" \
           -c /tmp/js-cookie -b /tmp/js-cookie \

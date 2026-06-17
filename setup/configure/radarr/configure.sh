@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Radarr — movie automation. Structural twin of sonarr but for movies
 # rather than TV. Search-and-grab UX for ad-hoc movie downloads, plus
-# automatic naming/organization into ~/library/media/movies/ where
+# automatic naming/organization into ~/hdds/media/movies/ where
 # jellyfin's Movies library picks them up. Doesn't really do
 # subscriptions in any useful way (sequels are too rare to matter),
 # but the per-download automation alone is worth the setup.
@@ -13,9 +13,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$HERE/../docker/configure.sh"
 
 mkdir -p \
-  ~/library/.config/radarr \
-  ~/library/downloads \
-  ~/library/media/movies
+  ~/hdds/.config/radarr \
+  ~/hdds/seeding \
+  ~/downloading/usenet \
+  ~/hdds/media/movies
 
 sudo ufw allow 7878/tcp
 
@@ -30,7 +31,7 @@ sudo \
 bash "$HERE/../tailscale/expose-https.sh" 7878
 
 # Drive Radarr's first-run admin setup via /initialize.json.
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -59,7 +60,7 @@ fi
 # Skips gracefully on a fresh Radarr install where config.xml
 # doesn't exist yet — re-running this script post-Radarr-setup
 # picks it up.
-RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
 if [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1 || true)
   if [ -n "$RADARR_API_KEY" ]; then

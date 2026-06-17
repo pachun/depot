@@ -2,7 +2,7 @@
 # tunnel will use. Sourced from configure.sh's Phase 1 so the prompt
 # fires before anything is brought up.
 #
-# Persisted to ~/library/.config/gluetun/wg.env so re-runs of
+# Persisted to ~/hdds/.config/gluetun/wg.env so re-runs of
 # configure.sh skip the prompt once the creds are saved.
 #
 # How to get the .conf:
@@ -13,7 +13,7 @@
 #        - Create + Download → you get a .conf file
 #   3. scp it onto this box, e.g.
 #        scp ~/Downloads/proton.conf nick@framework-depot:/tmp/
-WG_ENV="$HOME/library/.config/gluetun/wg.env"
+WG_ENV="$HOME/hdds/.config/gluetun/wg.env"
 mkdir -p "$(dirname "$WG_ENV")"
 
 if [ -f "$WG_ENV" ]; then

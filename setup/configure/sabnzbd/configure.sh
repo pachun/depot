@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # SABnzbd — Usenet equivalent of qbittorrent. Pulls NZB files from
 # disk (handed in by sonarr/radarr) and downloads the referenced
-# articles from the configured Frugal Usenet server topology. Output
-# lands in ~/library/downloads where sonarr/radarr can hardlink it
-# into the media tree, same convention as the torrent stack.
+# articles from the configured Frugal Usenet server topology.
+#
+# Storage: everything Usenet stays on the SSD end-to-end — incomplete
+# downloads, par2/unrar reassembly, and the completed payload all
+# live in ~/downloading/usenet (mapped to /usenet in the container).
+# Sonarr/Radarr import directly from /usenet into ~/hdds/media via
+# cross-filesystem copy. SAB doesn't seed, so there's no reason to
+# keep a copy on the HDD pool — the arrs own the only persistent
+# copy once import lands.
 #
 # Optional: skipped if usenet.env isn't present (the user hasn't run
 # the dispatcher's prompts.sh yet). Re-running the dispatcher later
@@ -13,7 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
-USENET_ENV="$HOME/library/.config/depot/usenet.env"
+USENET_ENV="$HOME/hdds/.config/depot/usenet.env"
 if [ ! -f "$USENET_ENV" ]; then
   echo "sabnzbd skipped — $USENET_ENV not present (prompts.sh first)"
   exit 0
@@ -27,8 +33,8 @@ if [ -z "${USENET_USERNAME:-}" ] || [ -z "${USENET_PASSWORD:-}" ]; then
 fi
 
 mkdir -p \
-  ~/library/.config/sabnzbd \
-  ~/library/downloads
+  ~/hdds/.config/sabnzbd \
+  ~/downloading/usenet
 
 sudo ufw allow 8085/tcp
 
@@ -46,7 +52,7 @@ TAILNET_FQDN=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // emp
 # three Frugal servers, the categories sonarr/radarr expect, and a
 # stable API key we generate (so the arr-side registration below has
 # something deterministic to use).
-SABNZBD_INI=~/library/.config/sabnzbd/sabnzbd.ini
+SABNZBD_INI=~/hdds/.config/sabnzbd/sabnzbd.ini
 if [ ! -f "$SABNZBD_INI" ]; then
   SABNZBD_API_KEY=$(openssl rand -hex 16)
   umask 077
@@ -56,8 +62,8 @@ api_key = $SABNZBD_API_KEY
 nzb_key = $SABNZBD_API_KEY
 host = 0.0.0.0
 port = 8080
-download_dir = /downloads/incomplete
-complete_dir = /downloads
+download_dir = /usenet/incomplete
+complete_dir = /usenet
 # host_whitelist is comma-separated allowed Host header values.
 # Includes the tailnet FQDN (so the browser can reach us via
 # tailscale serve), the short hostname for SSH-tunnel access, and
@@ -72,12 +78,12 @@ inet_exposure = 4
 priority = -100
 pp = 3
 name = tv
-dir = /downloads
+dir = /usenet/tv
 [[movies]]
 priority = -100
 pp = 3
 name = movies
-dir = /downloads
+dir = /usenet/movies
 
 [servers]
 [[frugal-primary]]
@@ -242,7 +248,7 @@ done
 # shellcheck disable=SC1091
 source "$HERE/register_into_arrs.sh"
 
-SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
+SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
 if [ -s "$SONARR_CONFIG" ]; then
   SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1 || true)
   if [ -n "$SONARR_API_KEY" ]; then
@@ -255,7 +261,7 @@ if [ -s "$SONARR_CONFIG" ]; then
   fi
 fi
 
-RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
 if [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1 || true)
   if [ -n "$RADARR_API_KEY" ]; then

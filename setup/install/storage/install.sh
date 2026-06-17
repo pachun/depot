@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Storage — set up the RAIDZ1 pool that holds the media library.
-# Runs after bootstrap, before configure.sh, so every depot bind-
-# mount under ~/library lands on redundant storage automatically.
+# Storage — set up the RAIDZ1 pool that holds the media library,
+# plus format and mount the user-supplied SSD as the downloads
+# staging tier. Runs after bootstrap, before configure.sh, so every
+# depot bind-mount under ~/hdds and ~/downloading lands on the
+# right storage automatically.
 #
 # Lists all rotational disks, lets the operator pick which ones go
 # in the pool (minimum 3 for RAIDZ1). No fixed disk count.
@@ -12,10 +14,10 @@
 #   - atime=off (no metadata write on every read)
 #   - recordsize=1M (good for large media reads; small-file write
 #     amplification is acceptable for the config/secrets files that
-#     live under ~/library/.config — they're tiny and infrequent)
+#     live under ~/hdds/.config — they're tiny and infrequent)
 #   - ashift=12 (4K sector alignment; modern drives often misreport
 #     512-byte sectors for backwards compat)
-#   - Mountpoint: ~/library
+#   - Mountpoint: ~/hdds
 #   - Weekly scrub via the bundled systemd timer
 #   - ZED enabled to log disk events to journal (`journalctl -u zed`).
 #     Email alerts need additional SMTP setup and stay outside this
@@ -31,7 +33,7 @@
 set -euo pipefail
 
 POOL_NAME="tank"
-MOUNTPOINT="$HOME/library"
+MOUNTPOINT="$HOME/hdds"
 
 # Short-circuit if the pool already exists and ZFS knows about it.
 # `zpool list` exits 0 when the pool is present, non-zero otherwise.
@@ -165,7 +167,7 @@ sudo zpool create \
   "$POOL_NAME" raidz1 "${disk_ids[@]}"
 
 # Hand the mountpoint to the install user so configure.sh's mkdir
-# calls under ~/library don't need sudo.
+# calls under ~/hdds don't need sudo.
 sudo chown "$USER:$USER" "$MOUNTPOINT"
 
 # Auto-import + mount the pool on every boot.
@@ -186,3 +188,97 @@ sudo systemctl enable --now zfs-zed.service
 echo ""
 echo "ZFS pool '$POOL_NAME' created and mounted at $MOUNTPOINT."
 echo "Verify with:  zpool status $POOL_NAME"
+
+# ============================================================
+# Downloads staging tier — format + mount the user-supplied NVMe.
+# Stays separate from the ZFS pool so heavy random-write download
+# workloads don't pound the HDDs. ext4 because it's plain and well-
+# understood; we don't need ZFS features (snapshots, parity) for a
+# transient staging tier where loss just means re-downloading.
+# ============================================================
+
+DOWNLOADING_MOUNT="$HOME/downloading"
+
+# Already mounted? Short-circuit.
+if mountpoint -q "$DOWNLOADING_MOUNT" 2>/dev/null; then
+  echo ""
+  echo "$DOWNLOADING_MOUNT already mounted — skipping SSD step."
+else
+  # Find every non-OS NVMe SSD that isn't the boot disk. Same
+  # filter shape as the HDD picker, but for the SSD tier.
+  BOOT_PART=$(findmnt -no SOURCE / || true)
+  BOOT_DISK=$(lsblk -dno pkname "$BOOT_PART" 2>/dev/null || true)
+
+  mapfile -t SSD_CANDIDATES < <(
+    lsblk -dno NAME,TYPE,ROTA,TRAN | awk '$2 == "disk" && $3 == "0" && $4 == "nvme" { print $1 }'
+  )
+
+  # Drop the boot NVMe.
+  SSD_NAMES=()
+  for name in "${SSD_CANDIDATES[@]}"; do
+    if [ "$name" != "$BOOT_DISK" ]; then
+      SSD_NAMES+=("$name")
+    fi
+  done
+
+  if [ ${#SSD_NAMES[@]} -eq 0 ]; then
+    echo ""
+    echo "No non-boot NVMe found — skipping downloads-tier setup."
+  else
+    echo ""
+    echo "Non-boot NVMe drives:"
+    i=1
+    for name in "${SSD_NAMES[@]}"; do
+      size=$(lsblk -dno SIZE "/dev/$name")
+      model=$(lsblk -dno MODEL "/dev/$name" | tr -s ' ')
+      serial=$(lsblk -dno SERIAL "/dev/$name")
+      printf "  %d) %-8s %-7s %-32s %s\n" \
+        "$i" "$name" "$size" "$model" "$serial"
+      i=$((i+1))
+    done
+
+    echo ""
+    read -r -p "Pick the SSD to use for downloading (single index): " ssd_idx
+
+    if [[ ! "$ssd_idx" =~ ^[0-9]+$ ]] || [ "$ssd_idx" -lt 1 ] || [ "$ssd_idx" -gt ${#SSD_NAMES[@]} ]; then
+      echo "Invalid index: $ssd_idx" >&2
+      exit 1
+    fi
+
+    SSD_NAME="${SSD_NAMES[$((ssd_idx-1))]}"
+    SSD_DEV="/dev/$SSD_NAME"
+
+    # Stable by-id path for fstab — same reason ZFS uses by-id.
+    SSD_ID_PATH=$(find /dev/disk/by-id/ -maxdepth 1 -lname "*/$SSD_NAME" \
+      | grep -E '/nvme-' | head -1)
+    if [ -z "$SSD_ID_PATH" ]; then
+      SSD_ID_PATH=$(find /dev/disk/by-id/ -maxdepth 1 -lname "*/$SSD_NAME" | head -1)
+    fi
+
+    echo ""
+    echo "About to FORMAT $SSD_DEV as ext4 and mount at $DOWNLOADING_MOUNT."
+    echo "By-id (what fstab will use): $SSD_ID_PATH"
+    echo "ALL DATA on $SSD_DEV will be DESTROYED."
+    echo ""
+    read -r -p "Type 'format ssd' to confirm: " confirmation
+    if [ "$confirmation" != "format ssd" ]; then
+      echo "Aborted."
+      exit 1
+    fi
+
+    sudo mkfs.ext4 -F -L downloading "$SSD_DEV"
+
+    sudo mkdir -p "$DOWNLOADING_MOUNT"
+
+    FSTAB_LINE="$SSD_ID_PATH  $DOWNLOADING_MOUNT  ext4  defaults,noatime  0  2"
+    if ! grep -qF "$SSD_ID_PATH" /etc/fstab; then
+      echo "$FSTAB_LINE" | sudo tee -a /etc/fstab >/dev/null
+    fi
+
+    sudo mount "$DOWNLOADING_MOUNT"
+    sudo chown "$USER:$USER" "$DOWNLOADING_MOUNT"
+
+    echo ""
+    echo "Downloads tier ready at $DOWNLOADING_MOUNT."
+  fi
+fi

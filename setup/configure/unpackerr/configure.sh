@@ -19,8 +19,8 @@ bash "$HERE/../docker/configure.sh"
 
 # Same API-key harvest pattern aviary/configure.sh uses for Sonarr —
 # both *arr services keep their key in config.xml under <ApiKey>.
-SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
-RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
+RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
 
 SONARR_API_KEY=""
 RADARR_API_KEY=""

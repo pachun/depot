@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # qBittorrent — torrent client managed via a web UI on port 8080. Sits
-# at the bottom of the arr stack: sonarr/radarr send grabs here, files
-# land in ~/library/downloads/, and once the arr tools rename/import
-# them they move into ~/library/media/.
+# at the bottom of the arr stack: sonarr/radarr send grabs here.
+#
+# Storage split: incomplete downloads land on the SSD
+# (~/downloading/torrents → /torrents in the container), completed
+# torrents move to the HDD pool (~/hdds/seeding → /seeding in the
+# container) where qBit keeps seeding. The arrs hardlink-import from
+# /seeding into ~/hdds/media/{tv,movies} — both paths on the same
+# ZFS dataset, so hardlinks work and no double-storage during seeding.
 #
 # Network: qBittorrent shares gluetun's network namespace, so all its
 # torrent traffic exits via the ProtonVPN WireGuard tunnel. The web UI
@@ -27,7 +32,7 @@ bash "$HERE/../docker/configure.sh"
 # as the docker call above.
 bash "$HERE/../gluetun/configure.sh"
 
-mkdir -p ~/library/.config/qbittorrent ~/library/downloads
+mkdir -p ~/hdds/.config/qbittorrent ~/hdds/seeding ~/downloading/torrents
 
 # Pre-seed qBittorrent.conf on a fresh install so that on its very
 # first start qBittorrent has "Bypass authentication for clients on
@@ -39,7 +44,7 @@ mkdir -p ~/library/.config/qbittorrent ~/library/downloads
 # its full state to this file on shutdown, so on every later run the
 # file already exists with the user's accumulated settings and we
 # leave it alone.
-QBIT_CONF_DIR=~/library/.config/qbittorrent/qBittorrent/config
+QBIT_CONF_DIR=~/hdds/.config/qbittorrent/qBittorrent/config
 QBIT_CONF="$QBIT_CONF_DIR/qBittorrent.conf"
 mkdir -p "$QBIT_CONF_DIR"
 if [ ! -f "$QBIT_CONF" ]; then
@@ -73,7 +78,7 @@ bash "$HERE/../tailscale/expose-https.sh" 8080
 # Idempotent: on a second run the temp password is gone and we
 # successfully log in with the admin creds instead — the rest of
 # the steps then no-op on already-correct state.
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -130,6 +135,11 @@ if [ -f "$ADMIN_ENV" ]; then
       # Update credentials + auth-bypass settings. setPreferences takes
       # a JSON blob in a `json` form field — URL-encode it to keep the
       # quoting honest.
+      # Set credentials + auth-bypass + the storage-split paths.
+      # temp_path is the SSD-backed incomplete folder (/torrents in
+      # the container, mapped from ~/downloading/torrents on the
+      # host); save_path is the HDD-backed completed folder (/seeding
+      # in the container, mapped from ~/hdds/seeding).
       PREFS=$(jq -nc \
         --arg user "$ADMIN_USERNAME" \
         --arg pass "$ADMIN_PASSWORD" \
@@ -138,21 +148,26 @@ if [ -f "$ADMIN_ENV" ]; then
           web_ui_password: $pass,
           bypass_local_auth: true,
           bypass_auth_subnet_whitelist_enabled: true,
-          bypass_auth_subnet_whitelist: "172.16.0.0/12,127.0.0.0/8"
+          bypass_auth_subnet_whitelist: "172.16.0.0/12,127.0.0.0/8",
+          temp_path_enabled: true,
+          temp_path: "/torrents",
+          save_path: "/seeding"
         }')
       curl -s -b "$qbit_cookie_jar" -X POST \
         --data-urlencode "json=$PREFS" \
         "$QBIT_URL/api/v2/app/setPreferences" >/dev/null
 
       # Create tv + movies categories Sonarr/Radarr expect. Idempotent
-      # — qBit returns 200 even if the category already exists.
+      # — qBit returns 200 even if the category already exists. Save
+      # paths under /seeding/<category> so completed files land
+      # organized on the HDD pool.
       curl -s -b "$qbit_cookie_jar" -X POST \
         --data-urlencode "category=tv" \
-        --data-urlencode "savePath=/downloads" \
+        --data-urlencode "savePath=/seeding/tv" \
         "$QBIT_URL/api/v2/torrents/createCategory" >/dev/null
       curl -s -b "$qbit_cookie_jar" -X POST \
         --data-urlencode "category=movies" \
-        --data-urlencode "savePath=/downloads" \
+        --data-urlencode "savePath=/seeding/movies" \
         "$QBIT_URL/api/v2/torrents/createCategory" >/dev/null
 
       echo "  admin creds + categories applied"

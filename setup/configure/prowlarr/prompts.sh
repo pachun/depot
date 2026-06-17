@@ -14,7 +14,7 @@ HERE_PROMPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$HERE_PROMPTS/../_shared/prompts/admin_credentials.sh"
 
-USENET_ENV="$HOME/library/.config/depot/usenet.env"
+USENET_ENV="$HOME/hdds/.config/depot/usenet.env"
 mkdir -p "$(dirname "$USENET_ENV")"
 
 # shellcheck disable=SC1090
@@ -68,7 +68,7 @@ chmod 600 "$USENET_ENV"
 # a logged-in browser session cookie + the User-Agent that came with
 # it. Print copy-paste-friendly instructions; the user fills two
 # fields once and depot wires the indexer into Prowlarr.
-IPT_ENV="$HOME/library/.config/depot/iptorrents.env"
+IPT_ENV="$HOME/hdds/.config/depot/iptorrents.env"
 
 # shellcheck disable=SC1090
 [ -f "$IPT_ENV" ] && source "$IPT_ENV"

@@ -17,5 +17,5 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/library/.config/jellyseerr:/app/config
+      - ${HOME}/hdds/.config/jellyseerr:/app/config
     restart: unless-stopped

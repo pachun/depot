@@ -14,15 +14,18 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/library/.config/sonarr:/config
-      # Same in-container path as qbittorrent so sonarr finds completed
-      # downloads at the exact path qbittorrent reports them at. Both
-      # mount the same host directory.
-      - ${HOME}/library/downloads:/downloads
+      - ${HOME}/hdds/.config/sonarr:/config
+      # Two download-client surfaces — qBit (/seeding, HDD pool) and
+      # SAB (/usenet, SSD). Container path = last segment of host
+      # path everywhere, so qBit's "save_path=/seeding" matches what
+      # sonarr sees at /seeding, and the same translation applies to
+      # /usenet.
+      - ${HOME}/hdds/seeding:/seeding
+      - ${HOME}/downloading/usenet:/usenet
       # Sonarr's "root folder" — imported/renamed episodes land here.
-      # Lives under ~/library/media/shows so jellyfin's Shows library
-      # (configured to /media/shows inside its container) sees them.
-      # Same filesystem as /downloads so sonarr can hardlink instead of
-      # copy, saving disk + preserving seeding from the original file.
-      - ${HOME}/library/media/shows:/shows
+      # On the HDD pool with /seeding (same ZFS dataset → hardlinks
+      # work, no double-storage during seeding). /usenet is on a
+      # different filesystem, so SAB imports use copy+delete, which
+      # is fine for one-time-per-file work.
+      - ${HOME}/hdds/media/tv:/tv
     restart: unless-stopped

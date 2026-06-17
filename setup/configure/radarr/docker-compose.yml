@@ -13,14 +13,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/library/.config/radarr:/config
-      # Same in-container path as qbittorrent so radarr finds completed
-      # downloads at the exact path qbittorrent reports.
-      - ${HOME}/library/downloads:/downloads
+      - ${HOME}/hdds/.config/radarr:/config
+      # See sonarr/docker-compose.yml for the rationale on these two
+      # download-client mounts (qBit on /seeding, SAB on /usenet).
+      - ${HOME}/hdds/seeding:/seeding
+      - ${HOME}/downloading/usenet:/usenet
       # Radarr's "root folder" — imported/renamed movies land here.
-      # Lives under ~/library/media/movies so jellyfin's Movies library
-      # (configured to /media/movies inside its container) sees them.
-      # Same filesystem as /downloads so radarr hardlinks instead of
-      # copies, saving disk and preserving seeding from the original.
-      - ${HOME}/library/media/movies:/movies
+      # On the HDD pool, hardlink-compatible with /seeding.
+      - ${HOME}/hdds/media/movies:/movies
     restart: unless-stopped

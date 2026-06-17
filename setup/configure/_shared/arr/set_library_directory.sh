@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Tell an *arr where to save finished media — the "root folder" in
 # arr-speak. This is the path the arr considers its library; finished
-# downloads are moved here from wherever the download client dropped
-# them. Sonarr → ~/library/tv, Radarr → ~/library/movies.
+# downloads are imported here from wherever the download client dropped
+# them. Sonarr → /tv (host ~/hdds/media/tv), Radarr → /movies (host
+# ~/hdds/media/movies). The path is the container-side mount point;
+# see each arr's docker-compose.yml for the host mapping.
 #
 # Idempotent: GETs /rootfolder first, no-ops if the target path is
 # already present.

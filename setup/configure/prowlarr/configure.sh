@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
-mkdir -p ~/library/.config/prowlarr
+mkdir -p ~/hdds/.config/prowlarr
 
 sudo ufw allow 9696/tcp
 
@@ -30,7 +30,7 @@ bash "$HERE/../tailscale/expose-https.sh" 9696
 # Drive Prowlarr's first-run admin setup via /initialize.json. Skip
 # gracefully on a server where auth is already configured (the call
 # 409s, which arr_create_admin treats as success).
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -58,9 +58,9 @@ fi
 # Skipped gracefully on a fresh deploy where Prowlarr hasn't
 # generated its API key yet OR where the user hasn't provided an
 # indexer API key. Re-running picks both up.
-PROWLARR_CONFIG="$HOME/library/.config/prowlarr/config.xml"
-USENET_ENV="$HOME/library/.config/depot/usenet.env"
-IPT_ENV="$HOME/library/.config/depot/iptorrents.env"
+PROWLARR_CONFIG="$HOME/hdds/.config/prowlarr/config.xml"
+USENET_ENV="$HOME/hdds/.config/depot/usenet.env"
+IPT_ENV="$HOME/hdds/.config/depot/iptorrents.env"
 
 if [ -s "$PROWLARR_CONFIG" ]; then
   PROWLARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$PROWLARR_CONFIG" | head -1 || true)
@@ -110,7 +110,7 @@ if [ -s "$PROWLARR_CONFIG" ]; then
     # Application bridges so Prowlarr pushes indexer config TO
     # Sonarr + Radarr. Without these the arrs never learn about
     # NZBGeek (or any other indexer Prowlarr knows about).
-    SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
+    SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
     if [ -s "$SONARR_CONFIG" ]; then
       SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1 || true)
       if [ -n "$SONARR_API_KEY" ]; then
@@ -123,7 +123,7 @@ if [ -s "$PROWLARR_CONFIG" ]; then
       fi
     fi
 
-    RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+    RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
     if [ -s "$RADARR_CONFIG" ]; then
       RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1 || true)
       if [ -n "$RADARR_API_KEY" ]; then

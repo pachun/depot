@@ -88,7 +88,7 @@ jellyfin_login() {
 #   2: token
 #   3: library name ("Movies" or "Shows")
 #   4: collection type ("movies" or "tvshows")
-#   5: in-container path ("/media/movies" or "/media/shows")
+#   5: in-container path ("/media/movies" or "/media/tv")
 jellyfin_upsert_library() {
   local base_url="$1"
   local token="$2"

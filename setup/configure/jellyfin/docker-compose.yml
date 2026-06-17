@@ -25,6 +25,6 @@ services:
     devices:
       - /dev/dri:/dev/dri
     volumes:
-      - ${HOME}/library/.config/jellyfin:/config
-      - ${HOME}/library/media:/media
+      - ${HOME}/hdds/.config/jellyfin:/config
+      - ${HOME}/hdds/media:/media
     restart: unless-stopped

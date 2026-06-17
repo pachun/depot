@@ -13,7 +13,7 @@
 # whose basename starts with `_`, so this won't be iterated as a
 # feature.
 
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 mkdir -p "$(dirname "$ADMIN_ENV")"
 
 # shellcheck disable=SC1090

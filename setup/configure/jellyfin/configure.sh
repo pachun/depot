@@ -18,9 +18,9 @@ bash "$HERE/../docker/configure.sh"
 # Separate per-type folders so jellyfin can pick the right metadata
 # provider (movie vs. TV) for each library it scans.
 mkdir -p \
-  ~/library/.config/jellyfin \
-  ~/library/media/movies \
-  ~/library/media/shows
+  ~/hdds/.config/jellyfin \
+  ~/hdds/media/movies \
+  ~/hdds/media/tv
 
 sudo ufw allow 8096/tcp
 
@@ -45,7 +45,7 @@ sudo \
 # Skips gracefully if admin.env isn't there (someone running just
 # jellyfin/configure.sh without going through the dispatcher's Phase
 # 1 prompts). Re-running through the dispatcher fills the gap.
-ADMIN_ENV="$HOME/library/.config/depot/admin.env"
+ADMIN_ENV="$HOME/hdds/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
@@ -75,7 +75,7 @@ if [ -f "$ADMIN_ENV" ]; then
         jellyfin_upsert_library "$JF_URL" "$JF_TOKEN" "Movies" "movies" "/media/movies"
 
         echo "  upserting Shows library"
-        jellyfin_upsert_library "$JF_URL" "$JF_TOKEN" "Shows" "tvshows" "/media/shows"
+        jellyfin_upsert_library "$JF_URL" "$JF_TOKEN" "Shows" "tvshows" "/media/tv"
 
         echo "  upserting aviary + sonarr API keys"
         jellyfin_upsert_api_key "$JF_URL" "$JF_TOKEN" "aviary" >/dev/null
@@ -98,7 +98,7 @@ fi
 # "already installed" signal, so reruns skip the download and the
 # Jellyfin restart entirely.
 INTRO_SKIPPER_VERSION="1.10.11.21"
-INTRO_SKIPPER_DIR="$HOME/library/.config/jellyfin/data/plugins/Intro Skipper_${INTRO_SKIPPER_VERSION}"
+INTRO_SKIPPER_DIR="$HOME/hdds/.config/jellyfin/data/plugins/Intro Skipper_${INTRO_SKIPPER_VERSION}"
 
 if [ ! -f "$INTRO_SKIPPER_DIR/IntroSkipper.dll" ]; then
   echo "Installing Jellyfin Intro Skipper plugin v${INTRO_SKIPPER_VERSION}..."
@@ -142,8 +142,8 @@ echo "Configuring Jellyfin hardware acceleration (QSV)..."
 
   JF_DB=""
   for candidate in \
-    "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
-    "$HOME/library/.config/jellyfin/data/jellyfin.db"
+    "$HOME/hdds/.config/jellyfin/data/data/jellyfin.db" \
+    "$HOME/hdds/.config/jellyfin/data/jellyfin.db"
   do
     if [ -s "$candidate" ]; then
       JF_DB="$candidate"

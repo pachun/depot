@@ -28,8 +28,8 @@ arr_lookup_jellyfin_api_key() {
   # Try the SQLite path first since it doesn't require auth round-
   # tripping.
   for db in \
-    "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
-    "$HOME/library/.config/jellyfin/data/jellyfin.db"
+    "$HOME/hdds/.config/jellyfin/data/data/jellyfin.db" \
+    "$HOME/hdds/.config/jellyfin/data/jellyfin.db"
   do
     if [ -s "$db" ]; then
       local key

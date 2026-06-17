@@ -23,13 +23,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
-mkdir -p ~/library/.config/gluetun
+mkdir -p ~/hdds/.config/gluetun
 
 # Make qbit-port-sync.sh available inside the gluetun container at
 # /gluetun/qbit-port-sync.sh (the bind-mount target). gluetun's
 # VPN_PORT_FORWARDING_UP_COMMAND env var invokes it whenever the
 # forwarded port changes.
-install -m 0755 "$HERE/qbit-port-sync.sh" ~/library/.config/gluetun/qbit-port-sync.sh
+install -m 0755 "$HERE/qbit-port-sync.sh" ~/hdds/.config/gluetun/qbit-port-sync.sh
 
 # Migration safety: an older qBittorrent container (from before we
 # moved 8080/6881 publishing to gluetun) holds the ports gluetun is

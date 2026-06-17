@@ -9,7 +9,7 @@
 # every feature's prompts.sh up-front so all interactive input
 # happens before any actual configure work begins.
 
-USENET_ENV="$HOME/library/.config/depot/usenet.env"
+USENET_ENV="$HOME/hdds/.config/depot/usenet.env"
 mkdir -p "$(dirname "$USENET_ENV")"
 
 # Load any existing values first so the prompt only fires for missing

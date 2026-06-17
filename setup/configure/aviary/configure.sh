@@ -19,7 +19,7 @@ bash "$HERE/../docker/configure.sh"
 # integration block below). pacman -S --needed is a no-op when present.
 sudo pacman -S --needed --noconfirm sqlite
 
-SRC=~/library/apps/aviary
+SRC=~/hdds/apps/aviary
 mkdir -p "$(dirname "$SRC")"
 
 if [ ! -d "$SRC/.git" ]; then
@@ -32,7 +32,7 @@ fi
 # Phoenix release needs a SECRET_KEY_BASE to sign cookies/sessions.
 # Generate once, persist, reuse — without persistence, every rebuild
 # would invalidate active sessions.
-SECRET_DIR=~/library/.config/aviary
+SECRET_DIR=~/hdds/.config/aviary
 SECRET_FILE="$SECRET_DIR/secret_key_base"
 mkdir -p "$SECRET_DIR"
 if [ ! -f "$SECRET_FILE" ]; then
@@ -58,7 +58,7 @@ SONARR_WEBHOOK_SECRET=$(tr -d '\n' < "$WEBHOOK_SECRET_FILE")
 # inside the container). API key is harvested directly from Jellyfin's
 # own SQLite database — there's no manual paste step.
 #
-# Cached to ~/library/.config/aviary/.env on first successful harvest;
+# Cached to ~/hdds/.config/aviary/.env on first successful harvest;
 # subsequent runs source the cache without re-querying.
 #
 # Skips gracefully (exit 0, doesn't block other features) if Jellyfin
@@ -79,8 +79,8 @@ if [ -z "${JELLYFIN_API_KEY:-}" ]; then
   # whichever exists and is non-empty.
   JF_DB=""
   for candidate in \
-    "$HOME/library/.config/jellyfin/data/data/jellyfin.db" \
-    "$HOME/library/.config/jellyfin/data/jellyfin.db"
+    "$HOME/hdds/.config/jellyfin/data/data/jellyfin.db" \
+    "$HOME/hdds/.config/jellyfin/data/jellyfin.db"
   do
     if [ -s "$candidate" ]; then
       JF_DB="$candidate"
@@ -120,7 +120,7 @@ fi
 # Jellyseerr isn't initialized yet, aviary just falls back to the
 # trailer treatment for every show.
 JELLYSEERR_URL=http://host.docker.internal:5055
-JELLYSEERR_SETTINGS="$HOME/library/.config/jellyseerr/settings.json"
+JELLYSEERR_SETTINGS="$HOME/hdds/.config/jellyseerr/settings.json"
 
 if [ -z "${JELLYSEERR_API_KEY:-}" ] && [ -s "$JELLYSEERR_SETTINGS" ]; then
   JELLYSEERR_API_KEY=$(jq -r '.main.apiKey // empty' "$JELLYSEERR_SETTINGS" 2>/dev/null || true)
@@ -137,7 +137,7 @@ JELLYSEERR_API_KEY="${JELLYSEERR_API_KEY:-}"
 # Sonarr's config.xml (same automation pattern as Jellyfin and
 # Jellyseerr — no manual paste step).
 SONARR_URL=http://host.docker.internal:8989
-SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
+SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
 
 if [ -z "${SONARR_API_KEY:-}" ] && [ -s "$SONARR_CONFIG" ]; then
   SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" 2>/dev/null | head -1 || true)
@@ -151,7 +151,7 @@ SONARR_API_KEY="${SONARR_API_KEY:-}"
 # Radarr integration — Sonarr's movie sibling. Powers the Watch button
 # + progress chip on the movie detail page. Same harvest pattern.
 RADARR_URL=http://host.docker.internal:7878
-RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
+RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
 
 if [ -z "${RADARR_API_KEY:-}" ] && [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" 2>/dev/null | head -1 || true)
@@ -205,7 +205,7 @@ JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8443"
 # connection not available` after 6 s — SQLite spinning on permission
 # denied. Keeping ownership as nick also means the DB stays
 # inspectable from the host without sudo.
-AVIARY_DATA_DIR="$HOME/library/.config/aviary/data"
+AVIARY_DATA_DIR="$HOME/hdds/.config/aviary/data"
 mkdir -p "$AVIARY_DATA_DIR"
 HOST_UID=$(id -u)
 HOST_GID=$(id -g)

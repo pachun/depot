@@ -14,10 +14,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/library/.config/sabnzbd:/config
-      # Same in-container path as qbittorrent so sonarr/radarr find
-      # completed downloads at the same /downloads root they already
-      # know about. Hardlink-friendly with /shows and /movies because
-      # everything lives on one filesystem under ~/library.
-      - ${HOME}/library/downloads:/downloads
+      - ${HOME}/hdds/.config/sabnzbd:/config
+      # Usenet workload stays on the SSD end-to-end: incomplete jobs
+      # AND par2/unrar reassembly happen on /usenet, then the arrs
+      # cross-filesystem import directly from /usenet into
+      # ~/hdds/media/{tv,movies}. No HDD-side staging dir for Usenet
+      # because SAB doesn't seed — once import lands, the SSD copy
+      # can go away. (No hardlink possible across SSD→HDD, so the
+      # arr does copy+delete on import, which runs once per file.)
+      - ${HOME}/downloading/usenet:/usenet
     restart: unless-stopped

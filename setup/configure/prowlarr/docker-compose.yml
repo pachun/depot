@@ -17,5 +17,5 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/library/.config/prowlarr:/config
+      - ${HOME}/hdds/.config/prowlarr:/config
     restart: unless-stopped

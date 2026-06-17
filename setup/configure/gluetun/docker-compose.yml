@@ -51,5 +51,5 @@ services:
       # Persist gluetun's state — most notably /gluetun/forwarded_port,
       # which is how we surface the NAT-PMP port to summary.sh and the
       # README's qBittorrent step.
-      - ${HOME}/library/.config/gluetun:/gluetun
+      - ${HOME}/hdds/.config/gluetun:/gluetun
     restart: unless-stopped
