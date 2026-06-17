@@ -141,7 +141,7 @@ prowlarr_register_iptorrents() {
   "protocol": "torrent",
   "privacy": "private",
   "fields": [
-    {"name": "baseUrl", "value": "https://iptorrents.com"},
+    {"name": "baseUrl", "value": "https://iptorrents.com/"},
     {"name": "cookie", "value": $(jq -Rn --arg c "$ipt_cookie" '$c')},
     {"name": "userAgent", "value": $(jq -Rn --arg u "$ipt_useragent" '$u')},
     {"name": "categories", "value": $categories}
