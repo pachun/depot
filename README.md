@@ -27,15 +27,20 @@ The nas ships with a watchdog service that force-reboots every 3 minutes
 unless it hears from the vendor OS. Without disabling it, our install
 gets killed partway through.
 
-- Power on while spamming **Ctrl + F12** to enter BIOS
-- Find and disable the Watchdog service
+- Power on while spamming **Ctrl + F12** to enter Grub
+- Press `c` to open a console
+- Run `fwsetup` to reboot into the bios
+- Go to **Advanced** → **Watchdog** and disable it
 - Save and exit
 
 ## 4. Boot from USB
 
-- Plug the nas into the router with an ethernet cable
 - Power on while spamming **Ctrl + F12**
-- Choose the USB stick from the boot menu
+- Press `c` to open a console
+- Go to **Boot** → **Boot Option 1** → Press **Enter** → Select your USB drive
+- Save and exit
+
+The machine will restart and boot into the live arch ISO.
 
 ## 5. Install Arch
 
