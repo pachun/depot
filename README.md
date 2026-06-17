@@ -54,7 +54,7 @@ The machine will restart and boot into the live Arch ISO.
 ```
 pacman -Sy --noconfirm git
 git clone https://github.com/pachun/depot /tmp/depot
-bash /tmp/depot/arch/install.sh
+/tmp/depot/arch/install.sh
 ```
 
 After reboot, sign in.
