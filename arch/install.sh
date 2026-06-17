@@ -227,17 +227,19 @@ rmdir /mnt/depot-installer
 
 umount -R /mnt
 
-# Force the next boot to land on the installed Arch instead of the USB.
-# bootctl install added a UEFI entry labeled "Linux Boot Manager", but
-# it doesn't reorder BootOrder — and the USB's existing entry usually
-# sits ahead of it, so a bare `reboot` lands back in the live ISO.
-# BootNext is a one-shot override: UEFI uses it for the next boot and
-# then reverts to BootOrder, so this only matters for the immediate
-# transition off the USB. After the first successful Arch boot, the
-# USB can be unplugged and BootOrder takes over naturally.
-SYSTEMD_BOOT_NUM=$(efibootmgr | awk '/Linux Boot Manager/ { match($1, /[0-9A-F]+/); print substr($1, RSTART, RLENGTH); exit }')
-if [ -n "$SYSTEMD_BOOT_NUM" ]; then
-  efibootmgr --bootnext "$SYSTEMD_BOOT_NUM" >/dev/null
-fi
+# UGreen's BIOS sets the USB as Boot Option 1 (step 3 of the README),
+# which is a persistent BIOS-level priority that UEFI's BootOrder /
+# BootNext variables can't reliably override. So instead of trying to
+# manipulate firmware state, just ask the user to physically remove
+# the USB before reboot. With the USB gone, the BIOS falls through
+# to the next bootable device — the just-installed Arch on the NVMe.
+echo
+echo "=========================================================="
+echo "  Install complete."
+echo
+echo "  REMOVE THE USB DRIVE from the NAS now."
+echo "  Then press Enter to reboot into Arch."
+echo "=========================================================="
+read -r -p "> " _ </dev/tty || true
 
 reboot

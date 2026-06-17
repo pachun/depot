@@ -57,7 +57,7 @@ git clone https://github.com/pachun/depot /tmp/depot
 bash /tmp/depot/arch/install.sh
 ```
 
-After an automatic reboot, sign in.
+After reboot, sign in.
 
 ## 5. Configure Arch
 
