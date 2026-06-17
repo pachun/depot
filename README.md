@@ -7,10 +7,10 @@
 A self-hosted home media server with a [beautiful, no-cruft UI](https://github.com/pachun/aviary).
 
 <p align="center">
-  <img src="screenshot.png" alt="aviary home page" width="600" />
+  <img src="screenshot.png" alt="aviary home page" width="100%" />
 </p>
 
-Depot was made to run on a [UGreen NAS](https://www.ugreen.com/), but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging which keeps streaming regular while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail, have a new one swapped in, and rebuild the pool.
+Depot runs on a [UGreen NAS](https://www.ugreen.com/), but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging, which keeps streaming smooth while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail; swap in a new one and the pool rebuilds itself.
 
 You'll also need some accounts:
 
@@ -26,8 +26,8 @@ You'll also need some accounts:
 
 - [Download the Arch ISO](https://archlinux.org/download/)
 - Plug the USB drive into your machine.
-- Find its name (run `lsblk` and look for something like `/dev/sda`, not a partition like `/dev/sda1`
-- Flash the ISO `sudo dd if=ARCH_ISO_FILE.iso of=/dev/DRIVE_NAME bs=4M status=progress oflag=sync`
+- Find its name: run `lsblk` and look for something like `/dev/sda`, not a partition like `/dev/sda1`
+- Flash the ISO: `sudo dd if=ARCH_ISO_FILE.iso of=/dev/DRIVE_NAME bs=4M status=progress oflag=sync`
 
 ## 2. Prevent recurring NAS shutdowns
 
