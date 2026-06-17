@@ -39,9 +39,13 @@ arr_create_admin() {
       # Created successfully.
       return 0
       ;;
-    409|404)
-      # Admin already exists OR endpoint unavailable because we're
-      # past first-run. Both are "skip, already set up."
+    409|404|401)
+      # 409: admin already exists.
+      # 404: endpoint unavailable because we're past first-run.
+      # 401: endpoint exists but now requires auth (Prowlarr does
+      #      this once an admin is created — POSTing without auth
+      #      gets rejected as unauthorized rather than conflicting).
+      # All three mean "already set up, skip."
       return 0
       ;;
     *)
