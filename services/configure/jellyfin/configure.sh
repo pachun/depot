@@ -134,7 +134,7 @@ fi
 #
 # Wrapped in a subshell + `|| true` so that any failure inside this
 # optional block can never propagate up and kill the dispatcher
-# (Phase 2 in setup/configure.sh runs under set -e — a non-zero exit
+# (Phase 2 in services/configure.sh runs under set -e — a non-zero exit
 # here would skip the Phase 3 summary print).
 echo "Configuring Jellyfin hardware acceleration (QSV)..."
 (

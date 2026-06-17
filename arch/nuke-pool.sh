@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tear down the ZFS pool and wipe its disks back to a clean slate.
-# Use when you want to re-run install/storage/install.sh from
+# Use when you want to re-run arch/configure/storage/configure.sh from
 # scratch — without this the next install short-circuits because
 # the pool already exists.
 #
@@ -71,4 +71,4 @@ done
 
 echo ""
 echo "Pool destroyed and disks wiped. The next run of"
-echo "./setup/install.sh will recreate the pool from scratch."
+echo "./arch/configure.sh will recreate the pool from scratch."

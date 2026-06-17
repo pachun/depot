@@ -2,10 +2,10 @@
 # Prompts for the Frugal Usenet credentials that sabnzbd's server
 # config needs. The provider can't auto-harvest these — they're
 # personal — so we ask once and persist to a file outside the repo.
-# Re-running setup/configure.sh after the file exists is silent: the
+# Re-running services/configure.sh after the file exists is silent: the
 # source-and-check below short-circuits, leaving the user un-bothered.
 #
-# Sourced (not executed) by setup/configure.sh's Phase 1, which runs
+# Sourced (not executed) by services/configure.sh's Phase 1, which runs
 # every feature's prompts.sh up-front so all interactive input
 # happens before any actual configure work begins.
 
@@ -53,7 +53,7 @@ umask 077
   cat <<'EOF'
 # Auto-managed by depot's sabnzbd/prompts.sh — edit to rotate
 # credentials or change Frugal server topology. Re-run
-# setup/configure.sh after edits.
+# services/configure.sh after edits.
 
 EOF
   printf 'USENET_USERNAME=%q\n' "$USENET_USERNAME"

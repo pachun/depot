@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# depot bootstrap. Run from the live Arch ISO after cloning the repo.
+# Arch install. Run from the live Arch ISO after cloning the repo.
 # Does the full install (partition the OS NVMe, pacstrap base, etc.) and
-# then iterates the configure steps under bootstrap/ inside arch-chroot.
-# Ends by running install.sh and rebooting.
+# then iterates the install steps under install/ inside arch-chroot.
+# Ends by rebooting; arch/configure.sh runs from the userland after
+# first login.
 #
 # SATA drives are explicitly refused as install targets — the NAS's 4
 # data HDDs are SATA and the OS drive is NVMe; this guard makes it
@@ -12,7 +13,7 @@ set -euo pipefail
 shopt -s nullglob
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "bootstrap.sh must run as root" >&2
+  echo "arch/install.sh must run as root" >&2
   exit 1
 fi
 
@@ -28,7 +29,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 # disk. Each prompts.sh is idempotent — set.sh / create.sh sources its
 # own sibling prompts.sh at the top so standalone runs still work, but
 # the second source is a no-op once env vars are populated.
-for d in "$HERE/bootstrap"/*/; do
+for d in "$HERE/install"/*/; do
   [ -f "$d/prompts.sh" ] && source "$d/prompts.sh"
 done
 
@@ -168,14 +169,14 @@ genfstab -U /mnt >> /mnt/etc/fstab
 
 # ============================================================
 # Make this repo reachable from inside the chroot, so the chroot can
-# iterate bootstrap/*/. Bind-mount, unmount after.
+# iterate install/*/. Bind-mount, unmount after.
 # ============================================================
 
 mkdir -p /mnt/depot-installer
 mount --bind "$ROOT" /mnt/depot-installer
 
 # ============================================================
-# Configure phase: iterate bootstrap/*/ inside the chroot. Same shape
+# Configure phase: iterate install/*/ inside the chroot. Same shape
 # as orchard's bootstrap loop.
 # ============================================================
 
@@ -191,10 +192,10 @@ set -euo pipefail
 shopt -s nullglob
 # Connect each step's stdin to /dev/tty so interactive prompts (tzselect,
 # etc.) read from the terminal instead of from this heredoc. Skip
-# prompts.sh — bootstrap.sh's Phase 1 already sourced them and exported
+# prompts.sh — arch/install.sh's Phase 1 already sourced them and exported
 # the resulting env vars; the step scripts source their own sibling
 # prompts.sh idempotently, which becomes a no-op here.
-for d in /depot-installer/setup/bootstrap/*/; do
+for d in /depot-installer/arch/install/*/; do
   for script in "$d"*.sh; do
     [ "$(basename "$script")" = "prompts.sh" ] && continue
     bash "$script" </dev/tty
@@ -211,16 +212,12 @@ umount /mnt/depot-installer
 rmdir /mnt/depot-installer
 
 # ============================================================
-# Run install.sh as the user, inside chroot.
-# ============================================================
-
-# ============================================================
-# Done. install.sh is NOT run here — the chroot environment doesn't
-# have systemd or interactive zsh, so anything that uses
-# `systemctl --now`, `exec zsh`, etc. misbehaves. Bootstrap's job
-# ends at "boots into a configured Arch box"; install.sh is the
-# userland layer the user runs once they're logged in to the new
-# system. Same split as orchard.
+# Done. arch/configure.sh is NOT run here — the chroot environment
+# doesn't have systemd or interactive zsh, so anything that uses
+# `systemctl --now`, `exec zsh`, etc. misbehaves. arch/install.sh's
+# job ends at "boots into a configured Arch box"; arch/configure.sh
+# is the userland layer the user runs once they're logged in to the
+# new system. Same split as orchard.
 # ============================================================
 
 umount -R /mnt

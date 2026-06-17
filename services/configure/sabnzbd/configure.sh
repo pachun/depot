@@ -195,7 +195,7 @@ done
 
 if [ "$api_up" != "1" ]; then
   echo "  WARN: SABnzbd API didn't respond within 60s — skipping arr-side wiring."
-  echo "        Re-run setup/configure.sh once SABnzbd is up to register it with"
+  echo "        Re-run services/configure.sh once SABnzbd is up to register it with"
   echo "        Sonarr/Radarr."
   exit 0
 fi

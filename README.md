@@ -50,7 +50,7 @@ The machine will restart and boot into the live Arch ISO.
 ```
 pacman -Sy --noconfirm git
 git clone https://github.com/pachun/depot /tmp/depot
-bash /tmp/depot/setup/bootstrap.sh
+bash /tmp/depot/arch/install.sh
 ```
 
 After an automatic reboot, sign in.
@@ -58,7 +58,7 @@ After an automatic reboot, sign in.
 ## 5. Configure Arch
 
 ```
-cd ~/code/depot && ./setup/install.sh
+cd ~/code/depot && ./arch/configure.sh
 ```
 
 ## 6. SSH into the NAS from your favorite machine
@@ -81,8 +81,7 @@ git -C ~/code/depot   remote set-url origin git@github.com:pachun/depot.git
 git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
 ```
 
-From here on, re-running `./setup/install.sh` pulls the latest changes
-from both repos and applies them.
+Re-running `./arch/configure.sh` now pulls and applies the latest from both repos.
 
 ## 9. Get a ProtonVPN WireGuard config
 
@@ -107,13 +106,13 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
 ## 12. Sign up for [IPTorrents](https://iptorrents.com)
 
-## 13. Install aviary and supporting services
+## 13. Install depot
 
 ```
-cd ~/code/depot && ./setup/configure.sh
+cd ~/code/depot && ./services/configure.sh
 ```
 
-**`configure.sh` is idempotent**. Re-run it any time.
+**`services/configure.sh` is idempotent**. Re-run it any time.
 
 ## 14. Open Aviary in your browser
 

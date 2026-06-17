@@ -6,7 +6,7 @@
 #
 # The opinions live here in one place so they can be edited and
 # re-applied — every function below is idempotent, so changing this
-# file and re-running setup/configure.sh pushes the new opinions to
+# file and re-running services/configure.sh pushes the new opinions to
 # the arrs and the old releases get re-evaluated against the new
 # policy on the next rescan.
 #

@@ -8,7 +8,7 @@
 # and the IPT stuff to iptorrents.env. Each gets sourced by the
 # corresponding configure.sh.
 #
-# Sourced (not executed) by setup/configure.sh's Phase 1.
+# Sourced (not executed) by services/configure.sh's Phase 1.
 
 HERE_PROMPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -40,7 +40,7 @@ umask 077
 {
   cat <<'EOF'
 # Auto-managed by depot's sabnzbd/prompts.sh and prowlarr/prompts.sh
-# — edit to rotate credentials. Re-run setup/configure.sh after
+# — edit to rotate credentials. Re-run services/configure.sh after
 # edits.
 
 EOF
@@ -108,7 +108,7 @@ umask 077
   cat <<'EOF'
 # Auto-managed by depot's prowlarr/prompts.sh. The cookie expires
 # periodically; when IPTorrents searches start failing weeks/months
-# later, edit the values here and re-run setup/configure.sh.
+# later, edit the values here and re-run services/configure.sh.
 EOF
   printf 'IPT_COOKIE=%q\n' "$IPT_COOKIE"
   printf 'IPT_USERAGENT=%q\n' "$IPT_USERAGENT"

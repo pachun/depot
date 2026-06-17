@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Run after SSH-ing in from your main machine. Sets up the services
 # this NAS exists to provide (tailscale, jellyfin, samba, etc.).
-# Separated from install.sh because anything here that needs a browser
-# (tailscale's auth URL, future OAuth flows) is much nicer to handle
-# from an SSH session than from the local TTY where the URL has to be
-# typed by hand into a phone.
+# Separated from arch/configure.sh because anything here that needs a
+# browser (tailscale's auth URL, future OAuth flows) is much nicer to
+# handle from an SSH session than from the local TTY where the URL has
+# to be typed by hand into a phone.
 #
-# Same dispatcher shape as install.sh — iterates configure/*/ in
-# alphabetical order; adding a feature is `mkdir configure/<name>` +
-# drop in a configure.sh and optional prompts.sh / summary.sh.
+# Same dispatcher shape as arch/install.sh and arch/configure.sh —
+# iterates configure/*/ in alphabetical order; adding a feature is
+# `mkdir configure/<name>` + drop in a configure.sh and optional
+# prompts.sh / summary.sh.
 #
 # Directories whose basename starts with `_` are NOT iterated — those
 # are library code (currently _shared/, which holds cross-service
@@ -37,8 +38,8 @@ done
 
 # Phase 3: every feature's summary.sh prints its service URL(s). Run
 # last so all addresses land together at the bottom of the output
-# rather than scattered through Phase 2's chatter. See README step 15
-# for the first-run web-UI steps each URL needs.
+# rather than scattered through Phase 2's chatter. See README's final
+# step for the first-run web-UI steps each URL needs.
 echo
 for d in "$HERE/configure"/*/; do
   [[ "$(basename "$d")" == _* ]] && continue

@@ -5,7 +5,7 @@
 # is the tailnet not per-service auth; using one credential pair removes
 # the "which password did I use for this app" friction.
 #
-# Sourced (not executed) by setup/configure.sh's Phase 1 via each
+# Sourced (not executed) by services/configure.sh's Phase 1 via each
 # service's prompts.sh. Re-sourcing is a no-op after the first run —
 # the env file holds the answers and the prompts short-circuit.
 #
@@ -37,7 +37,7 @@ umask 077
   cat <<'EOF'
 # Auto-managed by depot's _shared/prompts/admin_credentials.sh. Same
 # credentials get pushed to every service's admin user. Edit + re-run
-# setup/configure.sh to rotate (services that support API-based
+# services/configure.sh to rotate (services that support API-based
 # password change pick it up; Jellyfin needs the old password to
 # rotate so handle that there if it ever comes up).
 EOF

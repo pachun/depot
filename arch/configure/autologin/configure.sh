@@ -7,7 +7,7 @@
 # prompt.
 #
 # Service-level recovery is already handled by every docker-compose
-# in setup/configure/*/docker-compose.yml using `restart:
+# in services/configure/*/docker-compose.yml using `restart:
 # unless-stopped`. Docker itself starts on boot via its systemd unit.
 # All this script adds is the missing "skip the TTY login" link.
 #

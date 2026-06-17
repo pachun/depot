@@ -3,7 +3,7 @@
 # needs up front (HDD picker + pool-create confirmation, SSD picker +
 # format-SSD confirmation) so install.sh can run unattended.
 #
-# Sourced (not executed) by setup/install.sh's Phase 1. Writes the
+# Sourced (not executed) by arch/configure.sh's Phase 1. Writes the
 # selections to /tmp/depot-storage-choices.env; install.sh sources
 # that file and proceeds non-interactively. If the user aborts any
 # confirmation, the choices file is not written and install.sh
