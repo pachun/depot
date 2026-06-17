@@ -21,11 +21,10 @@ cd ~/downloads
 sudo dd if=filename.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
-## 3. Disable vendor watchdog in BIOS
+## 3. Prevent recurring shutdowns
 
-The nas ships with a watchdog service that force-reboots every 3 minutes
-unless it hears from the vendor OS. Without disabling it, our install
-gets killed partway through.
+The nas ships with a watchdog service that force-reboots every 180 seconds
+unless it hears from the vendor OS. We run Arch.
 
 - Power on while spamming **Ctrl + F12** to enter Grub
 - Press `c` to open a console
@@ -37,7 +36,7 @@ gets killed partway through.
 
 - Power on while spamming **Ctrl + F12**
 - Press `c` to open a console
-- Go to **Boot** → **Boot Option 1** → Press **Enter** → Select your USB drive
+- Go to **Boot** → **Boot Option 1** → Press **Enter** → Select bootable USB drive
 - Save and exit
 
 The machine will restart and boot into the live arch ISO.
