@@ -1,14 +1,14 @@
 # depot
 
-A self-hosted home media server built to run on a [nas device](https://en.wikipedia.org/wiki/Network-attached_storage).
+A self-hosted home media server built to run on a [UGreen NAS](https://www.ugreen.com/).
 
-## 1. [Download the Arch ISO](https://archlinux.org/download/).
+## 1. [Download the Arch ISO](https://archlinux.org/download/)
 
 ## 2. Create a bootable USB
 
 Plug in the USB device.
 
-Find it's name (It'll be something like `/dev/sda`, not a partition like `/dev/sda1`):
+Find its name (It'll be something like `/dev/sda`, not a partition like `/dev/sda1`):
 
 ```
 lsblk
@@ -23,12 +23,11 @@ sudo dd if=filename.iso of=/dev/sdX bs=4M status=progress oflag=sync
 
 ## 3. Prevent recurring shutdowns
 
-The nas ships with a watchdog service that force-reboots every 180 seconds
-unless it hears from the vendor OS. We run Arch.
+UGreen's preconfigured watchdog reboots every 180 seconds unless it detects the vendored OS and we run Arch.
 
-- Power on while spamming **Ctrl + F12** to enter Grub
+- Power on while spamming **Ctrl + F12** to enter GRUB
 - Press `c` to open a console
-- Run `fwsetup` to reboot into the bios
+- Run `fwsetup` to reboot into the BIOS
 - Go to **Advanced** → **Watchdog** and disable it
 - Save and exit
 
@@ -39,7 +38,7 @@ unless it hears from the vendor OS. We run Arch.
 - Go to **Boot** → **Boot Option 1** → Press **Enter** → Select bootable USB drive
 - Save and exit
 
-The machine will restart and boot into the live arch ISO.
+The machine will restart and boot into the live Arch ISO.
 
 ## 5. Install Arch
 
@@ -59,11 +58,9 @@ cd ~/code/depot && ./setup/install.sh
 
 ## 7. SSH in from your main machine
 
-The prior step printed an ssh command at the end. Run it from another machine
-to continue the installation from a more familiar machine in a more comfortable
-place.
+The prior step prints an SSH command. Run it from your favorite machine to continue from there.
 
-You can unplug the monitor and keyboard from the nas.
+You can unplug the monitor and keyboard from the NAS.
 
 ## 8. SSH-authenticate with GitHub
 
@@ -96,7 +93,7 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
    - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
    - pick a P2P-capable server
    - Create → Download → you get a `.conf` file.
-3. Copy it onto the NAS: `scp ~/Downloads/proton.conf nick@framework-depot:/tmp/proton.conf`
+3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <admin-username>@<tailscale-address>:/tmp/proton.conf`
 
 ## 11. Enable Tailscale HTTPS certificates
 
@@ -117,4 +114,4 @@ cd ~/code/depot && ./setup/configure.sh
 
 ## 15. Open Aviary in your browser
 
-Sign in with the admin credentials from earlier
+Sign in with the admin credentials from earlier.
