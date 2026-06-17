@@ -85,8 +85,8 @@ host = $USENET_PRIMARY_HOST
 port = $USENET_PRIMARY_PORT
 connections = $USENET_PRIMARY_CONNECTIONS
 ssl = 1
-username = $USENET_USERNAME
-password = $USENET_PASSWORD
+username =
+password =
 priority = 0
 enable = 1
 
@@ -95,8 +95,8 @@ host = $USENET_SECONDARY_HOST
 port = $USENET_SECONDARY_PORT
 connections = $USENET_SECONDARY_CONNECTIONS
 ssl = 1
-username = $USENET_USERNAME
-password = $USENET_PASSWORD
+username =
+password =
 priority = 1
 enable = 1
 
@@ -105,8 +105,8 @@ host = $USENET_BONUS_HOST
 port = $USENET_BONUS_PORT
 connections = $USENET_BONUS_CONNECTIONS
 ssl = 1
-username = $USENET_USERNAME
-password = $USENET_PASSWORD
+username =
+password =
 priority = 2
 enable = 1
 EOF
@@ -194,24 +194,47 @@ if [ "$api_up" != "1" ]; then
   exit 0
 fi
 
-# Apply any pending config changes (host_whitelist sed above) by
-# asking SABnzbd to restart its python process. This does NOT cycle
-# the container — it just re-reads sabnzbd.ini in place. The API
-# call goes via localhost which SABnzbd always treats as authorized
-# regardless of host_whitelist.
-if [ "${SABNZBD_NEEDS_RESTART:-0}" = "1" ]; then
-  curl -s "http://localhost:8085/api?mode=restart&apikey=$SABNZBD_API_KEY&output=json" \
-    >/dev/null
-  # Wait for the daemon to come back.
-  sleep 2
-  for _ in $(seq 1 30); do
-    if curl -sf "http://localhost:8085/api?mode=version&apikey=$SABNZBD_API_KEY&output=json" \
-         >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-fi
+# Push the Frugal credentials via SABnzbd's API rather than into the
+# templated sabnzbd.ini directly. bash heredocs interpret `$`,
+# backticks, and SABnzbd's INI parser treats `#` as a comment start
+# mid-line — any of which silently truncates the password the moment
+# someone signs up with a real-world strong one. The API takes
+# URL-encoded form fields, so neither the shell nor the INI parser
+# ever sees the raw password.
+#
+# Idempotent: re-runs just overwrite with the same values. Also
+# correct for a password rotation — edit usenet.env, re-run
+# configure.sh, the new password lands.
+update_sabnzbd_server_creds() {
+  local server_keyword="$1"
+  curl -s -X POST \
+    --data-urlencode "section=servers" \
+    --data-urlencode "keyword=$server_keyword" \
+    --data-urlencode "username=$USENET_USERNAME" \
+    --data-urlencode "password=$USENET_PASSWORD" \
+    --data-urlencode "apikey=$SABNZBD_API_KEY" \
+    "http://localhost:8085/api?mode=set_config" >/dev/null
+}
+
+update_sabnzbd_server_creds "frugal-primary"
+update_sabnzbd_server_creds "frugal-secondary"
+update_sabnzbd_server_creds "frugal-bonus"
+
+# Always restart SABnzbd at the end — both the credential update
+# above and any host_whitelist sed earlier need a python-process
+# restart to take effect. mode=restart does this in place without
+# cycling the docker container, sidestepping the host-port-already-
+# bound dance.
+curl -s "http://localhost:8085/api?mode=restart&apikey=$SABNZBD_API_KEY&output=json" \
+  >/dev/null
+sleep 2
+for _ in $(seq 1 30); do
+  if curl -sf "http://localhost:8085/api?mode=version&apikey=$SABNZBD_API_KEY&output=json" \
+       >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
 # Register SABnzbd as a download client in Sonarr (TV → tv category)
 # and Radarr (movies → movies category). Same upsert-by-name pattern
