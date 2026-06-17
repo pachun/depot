@@ -10,7 +10,7 @@ A self-hosted home media server built to run on a [UGreen NAS](https://www.ugree
 
 ## 2. Create a bootable USB drive
 
-Plug in the USB drive into your machine.
+Plug the USB drive into your machine.
 
 Find its name (Something like `/dev/sda`, not a partition like `/dev/sda1`):
 
