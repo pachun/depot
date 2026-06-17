@@ -29,14 +29,14 @@ bash "$HERE/../tailscale/expose-https.sh" 9696
 
 # Drive Prowlarr's first-run admin setup via /initialize.json. Skip
 # gracefully on a server where auth is already configured (the call
-# 409s, which arr_initialize_auth treats as success).
+# 409s, which arr_create_admin treats as success).
 ADMIN_ENV="$HOME/library/.config/depot/admin.env"
 if [ -f "$ADMIN_ENV" ]; then
   # shellcheck disable=SC1090
   source "$ADMIN_ENV"
   if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
     # shellcheck disable=SC1091
-    source "$HERE/../_arr-auth.sh"
+    source "$HERE/../_shared/arr/create_admin.sh"
 
     # Wait for Prowlarr to come up — fresh containers need 5-10s.
     for _ in $(seq 1 30); do
@@ -47,7 +47,7 @@ if [ -f "$ADMIN_ENV" ]; then
       sleep 1
     done
 
-    arr_initialize_auth \
+    arr_create_admin \
       "http://localhost:9696" \
       "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "Prowlarr"
   fi
@@ -67,9 +67,13 @@ if [ -s "$PROWLARR_CONFIG" ]; then
 
   if [ -n "$PROWLARR_API_KEY" ]; then
     # shellcheck disable=SC1091
-    source "$HERE/../_prowlarr-helpers.sh"
+    source "$HERE/../_shared/arr/api.sh"
+    # shellcheck disable=SC1091
+    source "$HERE/wire_indexers.sh"
+    # shellcheck disable=SC1091
+    source "$HERE/wire_arrs.sh"
 
-    prowlarr_wait_for_api "http://localhost:9696" "$PROWLARR_API_KEY" || true
+    arr_wait_for_api "http://localhost:9696" "v1" "$PROWLARR_API_KEY" || true
 
     # Newznab indexer — keyed by indexer name "NZBGeek". Reads URL +
     # API key from usenet.env (created by sabnzbd/prompts.sh; users

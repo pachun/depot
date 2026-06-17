@@ -9,6 +9,13 @@
 # Same dispatcher shape as install.sh — iterates configure/*/ in
 # alphabetical order; adding a feature is `mkdir configure/<name>` +
 # drop in a configure.sh and optional prompts.sh / summary.sh.
+#
+# Directories whose basename starts with `_` are NOT iterated — those
+# are library code (currently _shared/, which holds cross-service
+# helpers that individual feature folders source by path). Same
+# convention you'd reach for in Python (`_private`) or Ruby (leading
+# underscore): bare names are features, underscored names are
+# infrastructure.
 # Idempotent.
 set -euo pipefail
 shopt -s nullglob
@@ -18,11 +25,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Phase 1: source every feature's prompts.sh upfront so all interactive
 # inputs happen before any actual configure work begins.
 for d in "$HERE/configure"/*/; do
+  [[ "$(basename "$d")" == _* ]] && continue
   [ -f "$d/prompts.sh" ] && source "$d/prompts.sh"
 done
 
 # Phase 2: run each feature.
 for d in "$HERE/configure"/*/; do
+  [[ "$(basename "$d")" == _* ]] && continue
   bash "$d/configure.sh"
 done
 
@@ -32,6 +41,7 @@ done
 # for the first-run web-UI steps each URL needs.
 echo
 for d in "$HERE/configure"/*/; do
+  [[ "$(basename "$d")" == _* ]] && continue
   [ -f "$d/summary.sh" ] && bash "$d/summary.sh"
 done
 echo

@@ -9,8 +9,9 @@
 # service's prompts.sh. Re-sourcing is a no-op after the first run —
 # the env file holds the answers and the prompts short-circuit.
 #
-# Underscore-prefixed file at the configure/ root so the top-level
-# configure.sh dispatcher skips it (iterates configure/*/ only).
+# Lives under _shared/prompts/ — the dispatcher skips directories
+# whose basename starts with `_`, so this won't be iterated as a
+# feature.
 
 ADMIN_ENV="$HOME/library/.config/depot/admin.env"
 mkdir -p "$(dirname "$ADMIN_ENV")"
@@ -29,7 +30,7 @@ fi
 
 umask 077
 cat > "$ADMIN_ENV" <<EOF
-# Auto-managed by depot's _admin-creds.sh. Same credentials get pushed
+# Auto-managed by depot's _shared/prompts/admin_credentials.sh. Same credentials get pushed
 # to every service's admin user. Edit + re-run setup/configure.sh to
 # rotate (services that support API-based password change pick it up;
 # Jellyfin needs the old password to rotate so handle that there if it

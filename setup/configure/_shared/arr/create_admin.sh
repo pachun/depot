@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Shared first-run auth setup for the *arr stack (Prowlarr, Sonarr,
-# Radarr). Each of them exposes a /initialize.json endpoint that's
-# anonymous-accessible until the first admin user exists; we POST the
-# admin creds there, set auth to "Forms" with local-address bypass,
+# Create the first admin user on an *arr (Prowlarr, Sonarr, Radarr).
+# Each of them exposes a /initialize.json endpoint that's anonymous-
+# accessible until the first admin user exists; we POST the admin
+# credentials there, set auth to "Forms" with local-address bypass,
 # and the UI is fully wired without the user ever opening it.
 #
-# Idempotent: re-running against a server that already has auth
-# configured returns 4xx, which we log via the response-check helper
-# but treat as "already done, move on."
+# Idempotent: re-running against a server that already has an admin
+# returns 4xx, which we treat as "skip, already set up."
 #
-# Underscore-prefixed file at the configure/ root so the dispatcher
-# skips it.
+# Lives under _shared/arr/ — the dispatcher skips directories whose
+# basename starts with `_`, so this file is library code, not a
+# feature unit.
 
 # Args:
 #   1: base URL (e.g. "http://localhost:9696")
 #   2: admin username
 #   3: admin password
 #   4: label for the response-check log line
-arr_initialize_auth() {
+arr_create_admin() {
   local base_url="$1"
   local username="$2"
   local password="$3"
@@ -40,8 +40,8 @@ arr_initialize_auth() {
       return 0
       ;;
     409|404)
-      # Auth already initialized OR endpoint unavailable because it's
-      # past first-run. Both are "skip, we're already set up."
+      # Admin already exists OR endpoint unavailable because we're
+      # past first-run. Both are "skip, already set up."
       return 0
       ;;
     *)

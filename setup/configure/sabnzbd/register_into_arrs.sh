@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Shared helper: register SABnzbd as a download client in Sonarr or
-# Radarr via their REST APIs. Sourced (not executed) from
-# sabnzbd/configure.sh.
+# Register SABnzbd as a download client inside Sonarr or Radarr.
+# Sourced (not executed) from sabnzbd/configure.sh, which calls this
+# once per arr.
 #
-# Idempotent: looks up the "SABnzbd" download client by name and PUTs
-# (update) if it exists, POSTs (create) if it doesn't. Safe to re-run
-# on every dispatcher invocation.
+# This lives in sabnzbd/ (rather than under _shared/arr/) because SAB
+# is the only consumer — the arrs don't pull SAB in during their own
+# bootstrap the way they do qBit. SAB pushes itself into the arrs
+# during its own configure.sh, so the helper goes with the pusher.
 #
-# Underscore-prefixed file (and lives at the configure/ root, not
-# inside a feature dir) so the top-level configure.sh dispatcher
-# skips it — it iterates configure/*/ only.
+# Idempotent: looks up "SABnzbd" by name and PUTs to update, POSTs
+# to create. Safe to re-run on every dispatcher invocation.
 
 # Args:
 #   1: arr base URL (e.g. "http://localhost:8989")
@@ -17,7 +17,7 @@
 #   3: arr API key
 #   4: SABnzbd API key
 #   5: category name to hand SABnzbd ("tv" or "movies")
-arr_register_sabnzbd() {
+register_sabnzbd_into_arr() {
   local base_url="$1"
   local api_version="$2"
   local arr_api_key="$3"

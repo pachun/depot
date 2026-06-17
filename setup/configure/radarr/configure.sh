@@ -36,7 +36,7 @@ if [ -f "$ADMIN_ENV" ]; then
   source "$ADMIN_ENV"
   if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
     # shellcheck disable=SC1091
-    source "$HERE/../_arr-auth.sh"
+    source "$HERE/../_shared/arr/create_admin.sh"
 
     for _ in $(seq 1 30); do
       if curl -sf "http://localhost:7878/api/v3/system/status" >/dev/null 2>&1 \
@@ -46,13 +46,13 @@ if [ -f "$ADMIN_ENV" ]; then
       sleep 1
     done
 
-    arr_initialize_auth \
+    arr_create_admin \
       "http://localhost:7878" \
       "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "Radarr"
   fi
 fi
 
-# Opinionated release-picker policy + first-class bootstrap (root
+# Opinionated release-picker policy + the standard connections (root
 # folder, qBit download client, Jellyfin notification). All
 # idempotent.
 #
@@ -64,26 +64,29 @@ if [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1)
   if [ -n "$RADARR_API_KEY" ]; then
     # shellcheck disable=SC1091
-    source "$HERE/../_arr-profile.sh"
-    arr_apply_opinionated_policy "http://localhost:7878" "$RADARR_API_KEY"
+    source "$HERE/../_shared/arr/api.sh"
+    # shellcheck disable=SC1091
+    source "$HERE/../_shared/arr/opinionate_downloads.sh"
+    arr_opinionate_downloads "http://localhost:7878" "$RADARR_API_KEY"
 
     # shellcheck disable=SC1091
-    source "$HERE/../_prowlarr-helpers.sh"   # for prowlarr_check_response
-    # shellcheck disable=SC1091
-    source "$HERE/../_arr-bootstrap.sh"
-
-    arr_upsert_root_folder \
+    source "$HERE/../_shared/arr/set_library_directory.sh"
+    arr_set_library_directory \
       "http://localhost:7878" "$RADARR_API_KEY" "/movies"
 
     if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
-      arr_upsert_qbittorrent_client \
+      # shellcheck disable=SC1091
+      source "$HERE/../_shared/arr/connect_to_qbit.sh"
+      arr_connect_to_qbit \
         "http://localhost:7878" "$RADARR_API_KEY" \
         "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "movies"
     fi
 
+    # shellcheck disable=SC1091
+    source "$HERE/../_shared/arr/connect_to_jellyfin.sh"
     JF_KEY=$(arr_lookup_jellyfin_api_key "sonarr")
     if [ -n "$JF_KEY" ]; then
-      arr_upsert_jellyfin_notification \
+      arr_connect_to_jellyfin \
         "http://localhost:7878" "$RADARR_API_KEY" "$JF_KEY"
     fi
   fi

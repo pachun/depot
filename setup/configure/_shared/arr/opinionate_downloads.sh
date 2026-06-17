@@ -1,76 +1,27 @@
 #!/usr/bin/env bash
-# Shared opinionated profile configuration for Sonarr and Radarr.
-# Sourced (not executed) from each arr's configure.sh after the
-# container is up. Three things baked in here:
+# Opinions about which downloads Sonarr/Radarr should accept. These
+# get baked into every quality profile on each arr — the user never
+# has to think about them, the arrs just stop grabbing releases that
+# would be wasteful, unplayable, or low-quality.
 #
-#   1. English-only language on every quality profile (so French/
-#      Spanish/etc. releases get auto-rejected at search-result time).
-#   2. A handful of `score: -10000` custom formats that effectively
-#      ban release types the user never wants — Audio Description
-#      tracks, theater cam-rips / telesyncs / screeners, and a small
-#      set of well-known low-quality release groups (YTS/YIFY etc.).
+# The opinions live here in one place so they can be edited and
+# re-applied — every function below is idempotent, so changing this
+# file and re-running setup/configure.sh pushes the new opinions to
+# the arrs and the old releases get re-evaluated against the new
+# policy on the next rescan.
 #
-# Underscore-prefixed file (and lives at the configure/ root, not
-# inside a feature dir) so the top-level configure.sh dispatcher
-# skips it — it iterates configure/*/ only.
+# Current opinions:
+#   1. English-only language (so French/Spanish/etc. releases get
+#      auto-rejected at search time).
+#   2. Custom formats with score -10000 that effectively ban release
+#      types we never want: Audio Description tracks, theater cam-
+#      rips / telesyncs / screeners, known low-quality release groups
+#      (YTS/YIFY/etc.), 2160p / 4K (server can't transcode), and
+#      HEVC / x265 (browsers can't direct-stream).
 #
-# Idempotent: keyed by custom-format `name`, formats are upserted
-# rather than re-created, and profile updates re-apply the same
-# settings on every run.
-
-# Polls the arr's REST API until it responds. Sonarr/Radarr take
-# ~5-15s to come up even after `docker-compose up -d` reports the
-# container running.
-arr_wait_for_api() {
-  local base_url="$1"
-  local api_key="$2"
-  local attempts=30
-
-  for _ in $(seq 1 $attempts); do
-    if curl -sf -H "X-Api-Key: $api_key" \
-         "$base_url/api/v3/system/status" >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 1
-  done
-
-  echo "arr api did not come up after ${attempts}s: $base_url" >&2
-  return 1
-}
-
-# Upsert a custom format by name. Args:
-#   1: base URL (http://localhost:8989 etc.)
-#   2: api key
-#   3: format name (used as the lookup key)
-#   4: full JSON payload — must include "name", "specifications", and
-#      may omit "id" (we add it on PUT)
-arr_upsert_custom_format() {
-  local base_url="$1"
-  local api_key="$2"
-  local name="$3"
-  local payload="$4"
-
-  local existing_id
-  existing_id=$(curl -s -H "X-Api-Key: $api_key" \
-    "$base_url/api/v3/customformat" \
-    | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' | head -1)
-
-  if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
-    local with_id
-    with_id=$(echo "$payload" | jq --arg id "$existing_id" '.id = ($id | tonumber)')
-    curl -s -X PUT \
-      -H "X-Api-Key: $api_key" \
-      -H "Content-Type: application/json" \
-      -d "$with_id" \
-      "$base_url/api/v3/customformat/$existing_id" >/dev/null
-  else
-    curl -s -X POST \
-      -H "X-Api-Key: $api_key" \
-      -H "Content-Type: application/json" \
-      -d "$payload" \
-      "$base_url/api/v3/customformat" >/dev/null
-  fi
-}
+# Lives under _shared/arr/ — the dispatcher skips directories whose
+# basename starts with `_`, so this file is library code, not a
+# feature unit.
 
 # Apply our policy to every quality profile on this arr:
 #   * language = English (id=1, same on Sonarr & Radarr)
@@ -166,53 +117,10 @@ arr_apply_profile_policy() {
   arr_force_rescan "$base_url" "$api_key"
 }
 
-# Fires a per-series rescan in Sonarr (or per-movie in Radarr) so
-# the format-score and cutoff flags are recomputed against the
-# current profile. Detects which arr by hitting /api/v3/series
-# first — Sonarr returns a list, Radarr 404s. Async on the arr side;
-# returns immediately.
-arr_force_rescan() {
-  local base_url="$1"
-  local api_key="$2"
-
-  # Try Sonarr-style first.
-  local series_ids
-  series_ids=$(curl -s -H "X-Api-Key: $api_key" \
-    "$base_url/api/v3/series" 2>/dev/null \
-    | jq -r 'if type == "array" then .[].id else empty end' 2>/dev/null)
-
-  if [ -n "$series_ids" ]; then
-    for sid in $series_ids; do
-      curl -s -X POST \
-        -H "X-Api-Key: $api_key" \
-        -H "Content-Type: application/json" \
-        -d "{\"name\": \"RescanSeries\", \"seriesId\": $sid}" \
-        "$base_url/api/v3/command" >/dev/null
-    done
-    return
-  fi
-
-  # Otherwise try Radarr.
-  local movie_ids
-  movie_ids=$(curl -s -H "X-Api-Key: $api_key" \
-    "$base_url/api/v3/movie" 2>/dev/null \
-    | jq -r 'if type == "array" then .[].id else empty end' 2>/dev/null)
-
-  if [ -n "$movie_ids" ]; then
-    for mid in $movie_ids; do
-      curl -s -X POST \
-        -H "X-Api-Key: $api_key" \
-        -H "Content-Type: application/json" \
-        -d "{\"name\": \"RescanMovie\", \"movieId\": $mid}" \
-        "$base_url/api/v3/command" >/dev/null
-    done
-  fi
-}
-
-# The three opinionated custom-format JSON payloads. Defined here so
-# both Sonarr's and Radarr's configure.sh can reference them by name.
-# All three use `required: true` so the format matches when ANY
-# specification matches (single-spec formats — same effect either way).
+# The opinionated custom-format JSON payloads. Defined here so both
+# Sonarr's and Radarr's configure.sh can reference them by name. All
+# use `required: true` so the format matches when ANY specification
+# matches (single-spec formats — same effect either way).
 
 ARR_FORMAT_AUDIO_DESCRIPTION=$(cat <<'JSON'
 {
@@ -325,13 +233,13 @@ ARR_FORMAT_RES_2160P=$(cat <<'JSON'
 JSON
 )
 
-# Convenience wrapper called by each arr's configure.sh — does the
-# whole opinionated bootstrap in one call. Idempotent end-to-end.
-arr_apply_opinionated_policy() {
+# Convenience wrapper called by each arr's configure.sh — applies
+# every opinion in one call. Idempotent end-to-end.
+arr_opinionate_downloads() {
   local base_url="$1"
   local api_key="$2"
 
-  arr_wait_for_api "$base_url" "$api_key" || return 1
+  arr_wait_for_api "$base_url" "v3" "$api_key" || return 1
 
   arr_upsert_custom_format "$base_url" "$api_key" \
     "Audio Description" "$ARR_FORMAT_AUDIO_DESCRIPTION"

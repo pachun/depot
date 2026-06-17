@@ -121,7 +121,7 @@ fi
 #
 # host.docker.internal is needed because that's the hostname Sonarr
 # and Radarr use to reach SABnzbd from inside their own containers
-# (configured during arr_register_sabnzbd below). Without it on the
+# (configured during register_sabnzbd_into_arr below). Without it on the
 # whitelist, SABnzbd rejects every arr download request with
 # "Refused connection with hostname 'host.docker.internal'".
 SABNZBD_WHITELIST="${TAILNET_FQDN}, $HOSTNAME, localhost, host.docker.internal"
@@ -240,13 +240,13 @@ done
 # and Radarr (movies → movies category). Same upsert-by-name pattern
 # the existing Sonarr webhook block uses.
 # shellcheck disable=SC1091
-source "$HERE/../_arr-download-client.sh"
+source "$HERE/register_into_arrs.sh"
 
 SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
 if [ -s "$SONARR_CONFIG" ]; then
   SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1)
   if [ -n "$SONARR_API_KEY" ]; then
-    arr_register_sabnzbd \
+    register_sabnzbd_into_arr \
       "http://localhost:8989" \
       "v3" \
       "$SONARR_API_KEY" \
@@ -259,7 +259,7 @@ RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
 if [ -s "$RADARR_CONFIG" ]; then
   RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1)
   if [ -n "$RADARR_API_KEY" ]; then
-    arr_register_sabnzbd \
+    register_sabnzbd_into_arr \
       "http://localhost:7878" \
       "v3" \
       "$RADARR_API_KEY" \

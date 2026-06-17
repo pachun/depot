@@ -52,7 +52,7 @@ if [ -f "$ADMIN_ENV" ]; then
 
   if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
     # shellcheck disable=SC1091
-    source "$HERE/../_jellyfin-bootstrap.sh"
+    source "$HERE/bootstrap.sh"
 
     echo "Bootstrapping Jellyfin..."
     JF_URL="http://localhost:8096"
