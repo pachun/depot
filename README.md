@@ -102,7 +102,7 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
    - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
    - pick a P2P-capable server
    - Create → Download → you get a `.conf` file.
-3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <admin-username>@<tailscale-address>:/tmp/proton.conf`
+3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <admin-username>@<lan-ip>:/tmp/proton.conf`
 
 ## 10. Enable Tailscale HTTPS certificates
 
