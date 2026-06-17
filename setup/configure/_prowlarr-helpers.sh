@@ -61,6 +61,14 @@ prowlarr_register_newznab() {
   # in validation — newznab releases are NZB-file links the download
   # client needs to fetch via the indexer's redirect URL). Torrent
   # indexers can have either setting; we leave it true for symmetry.
+  #
+  # priority=10 (vs. Prowlarr's default 25): Sonarr/Radarr's release
+  # picker uses indexer priority as the tiebreaker when two indexers
+  # return same-scored releases — LOWER number = preferred (counter-
+  # intuitive but that's the spec). Setting Newznab/Usenet indexers
+  # to 10 and leaving the user's tracker at the UI default of 25 means
+  # Usenet wins on ties → no ratio cost when both have the release,
+  # tracker falls back when only it does.
   local payload
   payload=$(cat <<EOF
 {
@@ -70,7 +78,7 @@ prowlarr_register_newznab() {
   "supportsRss": true,
   "supportsSearch": true,
   "supportsRedirect": true,
-  "priority": 25,
+  "priority": 10,
   "downloadClientId": 0,
   "appProfileId": $app_profile_id,
   "implementation": "Newznab",
