@@ -49,8 +49,6 @@ git clone https://github.com/pachun/depot /tmp/depot
 bash /tmp/depot/setup/bootstrap.sh
 ```
 
-You'll be asked some new-machine-setup-type questions.
-
 After an automatic reboot, sign in.
 
 ## 6. Configure Arch
@@ -114,25 +112,6 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 ```
 cd ~/code/depot && ./setup/configure.sh
 ```
-
-You'll be prompted for:
-
-- An admin username and password
-- A Frugal Usenet username and passsword
-- An NZBGeek API key
-- IPTorrents credentials
-- The path to your wireguard config (`/tmp/proton.conf`)
-
-You'll be shown tailscale addresses for the added services:
-
-- Jellyfin
-- qBittorrent
-- Prowlarr
-- SABnzbd
-- Sonarr
-- Radarr
-- Jellyseerr
-- Aviary
 
 **`configure.sh` is idempotent**. Re-run it any time.
 
