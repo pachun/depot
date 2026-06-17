@@ -8,11 +8,11 @@ A self-hosted home media server built to run on a [UGreen NAS](https://www.ugree
 
 ## 1. [Download the Arch ISO](https://archlinux.org/download/)
 
-## 2. Create a bootable USB
+## 2. Create a bootable USB drive
 
-Plug in the USB device.
+Plug in the USB drive into your machine.
 
-Find its name (It'll be something like `/dev/sda`, not a partition like `/dev/sda1`):
+Find its name (Something like `/dev/sda`, not a partition like `/dev/sda1`):
 
 ```
 lsblk
@@ -35,8 +35,9 @@ UGreen's preconfigured watchdog reboots every 180 seconds unless it detects the 
 - Go to **Advanced** → **Watchdog** and disable it
 - Save and exit
 
-## 4. Boot from USB
+## 4. Boot from USB drive
 
+- Plug the USB drive into the NAS
 - Power on while spamming **Ctrl + F12**
 - Press `c` to open a console
 - Go to **Boot** → **Boot Option 1** → Press **Enter** → Select bootable USB drive
