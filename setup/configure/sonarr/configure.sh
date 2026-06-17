@@ -62,7 +62,7 @@ fi
 # picks it up.
 SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
 if [ -s "$SONARR_CONFIG" ]; then
-  SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1)
+  SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1 || true)
   if [ -n "$SONARR_API_KEY" ]; then
     # shellcheck disable=SC1091
     source "$HERE/../_shared/arr/api.sh"

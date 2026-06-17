@@ -95,9 +95,18 @@ if [ -f "$ADMIN_ENV" ]; then
     #   "A temporary password is provided for this session: <TEMPPASS>"
     # or older variants. Scrape from container logs; fall back to
     # "adminadmin" (LSIO's older default) if scrape misses.
+    #
+    # `|| true` because on a re-run of an already-bootstrapped qBit
+    # the temp-password line has long since rolled out of the log
+    # buffer, so grep returns 1 — pipefail would propagate that into
+    # the command substitution and the script's set -e would kill
+    # the dispatcher, taking every later service's configure + the
+    # Phase 3 summary down with it. The `[ -z ]` fallback below is
+    # the actual "no temp password found" path.
     TEMP_PASS=$(docker logs qbittorrent 2>&1 \
       | grep -oP '(?<=temporary password is provided for this session: )\S+' \
-      | tail -1)
+      | tail -1 \
+      || true)
     [ -z "$TEMP_PASS" ] && TEMP_PASS="adminadmin"
 
     qbit_cookie_jar=$(mktemp)

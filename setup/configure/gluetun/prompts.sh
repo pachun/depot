@@ -36,8 +36,8 @@ if [ -z "${WIREGUARD_PRIVATE_KEY:-}" ] || [ -z "${WIREGUARD_ADDRESSES:-}" ]; the
   # `[^=]*=` not `.*=` because base64 keys end in `=` padding and a
   # greedy `.*=` eats the whole value.
   WG_CONF_NORMALIZED=$(tr -d '\r' < "$WG_CONF")
-  WIREGUARD_PRIVATE_KEY=$(echo "$WG_CONF_NORMALIZED" | grep -iE '^[[:space:]]*PrivateKey' | sed -E 's/^[^=]*=[[:space:]]*//' | tr -d '[:space:]')
-  WIREGUARD_ADDRESSES=$(echo "$WG_CONF_NORMALIZED"   | grep -iE '^[[:space:]]*Address'    | sed -E 's/^[^=]*=[[:space:]]*//' | tr -d '[:space:]')
+  WIREGUARD_PRIVATE_KEY=$(echo "$WG_CONF_NORMALIZED" | grep -iE '^[[:space:]]*PrivateKey' | sed -E 's/^[^=]*=[[:space:]]*//' | tr -d '[:space:]' || true)
+  WIREGUARD_ADDRESSES=$(echo "$WG_CONF_NORMALIZED"   | grep -iE '^[[:space:]]*Address'    | sed -E 's/^[^=]*=[[:space:]]*//' | tr -d '[:space:]' || true)
 
   if [ -z "$WIREGUARD_PRIVATE_KEY" ] || [ -z "$WIREGUARD_ADDRESSES" ]; then
     echo "Could not extract PrivateKey/Address from $WG_CONF" >&2

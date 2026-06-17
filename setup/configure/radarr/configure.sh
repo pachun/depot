@@ -61,7 +61,7 @@ fi
 # picks it up.
 RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
 if [ -s "$RADARR_CONFIG" ]; then
-  RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1)
+  RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1 || true)
   if [ -n "$RADARR_API_KEY" ]; then
     # shellcheck disable=SC1091
     source "$HERE/../_shared/arr/api.sh"

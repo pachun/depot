@@ -80,7 +80,7 @@ if [ -f "$ADMIN_ENV" ]; then
 
       # 3) Wire Sonarr.
       SONARR_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' \
-        "$HOME/library/.config/sonarr/config.xml" 2>/dev/null | head -1)
+        "$HOME/library/.config/sonarr/config.xml" 2>/dev/null | head -1 || true)
       if [ -n "$SONARR_KEY" ]; then
         curl -s -X POST -H "Content-Type: application/json" \
           -c /tmp/js-cookie -b /tmp/js-cookie \
@@ -103,7 +103,7 @@ if [ -f "$ADMIN_ENV" ]; then
 
       # 4) Wire Radarr.
       RADARR_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' \
-        "$HOME/library/.config/radarr/config.xml" 2>/dev/null | head -1)
+        "$HOME/library/.config/radarr/config.xml" 2>/dev/null | head -1 || true)
       if [ -n "$RADARR_KEY" ]; then
         curl -s -X POST -H "Content-Type: application/json" \
           -c /tmp/js-cookie -b /tmp/js-cookie \

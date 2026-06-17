@@ -63,7 +63,7 @@ USENET_ENV="$HOME/library/.config/depot/usenet.env"
 IPT_ENV="$HOME/library/.config/depot/iptorrents.env"
 
 if [ -s "$PROWLARR_CONFIG" ]; then
-  PROWLARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$PROWLARR_CONFIG" | head -1)
+  PROWLARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$PROWLARR_CONFIG" | head -1 || true)
 
   if [ -n "$PROWLARR_API_KEY" ]; then
     # shellcheck disable=SC1091
@@ -112,7 +112,7 @@ if [ -s "$PROWLARR_CONFIG" ]; then
     # NZBGeek (or any other indexer Prowlarr knows about).
     SONARR_CONFIG="$HOME/library/.config/sonarr/config.xml"
     if [ -s "$SONARR_CONFIG" ]; then
-      SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1)
+      SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" | head -1 || true)
       if [ -n "$SONARR_API_KEY" ]; then
         prowlarr_register_application \
           "http://localhost:9696" \
@@ -125,7 +125,7 @@ if [ -s "$PROWLARR_CONFIG" ]; then
 
     RADARR_CONFIG="$HOME/library/.config/radarr/config.xml"
     if [ -s "$RADARR_CONFIG" ]; then
-      RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1)
+      RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" | head -1 || true)
       if [ -n "$RADARR_API_KEY" ]; then
         prowlarr_register_application \
           "http://localhost:9696" \
