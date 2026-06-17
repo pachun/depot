@@ -29,13 +29,19 @@ if [ -z "${ADMIN_PASSWORD:-}" ]; then
 fi
 
 umask 077
-cat > "$ADMIN_ENV" <<EOF
-# Auto-managed by depot's _shared/prompts/admin_credentials.sh. Same credentials get pushed
-# to every service's admin user. Edit + re-run setup/configure.sh to
-# rotate (services that support API-based password change pick it up;
-# Jellyfin needs the old password to rotate so handle that there if it
-# ever comes up).
-ADMIN_USERNAME=$ADMIN_USERNAME
-ADMIN_PASSWORD=$ADMIN_PASSWORD
+# printf %q on every value: env files get sourced on the next run, so
+# any raw character that's special to bash (parens, semicolons, $, etc.
+# — all common in passwords) would otherwise blow up at source time.
+# %q quotes for re-input by the shell, round-tripping any value safely.
+{
+  cat <<'EOF'
+# Auto-managed by depot's _shared/prompts/admin_credentials.sh. Same
+# credentials get pushed to every service's admin user. Edit + re-run
+# setup/configure.sh to rotate (services that support API-based
+# password change pick it up; Jellyfin needs the old password to
+# rotate so handle that there if it ever comes up).
 EOF
+  printf 'ADMIN_USERNAME=%q\n' "$ADMIN_USERNAME"
+  printf 'ADMIN_PASSWORD=%q\n' "$ADMIN_PASSWORD"
+} > "$ADMIN_ENV"
 chmod 600 "$ADMIN_ENV"

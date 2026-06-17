@@ -31,35 +31,36 @@ fi
 # Re-write the file with the key appended/updated. sabnzbd/prompts.sh
 # also writes this file; either ordering of the two prompts.sh calls
 # is safe because each one sources the existing file first and merges.
+#
+# printf %q on every value: env files get sourced on the next run, so
+# any raw character that's special to bash (parens, semicolons, $, etc.
+# — all common in passwords) would otherwise blow up at source time.
+# %q quotes for re-input by the shell, round-tripping any value safely.
 umask 077
 {
-  # Preserve everything we know about from a prior load of the env.
-  # If sabnzbd/prompts.sh has already run this dispatcher session, its
-  # values are in scope. If it hasn't yet, the defaults below seed
-  # them — sabnzbd/prompts.sh will overwrite when it runs.
-  cat <<EOF
+  cat <<'EOF'
 # Auto-managed by depot's sabnzbd/prompts.sh and prowlarr/prompts.sh
 # — edit to rotate credentials. Re-run setup/configure.sh after
 # edits.
 
-USENET_USERNAME=${USENET_USERNAME:-}
-USENET_PASSWORD=${USENET_PASSWORD:-}
-
-USENET_PRIMARY_HOST=${USENET_PRIMARY_HOST:-news.frugalusenet.com}
-USENET_PRIMARY_PORT=${USENET_PRIMARY_PORT:-563}
-USENET_PRIMARY_CONNECTIONS=${USENET_PRIMARY_CONNECTIONS:-75}
-
-USENET_SECONDARY_HOST=${USENET_SECONDARY_HOST:-eunews.frugalusenet.com}
-USENET_SECONDARY_PORT=${USENET_SECONDARY_PORT:-563}
-USENET_SECONDARY_CONNECTIONS=${USENET_SECONDARY_CONNECTIONS:-30}
-
-USENET_BONUS_HOST=${USENET_BONUS_HOST:-bonus.frugalusenet.com}
-USENET_BONUS_PORT=${USENET_BONUS_PORT:-563}
-USENET_BONUS_CONNECTIONS=${USENET_BONUS_CONNECTIONS:-50}
-
-INDEXER_NZBGEEK_URL=$INDEXER_NZBGEEK_URL
-INDEXER_NZBGEEK_API_KEY=$INDEXER_NZBGEEK_API_KEY
 EOF
+  printf 'USENET_USERNAME=%q\n' "${USENET_USERNAME:-}"
+  printf 'USENET_PASSWORD=%q\n' "${USENET_PASSWORD:-}"
+  echo
+  printf 'USENET_PRIMARY_HOST=%q\n' "${USENET_PRIMARY_HOST:-news.frugalusenet.com}"
+  printf 'USENET_PRIMARY_PORT=%q\n' "${USENET_PRIMARY_PORT:-563}"
+  printf 'USENET_PRIMARY_CONNECTIONS=%q\n' "${USENET_PRIMARY_CONNECTIONS:-75}"
+  echo
+  printf 'USENET_SECONDARY_HOST=%q\n' "${USENET_SECONDARY_HOST:-eunews.frugalusenet.com}"
+  printf 'USENET_SECONDARY_PORT=%q\n' "${USENET_SECONDARY_PORT:-563}"
+  printf 'USENET_SECONDARY_CONNECTIONS=%q\n' "${USENET_SECONDARY_CONNECTIONS:-30}"
+  echo
+  printf 'USENET_BONUS_HOST=%q\n' "${USENET_BONUS_HOST:-bonus.frugalusenet.com}"
+  printf 'USENET_BONUS_PORT=%q\n' "${USENET_BONUS_PORT:-563}"
+  printf 'USENET_BONUS_CONNECTIONS=%q\n' "${USENET_BONUS_CONNECTIONS:-50}"
+  echo
+  printf 'INDEXER_NZBGEEK_URL=%q\n' "$INDEXER_NZBGEEK_URL"
+  printf 'INDEXER_NZBGEEK_API_KEY=%q\n' "$INDEXER_NZBGEEK_API_KEY"
 } > "$USENET_ENV"
 chmod 600 "$USENET_ENV"
 
@@ -100,11 +101,16 @@ if [ -z "${IPT_USERAGENT:-}" ]; then
 fi
 
 umask 077
-cat > "$IPT_ENV" <<EOF
+# printf %q on every value — User-Agent strings contain literal parens
+# and semicolons (Mozilla/5.0 (X11; …)) that would otherwise read as
+# subshell syntax when env is sourced on the next run.
+{
+  cat <<'EOF'
 # Auto-managed by depot's prowlarr/prompts.sh. The cookie expires
 # periodically; when IPTorrents searches start failing weeks/months
 # later, edit the values here and re-run setup/configure.sh.
-IPT_COOKIE=$IPT_COOKIE
-IPT_USERAGENT=$IPT_USERAGENT
 EOF
+  printf 'IPT_COOKIE=%q\n' "$IPT_COOKIE"
+  printf 'IPT_USERAGENT=%q\n' "$IPT_USERAGENT"
+} > "$IPT_ENV"
 chmod 600 "$IPT_ENV"

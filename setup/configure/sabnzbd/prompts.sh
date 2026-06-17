@@ -45,31 +45,39 @@ fi
 # Persist. umask first so the file is created 600 from the start
 # (we still chmod after for safety on existing files).
 umask 077
-cat > "$USENET_ENV" <<EOF
+# printf %q on every value: env files get sourced on the next run, so
+# any raw character that's special to bash (parens, semicolons, $, etc.
+# — all common in passwords) would otherwise blow up at source time.
+# %q quotes for re-input by the shell, round-tripping any value safely.
+{
+  cat <<'EOF'
 # Auto-managed by depot's sabnzbd/prompts.sh — edit to rotate
 # credentials or change Frugal server topology. Re-run
 # setup/configure.sh after edits.
 
-USENET_USERNAME=$USENET_USERNAME
-USENET_PASSWORD=$USENET_PASSWORD
-
-USENET_PRIMARY_HOST=$USENET_PRIMARY_HOST
-USENET_PRIMARY_PORT=$USENET_PRIMARY_PORT
-USENET_PRIMARY_CONNECTIONS=$USENET_PRIMARY_CONNECTIONS
-
-USENET_SECONDARY_HOST=$USENET_SECONDARY_HOST
-USENET_SECONDARY_PORT=$USENET_SECONDARY_PORT
-USENET_SECONDARY_CONNECTIONS=$USENET_SECONDARY_CONNECTIONS
-
-USENET_BONUS_HOST=$USENET_BONUS_HOST
-USENET_BONUS_PORT=$USENET_BONUS_PORT
-USENET_BONUS_CONNECTIONS=$USENET_BONUS_CONNECTIONS
-
+EOF
+  printf 'USENET_USERNAME=%q\n' "$USENET_USERNAME"
+  printf 'USENET_PASSWORD=%q\n' "$USENET_PASSWORD"
+  echo
+  printf 'USENET_PRIMARY_HOST=%q\n' "$USENET_PRIMARY_HOST"
+  printf 'USENET_PRIMARY_PORT=%q\n' "$USENET_PRIMARY_PORT"
+  printf 'USENET_PRIMARY_CONNECTIONS=%q\n' "$USENET_PRIMARY_CONNECTIONS"
+  echo
+  printf 'USENET_SECONDARY_HOST=%q\n' "$USENET_SECONDARY_HOST"
+  printf 'USENET_SECONDARY_PORT=%q\n' "$USENET_SECONDARY_PORT"
+  printf 'USENET_SECONDARY_CONNECTIONS=%q\n' "$USENET_SECONDARY_CONNECTIONS"
+  echo
+  printf 'USENET_BONUS_HOST=%q\n' "$USENET_BONUS_HOST"
+  printf 'USENET_BONUS_PORT=%q\n' "$USENET_BONUS_PORT"
+  printf 'USENET_BONUS_CONNECTIONS=%q\n' "$USENET_BONUS_CONNECTIONS"
+  echo
+  cat <<'EOF'
 # NZBGeek (or whichever Newznab indexer you use) — picked up by
 # prowlarr/configure.sh to register the indexer over the Prowlarr
 # REST API. Prowlarr then syncs it to Sonarr / Radarr via the
 # Applications wiring.
-INDEXER_NZBGEEK_URL=${INDEXER_NZBGEEK_URL:-https://api.nzbgeek.info}
-INDEXER_NZBGEEK_API_KEY=${INDEXER_NZBGEEK_API_KEY:-}
 EOF
+  printf 'INDEXER_NZBGEEK_URL=%q\n' "${INDEXER_NZBGEEK_URL:-https://api.nzbgeek.info}"
+  printf 'INDEXER_NZBGEEK_API_KEY=%q\n' "${INDEXER_NZBGEEK_API_KEY:-}"
+} > "$USENET_ENV"
 chmod 600 "$USENET_ENV"
