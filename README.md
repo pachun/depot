@@ -61,11 +61,9 @@ After an automatic reboot, sign in.
 cd ~/code/depot && ./setup/install.sh
 ```
 
-## 7. SSH in from your main machine
+## 7. SSH into the NAS from your favorite machine
 
 The prior step prints an SSH command. Run it from your favorite machine to continue from there.
-
-You can unplug the monitor and keyboard from the NAS.
 
 ## 8. SSH-authenticate with GitHub
 
