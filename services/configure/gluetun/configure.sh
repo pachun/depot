@@ -57,7 +57,13 @@ mkdir -p ~/hdds/.config/gluetun
 # /gluetun/qbit-port-sync.sh (the bind-mount target). gluetun's
 # VPN_PORT_FORWARDING_UP_COMMAND env var invokes it whenever the
 # forwarded port changes.
-install -m 0755 "$HERE/qbit-port-sync.sh" ~/hdds/.config/gluetun/qbit-port-sync.sh
+#
+# `sudo install` because gluetun runs as root inside the container and
+# any file it creates in the bind-mounted /gluetun path comes out
+# owned by root on the host. Without sudo here, an `install` from
+# nick can't overwrite a root-owned file (most common on re-runs after
+# the container has been up once).
+sudo install -m 0755 "$HERE/qbit-port-sync.sh" ~/hdds/.config/gluetun/qbit-port-sync.sh
 
 # Migration safety: an older qBittorrent container (from before we
 # moved 8080/6881 publishing to gluetun) holds the ports gluetun is
