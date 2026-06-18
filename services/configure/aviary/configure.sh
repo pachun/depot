@@ -241,9 +241,28 @@ sudo \
 
 # Run migrations against the prod DB. Phoenix releases deliberately
 # don't auto-migrate on boot; this explicit call keeps the schema in
-# sync with the deployed code and is loud about doing so. Idempotent
-# — Ecto skips migrations already applied.
-docker exec aviary bin/aviary eval "Aviary.Release.migrate()" >/dev/null
+# sync with the deployed code. Idempotent — Ecto skips migrations
+# already applied.
+#
+# Two things matter here:
+#   1. `docker-compose up -d` returns the moment the container starts,
+#      not when the BEAM is fully booted. `bin/aviary eval` against an
+#      un-booted release exits non-zero, so we poll the Phoenix endpoint
+#      until it responds before issuing the migrate.
+#   2. NEVER redirect this command's stderr to /dev/null. The previous
+#      version did and a silent migrate failure left aviary running
+#      against an empty 4096-byte default DB; sqlite-connection errors
+#      then spammed the logs and the discover page broke without any
+#      configure-side signal that something was wrong.
+echo "Waiting for aviary to come up before migrating..."
+for _ in $(seq 1 60); do
+  if curl -sf http://localhost:4000/ >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+docker exec aviary bin/aviary eval "Aviary.Release.migrate()"
 
 # Register (or update) a Webhook Connect notification in Sonarr that
 # POSTs back to aviary on health-state events. Aviary uses those
