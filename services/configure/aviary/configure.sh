@@ -24,17 +24,22 @@ if [ -n "${DEPOT_RUN_DIR:-}" ]; then
 fi
 
 bash "$HERE/../docker/configure.sh"
-# Aviary harvests Jellyfin's API key (named 'aviary') from Jellyfin's
-# SQLite DB to talk to the Jellyfin REST API. That key is created
-# during Jellyfin's bootstrap, so Jellyfin has to be fully set up
-# before this script can do anything useful. Calling jellyfin's
-# configure.sh directly here, rather than leaning on dispatcher
-# iteration order, makes aviary single-shot installable — without it,
-# aviary's alphabetical position before jellyfin means the first run
-# skips aviary entirely ("DB not present yet") and the user has to
-# re-run configure.sh after Jellyfin finishes to get aviary up.
-# Idempotent — same pattern as qbittorrent calling gluetun.
+# Direct deps: aviary harvests four API keys to talk to the integration
+# layer it sits on top of.
+#   - Jellyfin (sqlite DB → 'aviary' key)        — library + playback
+#   - Jellyseerr (settings.json → .main.apiKey)  — discover/calendar/TMDB
+#   - Sonarr (config.xml → ApiKey)               — TV download buttons
+#   - Radarr (config.xml → ApiKey)               — movie download buttons
+# All four configs need to exist on disk before aviary's harvest blocks
+# below fire. Calling them explicitly here so aviary is single-shot
+# installable independent of alphabetical dispatcher order — without
+# these, aviary's first iteration runs before the dependent services
+# and the harvest skips them, leaving the discover page without
+# thumbnails and search/requests broken. Idempotent (per-run guards).
 bash "$HERE/../jellyfin/configure.sh"
+bash "$HERE/../jellyseerr/configure.sh"
+bash "$HERE/../sonarr/configure.sh"
+bash "$HERE/../radarr/configure.sh"
 
 # sqlite + jq are used for API-key harvesting: sqlite reads Jellyfin's
 # DB, jq parses Jellyseerr's settings.json and Sonarr/Radarr responses
