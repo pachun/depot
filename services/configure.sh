@@ -57,6 +57,26 @@ done
 # yet, `serve reset` is a silent no-op via the `|| true`.
 sudo tailscale serve reset >/dev/null 2>&1 || true
 
+# Remove any containers from previous failed runs that aren't currently
+# running. docker-compose's `up -d` will start an existing container in
+# whatever state it's in — and a container that was Created/Restarting
+# from an earlier abort (e.g. port conflict at first bind) has a
+# half-initialized netns that doesn't recover by being started: gluetun
+# in particular fails at "default route not found" because the bridge
+# was never fully wired up. Cleaning up here forces docker-compose to
+# create fresh on the next run.
+for _d in "$HERE/configure"/*/; do
+  _service=$(basename "$_d")
+  [[ "$_service" == _* ]] && continue
+  if docker inspect "$_service" >/dev/null 2>&1; then
+    _state=$(docker inspect "$_service" --format '{{.State.Status}}' 2>/dev/null)
+    if [ "$_state" != "running" ]; then
+      docker rm -f "$_service" >/dev/null 2>&1 || true
+    fi
+  fi
+done
+unset _d _service _state
+
 # Phase 2: run each feature.
 for d in "$HERE/configure"/*/; do
   [[ "$(basename "$d")" == _* ]] && continue
