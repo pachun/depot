@@ -5,7 +5,7 @@
 # visible in the same place every service's status lives.
 set -euo pipefail
 
-if ! sudo docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^unpackerr$'; then
+if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^unpackerr$'; then
   echo "Unpackerr:      not running"
   exit 0
 fi
@@ -14,7 +14,7 @@ fi
 # configured arr instances. Empty target hint (no Sonarr/Radarr lines
 # yet) means we ran before sonarr/radarr were initialized — re-run
 # configure.sh once they're up.
-TARGETS=$(sudo docker logs unpackerr 2>&1 \
+TARGETS=$(docker logs unpackerr 2>&1 \
   | grep -iE "Sonarr Config|Radarr Config" \
   | tail -4 \
   | sed 's/.*\[INF\] //' \

@@ -11,6 +11,15 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# Direct deps: jellyseerr's bootstrap calls Jellyfin's auth endpoint
+# with admin creds and reads Sonarr's + Radarr's API keys from their
+# config.xml to register them as media backends. Calling all three
+# explicitly so jellyseerr is fully wired on a single install pass —
+# without these, alphabetical dispatcher order puts jellyseerr ahead
+# of sonarr/radarr and the bootstrap silently skips those wires.
+bash "$HERE/../jellyfin/configure.sh"
+bash "$HERE/../sonarr/configure.sh"
+bash "$HERE/../radarr/configure.sh"
 
 sudo pacman -S --needed --noconfirm jq
 

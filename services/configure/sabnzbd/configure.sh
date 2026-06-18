@@ -18,6 +18,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# Direct deps: sabnzbd registers itself as a download client in
+# Sonarr and Radarr (register_sabnzbd_into_arr), which requires both
+# arrs' API keys present in their config.xml. Without these explicit
+# calls, alphabetical dispatcher order puts sabnzbd ahead of sonarr
+# and the arr-side registrations silently skip on first install.
+bash "$HERE/../sonarr/configure.sh"
+bash "$HERE/../radarr/configure.sh"
 
 sudo pacman -S --needed --noconfirm jq
 

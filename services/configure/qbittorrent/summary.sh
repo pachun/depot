@@ -5,7 +5,7 @@
 # log line stops appearing in fresh boots and the suffix is omitted.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PW=$(sudo docker logs qbittorrent 2>&1 \
+PW=$(docker logs qbittorrent 2>&1 \
   | awk -F': ' '/temporary password/ {print $NF; exit}')
 SUFFIX=""
 if [ -n "$PW" ]; then

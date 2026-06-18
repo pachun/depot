@@ -14,6 +14,17 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# Aviary harvests Jellyfin's API key (named 'aviary') from Jellyfin's
+# SQLite DB to talk to the Jellyfin REST API. That key is created
+# during Jellyfin's bootstrap, so Jellyfin has to be fully set up
+# before this script can do anything useful. Calling jellyfin's
+# configure.sh directly here, rather than leaning on dispatcher
+# iteration order, makes aviary single-shot installable — without it,
+# aviary's alphabetical position before jellyfin means the first run
+# skips aviary entirely ("DB not present yet") and the user has to
+# re-run configure.sh after Jellyfin finishes to get aviary up.
+# Idempotent — same pattern as qbittorrent calling gluetun.
+bash "$HERE/../jellyfin/configure.sh"
 
 # sqlite + jq are used for API-key harvesting: sqlite reads Jellyfin's
 # DB, jq parses Jellyseerr's settings.json and Sonarr/Radarr responses

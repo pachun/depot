@@ -12,6 +12,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# Direct deps: prowlarr's Application wiring registers Sonarr and
+# Radarr by reading their API keys from config.xml. Without these
+# explicit calls, alphabetical dispatcher order puts prowlarr ahead
+# of sonarr/radarr and the Application wires silently skip on first
+# install.
+bash "$HERE/../sonarr/configure.sh"
+bash "$HERE/../radarr/configure.sh"
 
 sudo pacman -S --needed --noconfirm jq
 

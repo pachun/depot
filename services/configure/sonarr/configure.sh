@@ -11,6 +11,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
+# Direct deps: sonarr's connect_to_jellyfin wire needs Jellyfin's
+# 'sonarr' API key (created during Jellyfin's bootstrap); its
+# connect_to_qbit wire registers qBittorrent as the download client,
+# which sonarr validates on save. Calling both explicitly so sonarr is
+# fully wired on a single install pass — independent of alphabetical
+# dispatcher order.
+bash "$HERE/../jellyfin/configure.sh"
+bash "$HERE/../qbittorrent/configure.sh"
 
 sudo pacman -S --needed --noconfirm jq
 
