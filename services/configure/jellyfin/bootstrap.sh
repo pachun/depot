@@ -23,14 +23,20 @@
 # that core init — including DB migrations — has finished.
 jellyfin_wait_for_api() {
   local base_url="$1"
-  for _ in $(seq 1 60); do
+  # 120s, not 60. 10.11's EF migrations against a freshly-recreated
+  # container can take 30-60s by themselves before the API responds,
+  # so the previous 60s budget was tight enough that an unlucky run
+  # would time out and skip the wizard — leaving Jellyfin with no
+  # admin user and every downstream service (sonarr's notification,
+  # aviary's API key harvest) silently broken.
+  for _ in $(seq 1 120); do
     if curl -sf "$base_url/System/Info/Public" >/dev/null 2>&1 \
        && docker logs jellyfin 2>&1 | grep -q 'Startup complete'; then
       return 0
     fi
     sleep 1
   done
-  echo "  WARN: Jellyfin API didn't respond within 60s" >&2
+  echo "  WARN: Jellyfin API didn't respond within 120s" >&2
   return 1
 }
 
