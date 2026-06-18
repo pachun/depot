@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# install/ssh — make this NAS reachable over SSH from your laptop so
+# you can run the rest of the install from a more comfortable
+# environment than the live ISO console. Pulls in openssh, enables the
+# sshd daemon, then prints a ready-to-paste `ssh <user>@<ip>` command.
+# Idempotent — re-runs are no-ops except for re-printing the command.
+set -euo pipefail
+
+sudo pacman -S --needed --noconfirm openssh
+sudo systemctl enable --now sshd
+
+ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
+echo
+echo "ssh $USER@$ip"
+echo

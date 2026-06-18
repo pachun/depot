@@ -1,0 +1,385 @@
+#!/usr/bin/env bash
+# install/arch — bare Arch Linux install. Run from the live Arch ISO
+# after cloning the depot repo to /tmp/depot.
+#
+# This is everything `archinstall` would do automatically: partition the
+# OS NVMe, pacstrap base, set up timezone/locale/hostname, create a
+# wheel-powered daily-driver user, set the root password, install the
+# bootloader, enable NetworkManager, and copy this repo into the new
+# user's home so `depot` is reachable post-reboot. Anything
+# depot-specific (ZFS, faillock-off, the service stack) lives in
+# `depot`, which the user runs after first login.
+#
+# SATA drives are explicitly refused as install targets — the NAS's
+# data HDDs are SATA and the OS drive is NVMe; this guard makes it
+# impossible to wipe a data drive by mispicking at the confirmation
+# prompt.
+#
+# Structure (top-down):
+#   1. Functions for the outer (live ISO) phase
+#   2. Functions for the chroot phase
+#   3. `--chroot-phase` early-exit branch
+#   4. Prompts (all up front)
+#   5. Outer phase execution
+#   6. Summary + reboot prompt
+set -euo pipefail
+shopt -s nullglob
+
+# ============================================================
+# Outer-phase functions (run on the live ISO, before chroot)
+# ============================================================
+
+require_root() {
+  if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+    echo "install/arch must run as root" >&2
+    exit 1
+  fi
+}
+
+require_uefi() {
+  if [ ! -d /sys/firmware/efi/efivars ]; then
+    echo "Not booted in UEFI mode. Aborting." >&2
+    echo "Reboot the live USB selecting the UEFI entry, then retry." >&2
+    exit 1
+  fi
+}
+
+pick_install_target() {
+  mapfile -t nvmes < <(lsblk -d -p -n -o NAME,TRAN | awk '$2 == "nvme" {print $1}')
+
+  if [ "${#nvmes[@]}" -eq 0 ]; then
+    echo "No NVMe drive found. Aborting." >&2
+    exit 1
+  fi
+
+  if [ "${#nvmes[@]}" -eq 1 ]; then
+    TARGET="${nvmes[0]}"
+  else
+    echo
+    echo "Pick the OS drive by index:"
+    for i in "${!nvmes[@]}"; do
+      size=$(lsblk -d -n -o SIZE "${nvmes[$i]}")
+      echo "  $i: ${nvmes[$i]}  ${size}"
+    done
+    read -rp "Index: " idx </dev/tty
+    TARGET="${nvmes[$idx]}"
+  fi
+
+  # Belt-and-suspenders SATA refusal.
+  case "$TARGET" in
+    /dev/sd*)
+      echo "Refusing to install on SATA target $TARGET. NVMe only." >&2
+      exit 1
+      ;;
+  esac
+
+  echo
+  echo "=========================================================="
+  echo "  WILL WIPE AND INSTALL ARCH ON: $TARGET"
+  echo "  Every byte on this device will be destroyed."
+  echo "=========================================================="
+  read -rp "Type 'yes' to continue: " confirm </dev/tty
+  if [ "$confirm" != "yes" ]; then
+    echo "Aborted."
+    exit 1
+  fi
+
+  export TARGET
+}
+
+partition_disk() {
+  echo
+  echo "Partitioning $TARGET..."
+  parted -s "$TARGET" mklabel gpt
+  parted -s "$TARGET" mkpart EFI fat32 1MiB 513MiB
+  parted -s "$TARGET" set 1 esp on
+  parted -s "$TARGET" mkpart root ext4 513MiB 100%
+
+  # NVMe partitions use a 'p<N>' suffix (e.g. /dev/nvme0n1p1).
+  PART_EFI="${TARGET}p1"
+  PART_ROOT="${TARGET}p2"
+  export PART_EFI PART_ROOT
+
+  partprobe "$TARGET"
+  sleep 2
+}
+
+format_partitions() {
+  echo "Formatting partitions..."
+  mkfs.fat -F 32 -n EFI "$PART_EFI"
+  mkfs.ext4 -F -L root "$PART_ROOT"
+}
+
+mount_partitions() {
+  echo "Mounting..."
+  mount "$PART_ROOT" /mnt
+  mkdir -p /mnt/boot
+  # fmask=0077,dmask=0077 hides the FAT files from non-root so bootctl's
+  # random seed isn't world-readable. genfstab below picks up these
+  # options and writes them into the new system's fstab.
+  mount -o fmask=0077,dmask=0077 "$PART_EFI" /mnt/boot
+}
+
+pacstrap_base() {
+  echo
+  echo "Installing base packages (pacstrap)..."
+  # linux-lts (not linux): archzfs publishes precompiled zfs-linux-lts
+  # matched to each linux-lts release, so depot can pin them
+  # together without DKMS. linux-lts also gets a longer support window
+  # than `linux`, which suits a NAS. linux-lts-headers is NOT installed
+  # — depot uses the precompiled module.
+  pacstrap -K /mnt base linux-lts linux-firmware vim git networkmanager sudo
+}
+
+write_fstab() {
+  genfstab -U /mnt >> /mnt/etc/fstab
+}
+
+bind_depot_into_chroot() {
+  mkdir -p /mnt/depot-installer
+  mount --bind "$DEPOT_ROOT" /mnt/depot-installer
+}
+
+run_chroot_phase() {
+  # Re-invoke this same script inside arch-chroot with --chroot-phase
+  # so the functions below run against the new system.
+  echo
+  echo "Configuring new system..."
+  arch-chroot /mnt env \
+    INSTALL_USERNAME="$INSTALL_USERNAME" \
+    INSTALL_HOSTNAME="$INSTALL_HOSTNAME" \
+    INSTALL_USER_PASSWORD="$INSTALL_USER_PASSWORD" \
+    PART_ROOT="$PART_ROOT" \
+    bash /depot-installer/install/arch --chroot-phase </dev/tty
+}
+
+unmount_and_reboot() {
+  umount /mnt/depot-installer
+  rmdir /mnt/depot-installer
+  umount -R /mnt
+
+  # UGreen's BIOS sets the USB as Boot Option 1, which is a persistent
+  # BIOS-level priority that UEFI's BootOrder/BootNext can't reliably
+  # override. So instead of manipulating firmware state, ask the user
+  # to physically remove the USB before reboot. With the USB gone, the
+  # BIOS falls through to the next bootable device — the just-installed
+  # Arch on the NVMe.
+  echo
+  echo "=========================================================="
+  echo "  install/arch complete."
+  echo
+  echo "  REMOVE THE USB DRIVE from the NAS now."
+  echo "  Then press Enter to reboot into Arch."
+  echo "=========================================================="
+  read -r -p "> " _ </dev/tty || true
+
+  reboot
+}
+
+# ============================================================
+# Chroot-phase functions (run inside arch-chroot via --chroot-phase)
+# ============================================================
+
+set_timezone() {
+  # Walk the user through tzselect (numbered menus: continent → country
+  # → region → confirm) so we don't need the IANA string up front.
+  local current
+  current=$(timedatectl show --value -p Timezone 2>/dev/null || echo UTC)
+
+  if [[ "$current" != "UTC" && "$current" != "Etc/UTC" ]]; then
+    return 0
+  fi
+
+  echo
+  echo "Walking through tzselect to pick the system timezone..."
+  echo
+
+  local tz
+  if ! tz=$(tzselect | tail -1); then
+    echo "tzselect aborted; leaving as UTC." >&2
+    return 0
+  fi
+  if [[ -z "$tz" ]]; then
+    echo "No selection; leaving as UTC." >&2
+    return 0
+  fi
+
+  ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime
+  hwclock --systohc
+  echo "Timezone set to $tz."
+}
+
+set_locale() {
+  # Generate en_US.UTF-8 and set as default. Idempotent: sed only matches
+  # still-commented lines.
+  sed -i 's/^#\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+  locale-gen
+  echo "LANG=en_US.UTF-8" > /etc/locale.conf
+}
+
+set_hostname() {
+  echo "$INSTALL_HOSTNAME" > /etc/hostname
+  cat > /etc/hosts <<EOF
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $INSTALL_HOSTNAME.localdomain $INSTALL_HOSTNAME
+EOF
+}
+
+create_user() {
+  # Daily-driver user, wheel member for sudo. Idempotent.
+  if ! id "$INSTALL_USERNAME" >/dev/null 2>&1; then
+    useradd -m -G wheel -s /bin/bash "$INSTALL_USERNAME"
+  fi
+
+  if [ "$(passwd -S "$INSTALL_USERNAME" 2>/dev/null | awk '{print $2}')" != "P" ]; then
+    echo "$INSTALL_USERNAME:$INSTALL_USER_PASSWORD" | chpasswd
+  fi
+}
+
+set_root_password() {
+  # Mirror the user's password to root for recovery: if the user
+  # account ever gets locked out (forgotten password, broken sudo,
+  # broken shell), the same password at the TTY as root unsticks it.
+  # Hash via getent so we never re-derive the plaintext.
+  local hash
+  hash=$(getent shadow "$INSTALL_USERNAME" | cut -d: -f2)
+  case "$hash" in
+    ""|"!"*|"*")
+      echo "set_root_password: $INSTALL_USERNAME has no password set" >&2
+      exit 1
+      ;;
+  esac
+  echo "root:$hash" | chpasswd -e
+}
+
+enable_wheel_sudo() {
+  # Grant sudo to anyone in `wheel`. Drop-in under sudoers.d so we never
+  # touch /etc/sudoers. Validated with visudo -cf before being trusted.
+  #
+  # SETENV tag: Arch's default sudoers has `Defaults env_reset` which
+  # silently strips env vars passed via `sudo VAR=val cmd`. depot
+  # relies on passing PUID, PGID, TZ, DEPOT_USER_HOME, WIREGUARD_* etc.
+  # through sudo for docker-compose substitution. SETENV lets wheel
+  # members override the env reset on the command line. No real
+  # privilege expansion — wheel already has full sudo.
+  #
+  # HOME specifically is NOT preserved by sudo even with SETENV (sudo
+  # hardcodes target-user's home for HOME regardless). depot's
+  # compose files use `${DEPOT_USER_HOME}` instead of `${HOME}` to dodge
+  # this; the SETENV here covers the rest.
+  echo '%wheel ALL=(ALL:ALL) SETENV: ALL' > /etc/sudoers.d/10-wheel
+  chmod 440 /etc/sudoers.d/10-wheel
+  visudo -cf /etc/sudoers.d/10-wheel
+}
+
+install_bootloader() {
+  # systemd-boot to the EFI partition mounted at /boot. Idempotent:
+  # bootctl install is safe to re-run; loader config + entry file are
+  # overwritten with same content each time.
+  bootctl --esp-path=/boot install
+
+  # PARTUUID for the root partition. Stable across reboots and cable
+  # swaps; /dev paths would be fragile.
+  local root_partuuid
+  root_partuuid=$(blkid -s PARTUUID -o value "$PART_ROOT")
+
+  cat > /boot/loader/loader.conf <<EOF
+default depot.conf
+timeout 0
+console-mode max
+editor no
+EOF
+
+  cat > /boot/loader/entries/depot.conf <<EOF
+title   Arch Linux LTS
+linux   /vmlinuz-linux-lts
+initrd  /initramfs-linux-lts.img
+options root=PARTUUID=$root_partuuid rw
+EOF
+}
+
+enable_networkmanager() {
+  systemctl enable NetworkManager.service
+}
+
+copy_depot_repo() {
+  # Copy the depot repo (currently bind-mounted at /depot-installer
+  # from the live ISO) into the new user's ~/code/depot. After the
+  # outer phase unmounts the bind, /depot-installer disappears, so we
+  # need a real copy somewhere persistent.
+  local dest_dir="/home/$INSTALL_USERNAME/code"
+  local dest="$dest_dir/depot"
+
+  mkdir -p "$dest_dir"
+  if [ ! -d "$dest" ]; then
+    cp -r /depot-installer "$dest"
+  fi
+  chown -R "$INSTALL_USERNAME:$INSTALL_USERNAME" "$dest_dir"
+}
+
+run_inside_chroot() {
+  # All chroot-phase work, in order.
+  set_timezone
+  set_locale
+  set_hostname
+  create_user
+  set_root_password
+  enable_wheel_sudo
+  install_bootloader
+  enable_networkmanager
+  copy_depot_repo
+}
+
+# ============================================================
+# --chroot-phase: invoked recursively from arch-chroot. Exits early
+# after running the chroot-phase functions.
+# ============================================================
+
+if [ "${1:-}" = "--chroot-phase" ]; then
+  run_inside_chroot
+  exit 0
+fi
+
+# ============================================================
+# Outer phase (live ISO). Prompts, then unattended work.
+# ============================================================
+
+DEPOT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+require_root
+require_uefi
+
+# Prompts collected up front so the user can walk away once the install
+# starts writing to disk.
+echo
+read -rp "hostname: " INSTALL_HOSTNAME </dev/tty
+read -rp "username: " INSTALL_USERNAME </dev/tty
+
+while :; do
+  read -srp "password: " INSTALL_USER_PASSWORD </dev/tty
+  echo
+  read -srp "confirm password: " _CONFIRM </dev/tty
+  echo
+  if [ "$INSTALL_USER_PASSWORD" = "$_CONFIRM" ]; then
+    break
+  fi
+  echo "Passwords don't match. Try again."
+done
+unset _CONFIRM
+export INSTALL_HOSTNAME INSTALL_USERNAME INSTALL_USER_PASSWORD
+
+pick_install_target
+
+# Time sync — pacstrap and key-signature checks fail if the clock is
+# wildly off, which is common on fresh boots.
+timedatectl set-ntp true
+
+partition_disk
+format_partitions
+mount_partitions
+pacstrap_base
+write_fstab
+bind_depot_into_chroot
+run_chroot_phase
+unmount_and_reboot

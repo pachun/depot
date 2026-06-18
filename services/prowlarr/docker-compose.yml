@@ -1,0 +1,21 @@
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    # Bridge networking with a single mapped port. Prowlarr is purely
+    # a web app + outbound API client — nothing here needs host mode.
+    ports:
+      - 9696:9696
+    # Makes `host.docker.internal` resolve to the host's docker-bridge
+    # gateway. Needed so prowlarr can reach sonarr/radarr (also in
+    # bridge mode, each mapping their port to the host) by name rather
+    # than by a fragile bridge-IP literal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${DEPOT_USER_HOME}/hdds/.config/prowlarr:/config
+    restart: unless-stopped
