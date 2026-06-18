@@ -15,11 +15,19 @@ set -euo pipefail
 # dependency (most often via expose-https.sh); without this guard, the
 # cascade re-runs `pacman -S --needed`, `systemctl`, and `tailscale
 # status` many times per install. See services/configure.sh.
-if [ -n "${DEPOT_RUN_DIR:-}" ]; then
-  SENTINEL="$DEPOT_RUN_DIR/$(basename "$(dirname "${BASH_SOURCE[0]}")")"
-  [ -f "$SENTINEL" ] && exit 0
-  touch "$SENTINEL"
+#
+# When invoked standalone (not via the dispatcher), DEPOT_RUN_DIR
+# isn't set in the env yet — initialize it here so the cascade is
+# still protected from re-runs within this one invocation. The trap
+# only fires for the outermost shell because child `bash subscript.sh`
+# calls don't inherit our EXIT handler.
+if [ -z "${DEPOT_RUN_DIR:-}" ]; then
+  export DEPOT_RUN_DIR=$(mktemp -d -t depot-run-XXXXXXXX)
+  trap 'rm -rf "$DEPOT_RUN_DIR"' EXIT
 fi
+SENTINEL="$DEPOT_RUN_DIR/$(basename "$(dirname "${BASH_SOURCE[0]}")")"
+[ -f "$SENTINEL" ] && exit 0
+touch "$SENTINEL"
 
 # jq is used by https-url.sh to parse `tailscale status --json` for
 # the tailnet FQDN. Installed alongside tailscale so any feature using

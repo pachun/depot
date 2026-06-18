@@ -26,10 +26,28 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # invocation. Other services may have called us as an explicit
 # dependency; without this guard, the cascade re-runs heavy bootstrap
 # blocks many times per install. See services/configure.sh.
-if [ -n "${DEPOT_RUN_DIR:-}" ]; then
-  SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
-  [ -f "$SENTINEL" ] && exit 0
-  touch "$SENTINEL"
+#
+# When invoked standalone (not via the dispatcher), DEPOT_RUN_DIR
+# isn't set in the env yet — initialize it here so the cascade is
+# still protected from re-runs within this one invocation. The trap
+# only fires for the outermost shell because child `bash subscript.sh`
+# calls don't inherit our EXIT handler.
+if [ -z "${DEPOT_RUN_DIR:-}" ]; then
+  export DEPOT_RUN_DIR=$(mktemp -d -t depot-run-XXXXXXXX)
+  trap 'rm -rf "$DEPOT_RUN_DIR"' EXIT
+fi
+SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
+[ -f "$SENTINEL" ] && exit 0
+touch "$SENTINEL"
+
+# Defensive re-source of wg.env in case we were invoked outside the
+# dispatcher (which would have sourced prompts.sh in Phase 1 and
+# exported WIREGUARD_PRIVATE_KEY / WIREGUARD_ADDRESSES). Same pattern
+# as the admin.env source-and-check in jellyfin/jellyseerr/etc.
+WG_ENV="$HOME/hdds/.config/gluetun/wg.env"
+if [ -f "$WG_ENV" ]; then
+  # shellcheck disable=SC1090
+  source "$WG_ENV"
 fi
 
 bash "$HERE/../docker/configure.sh"

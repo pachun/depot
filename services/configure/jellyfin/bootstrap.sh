@@ -73,32 +73,6 @@ jellyfin_needs_bootstrap() {
   [ "$completed" != "true" ]
 }
 
-# Returns 0 if Jellyfin is in a known-broken state: wizard claims
-# complete, but no users exist. That combination is impossible by
-# design — you can't finish the wizard without creating an admin —
-# but Jellyfin 10.11's wizard has been observed to 2xx every endpoint
-# (including /Startup/Complete) while silently failing to persist the
-# admin user. From the API side there's no recovery: creating a user
-# via /Users requires existing auth, which doesn't exist. The only
-# way out is to wipe the on-disk state and re-run the wizard, which
-# is what configure.sh's reset-and-reboot block does when this
-# returns 0.
-#
-# Deliberately narrow: "wizard complete AND zero users" only. If the
-# wizard's complete and there IS a user but login still fails, that's
-# a credential mismatch (someone edited admin.env post-bootstrap, or
-# changed the password in the UI) — surface as an error rather than
-# silently wiping libraries.
-jellyfin_in_zero_users_state() {
-  local base_url="$1"
-  local completed users
-  completed=$(curl -sf "$base_url/System/Info/Public" 2>/dev/null \
-    | jq -r '.StartupWizardCompleted // false')
-  [ "$completed" = "true" ] || return 1
-  users=$(curl -sf "$base_url/Users/Public" 2>/dev/null \
-    | jq -r 'length' 2>/dev/null || echo 0)
-  [ "$users" = "0" ]
-}
 
 # Drives the startup wizard: pick language, create admin, accept
 # defaults, mark complete. Idempotent via jellyfin_needs_bootstrap.

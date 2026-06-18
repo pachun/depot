@@ -17,11 +17,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # invocation. Other services may have called us as an explicit
 # dependency; without this guard, the cascade re-runs heavy bootstrap
 # blocks many times per install. See services/configure.sh.
-if [ -n "${DEPOT_RUN_DIR:-}" ]; then
-  SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
-  [ -f "$SENTINEL" ] && exit 0
-  touch "$SENTINEL"
+#
+# When invoked standalone (not via the dispatcher), DEPOT_RUN_DIR
+# isn't set in the env yet — initialize it here so the cascade is
+# still protected from re-runs within this one invocation. The trap
+# only fires for the outermost shell because child `bash subscript.sh`
+# calls don't inherit our EXIT handler.
+if [ -z "${DEPOT_RUN_DIR:-}" ]; then
+  export DEPOT_RUN_DIR=$(mktemp -d -t depot-run-XXXXXXXX)
+  trap 'rm -rf "$DEPOT_RUN_DIR"' EXIT
 fi
+SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
+[ -f "$SENTINEL" ] && exit 0
+touch "$SENTINEL"
 
 bash "$HERE/../docker/configure.sh"
 # Direct deps: aviary harvests four API keys to talk to the integration
@@ -80,115 +88,87 @@ if [ ! -f "$WEBHOOK_SECRET_FILE" ]; then
 fi
 SONARR_WEBHOOK_SECRET=$(tr -d '\n' < "$WEBHOOK_SECRET_FILE")
 
-# Jellyfin integration: aviary needs a base URL + API key to call the
-# Jellyfin REST API. URL is the internal docker-bridge path (faster
-# than going out to Tailscale and back, and doesn't need cert plumbing
-# inside the container). API key is harvested directly from Jellyfin's
-# own SQLite database — there's no manual paste step.
+# Integration API keys — harvested fresh from each upstream service's
+# on-disk state on every run, so the aviary container always sees the
+# CURRENT keys, never a stale value cached from a previous install
+# where Jellyfin (or another arr) was wiped and re-bootstrapped with a
+# new key. .env is rewritten from scratch at the end of this block so
+# it reflects what we just harvested, not a layered append of past
+# runs' values.
 #
-# Cached to ~/hdds/.config/aviary/.env on first successful harvest;
-# subsequent runs source the cache without re-querying.
-#
-# Skips gracefully (exit 0, doesn't block other features) if Jellyfin
-# isn't initialized yet OR no API key named 'aviary' exists. The user
-# message then is: create an 'aviary' API key in Jellyfin admin, re-run
-# configure.sh.
+# URLs are the docker-bridge path (host.docker.internal) — faster than
+# going out via Tailscale and doesn't need cert plumbing inside the
+# container.
 AVIARY_ENV="$SECRET_DIR/.env"
 JELLYFIN_URL=http://host.docker.internal:8096
-
-if [ -f "$AVIARY_ENV" ]; then
-  # shellcheck disable=SC1090
-  source "$AVIARY_ENV"
-fi
-
-if [ -z "${JELLYFIN_API_KEY:-}" ]; then
-  # Find the Jellyfin db — recent versions land at data/data/jellyfin.db
-  # but older or migrated installs may have it at data/jellyfin.db. Use
-  # whichever exists and is non-empty.
-  JF_DB=""
-  for candidate in \
-    "$HOME/hdds/.config/jellyfin/data/data/jellyfin.db" \
-    "$HOME/hdds/.config/jellyfin/data/jellyfin.db"
-  do
-    if [ -s "$candidate" ]; then
-      JF_DB="$candidate"
-      break
-    fi
-  done
-
-  if [ -z "$JF_DB" ]; then
-    echo "Aviary skipped — Jellyfin's database doesn't exist yet."
-    echo "  Bring Jellyfin up and complete its first-run setup, then generate"
-    echo "  an 'aviary' API key (Dashboard → API Keys → '+'), then re-run"
-    echo "  configure.sh."
-    exit 0
-  fi
-
-  # Prefer a key explicitly named 'aviary'. Falling back to any key
-  # would risk accidentally adopting Sonarr/Radarr/Jellyseerr's
-  # credentials, which audit-trails want kept distinct.
-  JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
-    "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null || true)
-
-  if [ -z "$JELLYFIN_API_KEY" ]; then
-    echo "Aviary skipped — no API key named 'aviary' in Jellyfin yet."
-    echo "  Generate one in Jellyfin admin (Dashboard → API Keys → '+',"
-    echo "  name it 'aviary'), then re-run configure.sh."
-    exit 0
-  fi
-
-  umask 077
-  echo "JELLYFIN_API_KEY=$JELLYFIN_API_KEY" > "$AVIARY_ENV"
-fi
-
-# Jellyseerr integration — powers the release-calendar widget on the
-# show detail page (next-episode air dates via TMDB sync). Same
-# harvest pattern as Jellyfin: read the API key from Jellyseerr's
-# settings.json so there's no manual paste step. Optional — if
-# Jellyseerr isn't initialized yet, aviary just falls back to the
-# trailer treatment for every show.
 JELLYSEERR_URL=http://host.docker.internal:5055
-JELLYSEERR_SETTINGS="$HOME/hdds/.config/jellyseerr/settings.json"
-
-if [ -z "${JELLYSEERR_API_KEY:-}" ] && [ -s "$JELLYSEERR_SETTINGS" ]; then
-  JELLYSEERR_API_KEY=$(jq -r '.main.apiKey // empty' "$JELLYSEERR_SETTINGS" 2>/dev/null || true)
-  if [ -n "$JELLYSEERR_API_KEY" ]; then
-    umask 077
-    echo "JELLYSEERR_API_KEY=$JELLYSEERR_API_KEY" >> "$AVIARY_ENV"
-  fi
-fi
-JELLYSEERR_API_KEY="${JELLYSEERR_API_KEY:-}"
-
-# Sonarr integration — aviary triggers downloads through Sonarr when
-# users hit Watch on a show/season/episode and polls Sonarr's queue
-# for download progress to drive the per-button state. Harvested from
-# Sonarr's config.xml (same automation pattern as Jellyfin and
-# Jellyseerr — no manual paste step).
 SONARR_URL=http://host.docker.internal:8989
-SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
-
-if [ -z "${SONARR_API_KEY:-}" ] && [ -s "$SONARR_CONFIG" ]; then
-  SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" 2>/dev/null | head -1 || true)
-  if [ -n "$SONARR_API_KEY" ]; then
-    umask 077
-    echo "SONARR_API_KEY=$SONARR_API_KEY" >> "$AVIARY_ENV"
-  fi
-fi
-SONARR_API_KEY="${SONARR_API_KEY:-}"
-
-# Radarr integration — Sonarr's movie sibling. Powers the Watch button
-# + progress chip on the movie detail page. Same harvest pattern.
 RADARR_URL=http://host.docker.internal:7878
-RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
 
-if [ -z "${RADARR_API_KEY:-}" ] && [ -s "$RADARR_CONFIG" ]; then
-  RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" 2>/dev/null | head -1 || true)
-  if [ -n "$RADARR_API_KEY" ]; then
-    umask 077
-    echo "RADARR_API_KEY=$RADARR_API_KEY" >> "$AVIARY_ENV"
+# ---- Jellyfin (required) ----
+# Find the Jellyfin db — recent versions land at data/data/jellyfin.db
+# but older or migrated installs may have it at data/jellyfin.db.
+JF_DB=""
+for candidate in \
+  "$HOME/hdds/.config/jellyfin/data/data/jellyfin.db" \
+  "$HOME/hdds/.config/jellyfin/data/jellyfin.db"
+do
+  if [ -s "$candidate" ]; then
+    JF_DB="$candidate"
+    break
   fi
+done
+
+if [ -z "$JF_DB" ]; then
+  echo "Aviary skipped — Jellyfin's database doesn't exist yet."
+  echo "  Bring Jellyfin up and complete its first-run setup, then re-run."
+  exit 0
 fi
-RADARR_API_KEY="${RADARR_API_KEY:-}"
+
+# Prefer a key explicitly named 'aviary'. Falling back to any key
+# would risk accidentally adopting Sonarr/Radarr/Jellyseerr's
+# credentials, which audit-trails want kept distinct.
+JELLYFIN_API_KEY=$(sqlite3 "$JF_DB" \
+  "SELECT AccessToken FROM ApiKeys WHERE Name = 'aviary' LIMIT 1;" 2>/dev/null || true)
+
+if [ -z "$JELLYFIN_API_KEY" ]; then
+  echo "Aviary skipped — no API key named 'aviary' in Jellyfin yet."
+  echo "  Generate one in Jellyfin admin (Dashboard → API Keys → '+',"
+  echo "  name it 'aviary'), then re-run configure.sh."
+  exit 0
+fi
+
+# ---- Jellyseerr (optional — powers discover/calendar via TMDB) ----
+JELLYSEERR_SETTINGS="$HOME/hdds/.config/jellyseerr/settings.json"
+JELLYSEERR_API_KEY=""
+if [ -s "$JELLYSEERR_SETTINGS" ]; then
+  JELLYSEERR_API_KEY=$(jq -r '.main.apiKey // empty' "$JELLYSEERR_SETTINGS" 2>/dev/null || true)
+fi
+
+# ---- Sonarr (optional — powers TV Watch buttons + progress polling) ----
+SONARR_CONFIG="$HOME/hdds/.config/sonarr/config.xml"
+SONARR_API_KEY=""
+if [ -s "$SONARR_CONFIG" ]; then
+  SONARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$SONARR_CONFIG" 2>/dev/null | head -1 || true)
+fi
+
+# ---- Radarr (optional — powers movie Watch buttons + progress) ----
+RADARR_CONFIG="$HOME/hdds/.config/radarr/config.xml"
+RADARR_API_KEY=""
+if [ -s "$RADARR_CONFIG" ]; then
+  RADARR_API_KEY=$(grep -oP '(?<=<ApiKey>)[^<]+' "$RADARR_CONFIG" 2>/dev/null | head -1 || true)
+fi
+
+# Rewrite .env from scratch with whatever we just harvested. Overwriting
+# (rather than appending) ensures stale values from previous runs
+# (e.g. an old JELLYFIN_API_KEY from a pre-wipe install) can't leak in.
+umask 077
+{
+  printf 'JELLYFIN_API_KEY=%s\n' "$JELLYFIN_API_KEY"
+  printf 'JELLYSEERR_API_KEY=%s\n' "$JELLYSEERR_API_KEY"
+  printf 'SONARR_API_KEY=%s\n' "$SONARR_API_KEY"
+  printf 'RADARR_API_KEY=%s\n' "$RADARR_API_KEY"
+} > "$AVIARY_ENV"
 
 sudo ufw allow 4000/tcp
 

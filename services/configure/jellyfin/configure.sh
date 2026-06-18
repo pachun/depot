@@ -17,11 +17,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # invocation. Other services may have called us as an explicit
 # dependency; without this guard, the cascade re-runs heavy bootstrap
 # blocks many times per install. See services/configure.sh.
-if [ -n "${DEPOT_RUN_DIR:-}" ]; then
-  SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
-  [ -f "$SENTINEL" ] && exit 0
-  touch "$SENTINEL"
+#
+# When invoked standalone (not via the dispatcher), DEPOT_RUN_DIR
+# isn't set in the env yet — initialize it here so the cascade is
+# still protected from re-runs within this one invocation. The trap
+# only fires for the outermost shell because child `bash subscript.sh`
+# calls don't inherit our EXIT handler.
+if [ -z "${DEPOT_RUN_DIR:-}" ]; then
+  export DEPOT_RUN_DIR=$(mktemp -d -t depot-run-XXXXXXXX)
+  trap 'rm -rf "$DEPOT_RUN_DIR"' EXIT
 fi
+SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
+[ -f "$SENTINEL" ] && exit 0
+touch "$SENTINEL"
 
 bash "$HERE/../docker/configure.sh"
 
@@ -70,26 +78,6 @@ if [ -f "$ADMIN_ENV" ]; then
     JF_URL="http://localhost:8096"
 
     if jellyfin_wait_for_api "$JF_URL"; then
-      # Self-heal a known-broken state: wizard claims complete, but
-      # /Users/Public is empty. That's the silent-wizard-failure
-      # signature on Jellyfin 10.11 — there's no API recovery, so we
-      # wipe on-disk state and recreate the container so the wizard
-      # can re-run cleanly. Kept narrow (zero users specifically) so
-      # we never destroy a working Jellyfin's libraries over a mere
-      # credential mismatch.
-      if jellyfin_in_zero_users_state "$JF_URL"; then
-        echo "  detected zero-users state — wiping Jellyfin and recreating"
-        sudo docker rm -f jellyfin >/dev/null
-        sudo rm -rf "$HOME/hdds/.config/jellyfin"
-        sudo \
-          PUID="$(id -u)" \
-          PGID="$(id -g)" \
-          TZ="$(timedatectl show -p Timezone --value)" \
-          DEPOT_USER_HOME="$HOME" \
-          docker-compose -f "$HERE/docker-compose.yml" up -d
-        jellyfin_wait_for_api "$JF_URL"
-      fi
-
       if jellyfin_needs_bootstrap "$JF_URL"; then
         echo "  running first-run wizard"
         if ! jellyfin_run_startup_wizard "$JF_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"; then
