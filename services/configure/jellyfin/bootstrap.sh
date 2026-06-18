@@ -113,24 +113,37 @@ jellyfin_run_startup_wizard() {
     '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}' \
     || return 1
 
-  # Step 2: create the admin user.
+  # Step 2a: GET /Startup/FirstUser before posting our real admin
+  # creds. Jellyfin's UserManager lazily creates a placeholder user
+  # named "abc" the first time anything queries the user list — and
+  # POST /Startup/User is an UPDATE call, not a create. With zero
+  # users in the DB it 404s because there's no first user to update.
+  # The web-UI wizard hits this GET when it renders the user-creation
+  # step; we have to do the same.
+  if ! curl -sf "$base_url/Startup/FirstUser" >/dev/null; then
+    echo "  ERROR: GET /Startup/FirstUser failed — couldn't trigger placeholder user creation" >&2
+    return 1
+  fi
+
+  # Step 2b: update the placeholder to the real admin creds.
   _jellyfin_wizard_post "Startup/User" \
     "$base_url/Startup/User" \
     "$(jq -nc --arg n "$username" --arg p "$password" '{Name:$n, Password:$p}')" \
     || return 1
 
-  # Verify the admin was actually created before flipping the
-  # "wizard complete" flag. /Startup/User has been observed to silently
-  # accept POST requests (returning 2xx) without persisting the user on
-  # Jellyfin 10.11 — leaving a wizard-done server with no admin once
-  # /Startup/Complete runs. If we don't catch it here, the next thing
-  # to fail is /Users/AuthenticateByName with a 401 whose body isn't
-  # JSON and the script falls over in jq with a confusing message.
-  local user_count
-  user_count=$(curl -sf "$base_url/Users/Public" 2>/dev/null \
-    | jq -r 'length' 2>/dev/null || echo 0)
-  if [ "$user_count" = "0" ]; then
-    echo "  ERROR: /Startup/User returned 2xx but no users exist." >&2
+  # Verify the placeholder was actually renamed to our admin creds
+  # before flipping the "wizard complete" flag. /Startup/User has been
+  # observed to accept POST requests (returning 2xx) without persisting
+  # the change on Jellyfin 10.11. GET /Startup/FirstUser tells us
+  # directly what name the first user has — much more semantic than
+  # checking /Users/Public, which hides the still-placeholder user
+  # until /Startup/Complete fires.
+  local first_user_name
+  first_user_name=$(curl -sf "$base_url/Startup/FirstUser" 2>/dev/null \
+    | jq -r '.Name // empty' 2>/dev/null)
+  if [ "$first_user_name" != "$username" ]; then
+    echo "  ERROR: POST /Startup/User returned 2xx but /Startup/FirstUser still" >&2
+    echo "         reports '$first_user_name' — expected '$username'." >&2
     echo "         Aborting before /Startup/Complete to keep the wizard re-runnable." >&2
     return 1
   fi
