@@ -60,9 +60,34 @@ if [ -f "$ADMIN_ENV" ]; then
     JF_URL="http://localhost:8096"
 
     if jellyfin_wait_for_api "$JF_URL"; then
+      # Self-heal a known-broken state: wizard claims complete, but
+      # /Users/Public is empty. That's the silent-wizard-failure
+      # signature on Jellyfin 10.11 — there's no API recovery, so we
+      # wipe on-disk state and recreate the container so the wizard
+      # can re-run cleanly. Kept narrow (zero users specifically) so
+      # we never destroy a working Jellyfin's libraries over a mere
+      # credential mismatch.
+      if jellyfin_in_zero_users_state "$JF_URL"; then
+        echo "  detected zero-users state — wiping Jellyfin and recreating"
+        sudo docker rm -f jellyfin >/dev/null
+        sudo rm -rf "$HOME/hdds/.config/jellyfin"
+        sudo \
+          PUID="$(id -u)" \
+          PGID="$(id -g)" \
+          TZ="$(timedatectl show -p Timezone --value)" \
+          HOME="$HOME" \
+          docker-compose -f "$HERE/docker-compose.yml" up -d
+        jellyfin_wait_for_api "$JF_URL"
+      fi
+
       if jellyfin_needs_bootstrap "$JF_URL"; then
         echo "  running first-run wizard"
-        jellyfin_run_startup_wizard "$JF_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+        if ! jellyfin_run_startup_wizard "$JF_URL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD"; then
+          echo "  ERROR: startup wizard failed — see above." >&2
+          echo "         Re-run configure.sh after fixing; the wizard is still re-runnable" >&2
+          echo "         because /Startup/Complete was NOT called." >&2
+          exit 1
+        fi
         # After Startup/Complete, Jellyfin restarts internally — wait
         # for the API to come back before logging in.
         sleep 3

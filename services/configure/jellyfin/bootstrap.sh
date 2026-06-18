@@ -14,18 +14,51 @@
 # Underscore-prefixed file at configure/ root so the dispatcher
 # skips it (iterates configure/*/ only).
 
-# Polls Jellyfin's public endpoint until it responds. After a fresh
-# container start it can take 10-20s for the web layer to come up.
+# Polls Jellyfin's public endpoint until it responds AND the container
+# has finished its EF migrations. The second gate matters on Jellyfin
+# 10.11+: new normalized-username migrations race the wizard endpoints
+# at fresh-container startup, and POST /Startup/User silently 4xxs (no
+# user is created) if it lands while the Users table is mid-rebuild.
+# "Startup complete" in the container logs is Jellyfin's own signal
+# that core init — including DB migrations — has finished.
 jellyfin_wait_for_api() {
   local base_url="$1"
   for _ in $(seq 1 60); do
-    if curl -sf "$base_url/System/Info/Public" >/dev/null 2>&1; then
+    if curl -sf "$base_url/System/Info/Public" >/dev/null 2>&1 \
+       && docker logs jellyfin 2>&1 | grep -q 'Startup complete'; then
       return 0
     fi
     sleep 1
   done
   echo "  WARN: Jellyfin API didn't respond within 60s" >&2
   return 1
+}
+
+# POST to a wizard endpoint and assert 2xx. Wizard endpoints silently
+# 4xx if a payload's schema is wrong, or while migrations are still
+# settling — without this check, the script happily marches forward
+# from a failed /Startup/User to a "successful" /Startup/Complete and
+# leaves us with a wizard-done Jellyfin that has no admin user.
+_jellyfin_wizard_post() {
+  local label="$1"
+  local url="$2"
+  local body="${3:-}"
+  local tmp code
+  tmp=$(mktemp)
+  if [ -n "$body" ]; then
+    code=$(curl -s -o "$tmp" -w '%{http_code}' -X POST \
+      -H "Content-Type: application/json" -d "$body" "$url")
+  else
+    code=$(curl -s -o "$tmp" -w '%{http_code}' -X POST "$url")
+  fi
+  if [[ ! "$code" =~ ^2 ]]; then
+    echo "  ERROR: wizard step '$label' returned HTTP $code" >&2
+    echo "         body: $(head -c 400 "$tmp")" >&2
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+  return 0
 }
 
 # Returns 0 if Jellyfin still needs the startup wizard, non-zero if
@@ -40,6 +73,33 @@ jellyfin_needs_bootstrap() {
   [ "$completed" != "true" ]
 }
 
+# Returns 0 if Jellyfin is in a known-broken state: wizard claims
+# complete, but no users exist. That combination is impossible by
+# design — you can't finish the wizard without creating an admin —
+# but Jellyfin 10.11's wizard has been observed to 2xx every endpoint
+# (including /Startup/Complete) while silently failing to persist the
+# admin user. From the API side there's no recovery: creating a user
+# via /Users requires existing auth, which doesn't exist. The only
+# way out is to wipe the on-disk state and re-run the wizard, which
+# is what configure.sh's reset-and-reboot block does when this
+# returns 0.
+#
+# Deliberately narrow: "wizard complete AND zero users" only. If the
+# wizard's complete and there IS a user but login still fails, that's
+# a credential mismatch (someone edited admin.env post-bootstrap, or
+# changed the password in the UI) — surface as an error rather than
+# silently wiping libraries.
+jellyfin_in_zero_users_state() {
+  local base_url="$1"
+  local completed users
+  completed=$(curl -sf "$base_url/System/Info/Public" 2>/dev/null \
+    | jq -r '.StartupWizardCompleted // false')
+  [ "$completed" = "true" ] || return 1
+  users=$(curl -sf "$base_url/Users/Public" 2>/dev/null \
+    | jq -r 'length' 2>/dev/null || echo 0)
+  [ "$users" = "0" ]
+}
+
 # Drives the startup wizard: pick language, create admin, accept
 # defaults, mark complete. Idempotent via jellyfin_needs_bootstrap.
 jellyfin_run_startup_wizard() {
@@ -48,23 +108,44 @@ jellyfin_run_startup_wizard() {
   local password="$3"
 
   # Step 1: server language (required to advance the wizard).
-  curl -s -X POST -H "Content-Type: application/json" \
-    -d '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}' \
-    "$base_url/Startup/Configuration" >/dev/null
+  _jellyfin_wizard_post "Startup/Configuration" \
+    "$base_url/Startup/Configuration" \
+    '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}' \
+    || return 1
 
   # Step 2: create the admin user.
-  curl -s -X POST -H "Content-Type: application/json" \
-    -d "$(jq -nc --arg n "$username" --arg p "$password" '{Name:$n, Password:$p}')" \
-    "$base_url/Startup/User" >/dev/null
+  _jellyfin_wizard_post "Startup/User" \
+    "$base_url/Startup/User" \
+    "$(jq -nc --arg n "$username" --arg p "$password" '{Name:$n, Password:$p}')" \
+    || return 1
+
+  # Verify the admin was actually created before flipping the
+  # "wizard complete" flag. /Startup/User has been observed to silently
+  # accept POST requests (returning 2xx) without persisting the user on
+  # Jellyfin 10.11 — leaving a wizard-done server with no admin once
+  # /Startup/Complete runs. If we don't catch it here, the next thing
+  # to fail is /Users/AuthenticateByName with a 401 whose body isn't
+  # JSON and the script falls over in jq with a confusing message.
+  local user_count
+  user_count=$(curl -sf "$base_url/Users/Public" 2>/dev/null \
+    | jq -r 'length' 2>/dev/null || echo 0)
+  if [ "$user_count" = "0" ]; then
+    echo "  ERROR: /Startup/User returned 2xx but no users exist." >&2
+    echo "         Aborting before /Startup/Complete to keep the wizard re-runnable." >&2
+    return 1
+  fi
 
   # Step 3: remote-access defaults (accept default; we're behind
   # tailscale anyway).
-  curl -s -X POST -H "Content-Type: application/json" \
-    -d '{"EnableRemoteAccess":true,"EnableAutomaticPortMapping":false}' \
-    "$base_url/Startup/RemoteAccess" >/dev/null
+  _jellyfin_wizard_post "Startup/RemoteAccess" \
+    "$base_url/Startup/RemoteAccess" \
+    '{"EnableRemoteAccess":true,"EnableAutomaticPortMapping":false}' \
+    || return 1
 
   # Step 4: mark wizard complete.
-  curl -s -X POST "$base_url/Startup/Complete" >/dev/null
+  _jellyfin_wizard_post "Startup/Complete" \
+    "$base_url/Startup/Complete" \
+    || return 1
 }
 
 # Authenticate the admin user and echo the resulting AccessToken.
