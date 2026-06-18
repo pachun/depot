@@ -10,6 +10,16 @@
 # bundled with the engine). Idempotent.
 set -euo pipefail
 
+# Skip if this service already ran in the current dispatcher
+# invocation. Other services may have called us as an explicit
+# dependency; without this guard, the cascade re-runs heavy bootstrap
+# blocks many times per install. See services/configure.sh.
+if [ -n "${DEPOT_RUN_DIR:-}" ]; then
+  SENTINEL="$DEPOT_RUN_DIR/$(basename "$(dirname "${BASH_SOURCE[0]}")")"
+  [ -f "$SENTINEL" ] && exit 0
+  touch "$SENTINEL"
+fi
+
 sudo pacman -S --needed --noconfirm docker docker-compose
 
 sudo systemctl enable --now docker.service

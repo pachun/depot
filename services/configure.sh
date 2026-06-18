@@ -23,6 +23,20 @@ shopt -s nullglob
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Per-run scratch dir for the in-run service guard. Each service's
+# configure.sh touches a sentinel here on its first invocation, and
+# subsequent invocations within the SAME dispatcher run early-exit on
+# seeing the sentinel. Without this, an explicit dependency chain like
+# `aviary → jellyfin → tailscale` plus the dispatcher iterating
+# jellyfin and tailscale itself, plus jellyseerr → sonarr → jellyfin →
+# … would re-run heavy bootstrap blocks (wizards, container starts,
+# tailscale serve) many times per install — slow, noisy, and looks
+# like an infinite loop to the user reading the terminal output. Reset
+# every fresh dispatcher invocation so retries naturally redo
+# everything.
+export DEPOT_RUN_DIR=$(mktemp -d -t depot-run-XXXXXXXX)
+trap 'rm -rf "$DEPOT_RUN_DIR"' EXIT
+
 # Phase 1: source every feature's prompts.sh upfront so all interactive
 # inputs happen before any actual configure work begins.
 for d in "$HERE/configure"/*/; do

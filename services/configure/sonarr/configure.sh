@@ -10,6 +10,16 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Skip if this service already ran in the current dispatcher
+# invocation. Other services may have called us as an explicit
+# dependency; without this guard, the cascade re-runs heavy bootstrap
+# blocks many times per install. See services/configure.sh.
+if [ -n "${DEPOT_RUN_DIR:-}" ]; then
+  SENTINEL="$DEPOT_RUN_DIR/$(basename "$HERE")"
+  [ -f "$SENTINEL" ] && exit 0
+  touch "$SENTINEL"
+fi
+
 bash "$HERE/../docker/configure.sh"
 # Direct deps: sonarr's connect_to_jellyfin wire needs Jellyfin's
 # 'sonarr' API key (created during Jellyfin's bootstrap); its
