@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
 # Tailscale auth key — collected up front so configure.sh can call
-# `tailscale up --auth-key=...` non-interactively and the user can walk
-# away the moment Phase 1 prompts finish. Without a key, configure.sh
-# falls back to the browser-auth flow, which prints a URL with a
-# few-minute TTL and blocks the install until clicked.
-#
-# How to get one (mirrors the README):
-#   1. https://login.tailscale.com/admin/settings/keys → Generate auth key
-#   2. Pick **Reusable** (so a re-install on this NAS doesn't need a new
-#      key) + **Ephemeral=off** (so the machine persists in the tailnet
-#      across reboots).
+# `tailscale up --auth-key=...` non-interactively, and the user can
+# walk away the moment Phase 1 prompts finish. Without a key,
+# configure.sh falls back to the browser-auth flow.
 #
 # Sourced (not executed) by services/configure.sh's Phase 1.
 
@@ -23,17 +16,14 @@ if [ -z "${TAILSCALE_AUTH_KEY:-}" ]; then
   cat <<'INSTRUCTIONS'
 
   ── Tailscale auth key ─────────────────────────────────────────────
-  Paste a Tailscale auth key for unattended login. Generate one at
-    https://login.tailscale.com/admin/settings/keys
-  (Reusable + Ephemeral=off recommended.)
-
-  Leave blank to fall back to the interactive browser auth flow —
-  but that URL expires in a few minutes, so don't walk away during
-  the tailscale step if you do.
+    1. Open https://login.tailscale.com/admin/settings/keys
+    2. Click "Generate auth key"
+    3. Set Ephemeral off
+    4. Copy the key and paste below
   ───────────────────────────────────────────────────────────────────
 
 INSTRUCTIONS
-  read -r -s -p "  Auth key (empty for interactive): " TAILSCALE_AUTH_KEY
+  read -r -s -p "  Auth key: " TAILSCALE_AUTH_KEY
   echo
 fi
 

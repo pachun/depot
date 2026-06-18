@@ -104,10 +104,10 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
    - Create → Download → you get a `.conf` file.
 3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <admin-username>@<lan-ip>:/tmp/proton.conf`
 
-## 10. Prepare Tailscale
+## 10. Enable Tailscale HTTPS certificates
 
-1. Enable HTTPS certificates: open https://login.tailscale.com/admin/dns and click **Enable HTTPS…**.
-2. Generate an auth key: open https://login.tailscale.com/admin/settings/keys, click **Generate auth key**, pick **Reusable** with **Ephemeral** off. Copy the key — depot prompts for it in the next step so the install can finish unattended.
+1. Open https://login.tailscale.com/admin/dns.
+2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
 
 ## 11. Install depot
 
