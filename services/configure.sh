@@ -44,6 +44,19 @@ for d in "$HERE/configure"/*/; do
   [ -f "$d/prompts.sh" ] && source "$d/prompts.sh"
 done
 
+# Clear any tailscale-serve bindings left over from previous runs.
+# Tailscaled binds tailnet-IP:PORT (e.g. 100.81.180.23:8080) for each
+# active serve mapping, and those binds persist across container
+# removals. A re-run that recreates a container with the matching
+# port (e.g. gluetun publishing 8080 for qBittorrent's WebUI) then
+# fails at `docker-compose up` with "address already in use" — docker
+# wants 0.0.0.0:8080 and Linux refuses because the tailnet-IP listener
+# already owns it. Each service re-establishes its own serve binding
+# via expose-https.sh after its container is up, so wiping all serve
+# state here is safe. On a fresh install where tailscale isn't auth'd
+# yet, `serve reset` is a silent no-op via the `|| true`.
+sudo tailscale serve reset >/dev/null 2>&1 || true
+
 # Phase 2: run each feature.
 for d in "$HERE/configure"/*/; do
   [[ "$(basename "$d")" == _* ]] && continue
