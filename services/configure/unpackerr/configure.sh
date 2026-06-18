@@ -49,7 +49,7 @@ sudo \
   PUID="$(id -u)" \
   PGID="$(id -g)" \
   TZ="$(timedatectl show -p Timezone --value)" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   SONARR_API_KEY="$SONARR_API_KEY" \
   RADARR_API_KEY="$RADARR_API_KEY" \
   docker-compose -f "$HERE/docker-compose.yml" up -d

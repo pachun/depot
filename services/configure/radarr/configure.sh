@@ -44,7 +44,7 @@ sudo \
   PUID="$(id -u)" \
   PGID="$(id -g)" \
   TZ="$(timedatectl show -p Timezone --value)" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
 # HTTPS on the same port via tailscale; HTTP stays available.

@@ -41,7 +41,7 @@ sudo ufw allow 5055/tcp
 # accurate timestamps in jellyseerr's UI.
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
 # HTTPS on the same port via tailscale; HTTP stays available.

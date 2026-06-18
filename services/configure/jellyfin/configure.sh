@@ -44,7 +44,7 @@ sudo \
   PUID="$(id -u)" \
   PGID="$(id -g)" \
   TZ="$(timedatectl show -p Timezone --value)" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d
 
 # Drive Jellyfin's first-run wizard via the Startup API — admin user
@@ -85,7 +85,7 @@ if [ -f "$ADMIN_ENV" ]; then
           PUID="$(id -u)" \
           PGID="$(id -g)" \
           TZ="$(timedatectl show -p Timezone --value)" \
-          HOME="$HOME" \
+          DEPOT_USER_HOME="$HOME" \
           docker-compose -f "$HERE/docker-compose.yml" up -d
         jellyfin_wait_for_api "$JF_URL"
       fi

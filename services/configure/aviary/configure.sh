@@ -235,7 +235,7 @@ HOST_GID=$(id -g)
 
 sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   SRC="$SRC" \
   SECRET_KEY_BASE="$SECRET_KEY_BASE" \
   PHX_HOST="$PHX_HOST" \

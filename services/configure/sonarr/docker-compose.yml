@@ -14,18 +14,18 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/hdds/.config/sonarr:/config
+      - ${DEPOT_USER_HOME}/hdds/.config/sonarr:/config
       # Two download-client surfaces — qBit (/seeding, HDD pool) and
       # SAB (/usenet, SSD). Container path = last segment of host
       # path everywhere, so qBit's "save_path=/seeding" matches what
       # sonarr sees at /seeding, and the same translation applies to
       # /usenet.
-      - ${HOME}/hdds/seeding:/seeding
-      - ${HOME}/downloading/usenet:/usenet
+      - ${DEPOT_USER_HOME}/hdds/seeding:/seeding
+      - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
       # Sonarr's "root folder" — imported/renamed episodes land here.
       # On the HDD pool with /seeding (same ZFS dataset → hardlinks
       # work, no double-storage during seeding). /usenet is on a
       # different filesystem, so SAB imports use copy+delete, which
       # is fine for one-time-per-file work.
-      - ${HOME}/hdds/media/tv:/tv
+      - ${DEPOT_USER_HOME}/hdds/media/tv:/tv
     restart: unless-stopped

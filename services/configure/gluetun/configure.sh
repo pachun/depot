@@ -64,5 +64,5 @@ sudo \
   TZ="$(timedatectl show -p Timezone --value)" \
   WIREGUARD_PRIVATE_KEY="$WIREGUARD_PRIVATE_KEY" \
   WIREGUARD_ADDRESSES="$WIREGUARD_ADDRESSES" \
-  HOME="$HOME" \
+  DEPOT_USER_HOME="$HOME" \
   docker-compose -f "$HERE/docker-compose.yml" up -d

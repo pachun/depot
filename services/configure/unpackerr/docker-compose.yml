@@ -27,6 +27,6 @@ services:
     volumes:
       # Read+write needed — unpackerr extracts archives in place, then
       # cleans up the archive after a 5-minute grace period.
-      - ${HOME}/hdds/seeding:/seeding
-      - ${HOME}/downloading/usenet:/usenet
+      - ${DEPOT_USER_HOME}/hdds/seeding:/seeding
+      - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
     restart: unless-stopped

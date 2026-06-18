@@ -13,12 +13,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${HOME}/hdds/.config/radarr:/config
+      - ${DEPOT_USER_HOME}/hdds/.config/radarr:/config
       # See sonarr/docker-compose.yml for the rationale on these two
       # download-client mounts (qBit on /seeding, SAB on /usenet).
-      - ${HOME}/hdds/seeding:/seeding
-      - ${HOME}/downloading/usenet:/usenet
+      - ${DEPOT_USER_HOME}/hdds/seeding:/seeding
+      - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
       # Radarr's "root folder" — imported/renamed movies land here.
       # On the HDD pool, hardlink-compatible with /seeding.
-      - ${HOME}/hdds/media/movies:/movies
+      - ${DEPOT_USER_HOME}/hdds/media/movies:/movies
     restart: unless-stopped
