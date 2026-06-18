@@ -139,11 +139,14 @@ if [ -f "$ADMIN_ENV" ]; then
     }
 
     LOGIN_STATUS=$(qbit_login "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
-    if [ "$LOGIN_STATUS" != "200" ]; then
+    # Recent qBit versions return 204 No Content on successful login,
+    # not 200. Accept any 2xx — same shape applies to the temp-password
+    # fallback below.
+    if [[ ! "$LOGIN_STATUS" =~ ^2 ]]; then
       LOGIN_STATUS=$(qbit_login "admin" "$TEMP_PASS")
     fi
 
-    if [ "$LOGIN_STATUS" = "200" ]; then
+    if [[ "$LOGIN_STATUS" =~ ^2 ]]; then
       # Update credentials + auth-bypass settings. setPreferences takes
       # a JSON blob in a `json` form field — URL-encode it to keep the
       # quoting honest.
