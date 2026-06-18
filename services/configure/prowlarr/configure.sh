@@ -13,6 +13,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
+sudo pacman -S --needed --noconfirm jq
+
 mkdir -p ~/hdds/.config/prowlarr
 
 sudo ufw allow 9696/tcp

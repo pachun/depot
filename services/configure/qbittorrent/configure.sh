@@ -32,6 +32,8 @@ bash "$HERE/../docker/configure.sh"
 # as the docker call above.
 bash "$HERE/../gluetun/configure.sh"
 
+sudo pacman -S --needed --noconfirm jq
+
 mkdir -p ~/hdds/.config/qbittorrent ~/hdds/seeding ~/downloading/torrents
 
 # Pre-seed qBittorrent.conf on a fresh install so that on its very

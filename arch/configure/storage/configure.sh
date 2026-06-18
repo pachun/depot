@@ -58,10 +58,10 @@ if command -v zpool >/dev/null 2>&1 \
 elif [ ${#SELECTED_HDD_NAMES[@]} -eq 0 ]; then
   echo "Storage: no HDDs picked at prompt time — skipping pool creation."
 else
-  # zfs-dkms + zfs-utils were installed during the bootstrap chroot
-  # phase (arch/install/095-install-zfs/) so the DKMS module was built
-  # against the matching pacstrap'd kernel + headers — no version
-  # drift. All we need here is to load the module.
+  # zfs-linux-lts + zfs-utils were installed during the install chroot
+  # phase (arch/install/095-install-zfs/) — precompiled module paired
+  # to the exact pacstrap'd linux-lts release. No DKMS build, no
+  # version drift. All we need here is to load the module.
   if ! lsmod | grep -q '^zfs'; then
     sudo modprobe zfs
   fi

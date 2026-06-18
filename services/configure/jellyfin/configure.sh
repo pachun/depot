@@ -15,6 +15,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
+sudo pacman -S --needed --noconfirm jq
+
 # Separate per-type folders so jellyfin can pick the right metadata
 # provider (movie vs. TV) for each library it scans.
 mkdir -p \

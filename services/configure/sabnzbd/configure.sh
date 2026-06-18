@@ -19,6 +19,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
+sudo pacman -S --needed --noconfirm jq
+
 USENET_ENV="$HOME/hdds/.config/depot/usenet.env"
 if [ ! -f "$USENET_ENV" ]; then
   echo "sabnzbd skipped — $USENET_ENV not present (prompts.sh first)"

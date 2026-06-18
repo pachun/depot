@@ -15,9 +15,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bash "$HERE/../docker/configure.sh"
 
-# sqlite is needed to harvest the Jellyfin API key (see the Jellyfin
-# integration block below). pacman -S --needed is a no-op when present.
-sudo pacman -S --needed --noconfirm sqlite
+# sqlite + jq are used for API-key harvesting: sqlite reads Jellyfin's
+# DB, jq parses Jellyseerr's settings.json and Sonarr/Radarr responses
+# (and builds the Sonarr notification upsert further down).
+# pacman -S --needed is a no-op when present.
+sudo pacman -S --needed --noconfirm sqlite jq
 
 SRC=~/hdds/apps/aviary
 mkdir -p "$(dirname "$SRC")"
