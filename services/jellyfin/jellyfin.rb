@@ -37,8 +37,8 @@ module Jellyfin
 
   def self.install_prompt
     {
-      admin_username: prompt(question: "Admin username (shared across every service)"),
-      admin_password: prompt(question: "Admin password (shared across every service)", secret: true),
+      admin_username: prompt(question: "Admin username for media server"),
+      admin_password: prompt(question: "Admin password for media server", secret: true),
     }
   end
 
