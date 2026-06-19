@@ -18,6 +18,12 @@
 # methods: install_prompt, install(prompts), update, summary. Adding a
 # new service = define the module + add it to the services array.
 
+# Ctrl-C is intentional 99% of the time (cancel a prompt mid-input,
+# bail during a long install). Trapping SIGINT here turns the noisy
+# Ruby stack trace into a clean exit. Suppress reads-of-nil from
+# readline too — Ctrl-D in a prompt should also just exit cleanly.
+Signal.trap("INT") { puts; exit 130 }
+
 require_relative 'services/helpers'
 
 # Load every service module. Sorted so the require order is
@@ -50,6 +56,7 @@ SERVICES = [
 
 mode = ARGV.first
 
+begin
 case mode
 when nil, "install"
   prompts = SERVICES.each_with_object({}) do |service, hash|
@@ -81,3 +88,7 @@ end
 puts
 puts "═══ Summary ═══"
 SERVICES.each(&:summary)
+rescue Interrupt
+  puts
+  exit 130
+end
