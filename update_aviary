@@ -4,12 +4,12 @@
 #
 # The one piece of depot whose update story is meaningfully different
 # from its install story: pulling new aviary code doesn't require
-# re-running every service's first-time setup. install_depot's
+# re-running every service's first-time setup. install/depot's
 # install_aviary() does the harvest of API keys + secret generation +
 # first build. This script reads the resulting .env + secret files
 # and refreshes the running container with the latest aviary main.
 #
-# Requires install_depot to have been run at least once.
+# Requires install/depot to have been run at least once.
 set -euo pipefail
 
 SRC=~/hdds/apps/aviary
@@ -20,11 +20,11 @@ WEBHOOK_SECRET_FILE="$SECRET_DIR/sonarr_webhook_secret"
 COMPOSE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose/aviary.yml"
 
 if [ ! -f "$AVIARY_ENV" ]; then
-  echo "update_aviary: $AVIARY_ENV missing. Run install_depot first." >&2
+  echo "update_aviary: $AVIARY_ENV missing. Run install/depot first." >&2
   exit 1
 fi
 if [ ! -d "$SRC/.git" ]; then
-  echo "update_aviary: $SRC isn't a git checkout. Run install_depot first." >&2
+  echo "update_aviary: $SRC isn't a git checkout. Run install/depot first." >&2
   exit 1
 fi
 
@@ -35,7 +35,7 @@ echo "Pulling aviary..."
 git -C "$SRC" fetch origin main
 git -C "$SRC" reset --hard origin/main
 
-# Read the API keys from .env (written by install_depot's install_aviary).
+# Read the API keys from .env (written by install/depot's install_aviary).
 # shellcheck disable=SC1090
 source "$AVIARY_ENV"
 

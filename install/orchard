@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install_orchard — pull (or update) orchard and run its CLI install.
+# install/orchard — pull (or update) orchard and run its CLI install.
 # Orchard is the personal dotfiles + shell tooling repo at
 # github.com/pachun/orchard. depot uses its CLI subset for familiarity
 # when SSHing in to the NAS — zsh + .zshrc.d/cli/, nvim with pre-warmed

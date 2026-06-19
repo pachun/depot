@@ -54,7 +54,7 @@ The machine will restart and boot into the live Arch ISO.
 ```
 pacman -Sy --noconfirm git
 git clone https://github.com/pachun/depot /tmp/depot
-/tmp/depot/install_arch
+/tmp/depot/install/arch
 ```
 
 After reboot, sign in.
@@ -94,7 +94,7 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 [Orchard](https://github.com/pachun/orchard) is the dotfile setup depot uses for familiarity when SSHing into the NAS (zsh + .zshrc.d, nvim with pre-warmed plugins, tmux, mise, git config, …).
 
 ```
-~/code/depot/install_orchard
+~/code/depot/install/orchard
 ```
 
 Re-run `./update_orchard` any time to pull and re-apply.
@@ -102,17 +102,17 @@ Re-run `./update_orchard` any time to pull and re-apply.
 ## 9. Install depot
 
 ```
-~/code/depot/install_depot
+~/code/depot/install/depot
 ```
 
-`install_depot` reads top-to-bottom: function defs, prompts (all up front so you can walk away), then the work in explicit order, then a summary. It's idempotent — re-run it any time. To rotate a credential, edit the relevant env file under `~/hdds/.config/depot/` and re-run.
+`install/depot` reads top-to-bottom: function defs, prompts (all up front so you can walk away), then the work in explicit order, then a summary. It's idempotent — re-run it any time. To rotate a credential, edit the relevant env file under `~/hdds/.config/depot/` and re-run.
 
 ## 10. Open Aviary in your browser
 
-The summary printed at the end of `install_depot` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
+The summary printed at the end of `install/depot` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
 
 ## Updating
 
 - `./update_orchard` — pull and re-apply orchard dotfiles
 - `./update_aviary` — pull new aviary code, rebuild the container, run migrations
-- `./install_depot` — rerun the whole thing; it's idempotent
+- `./install/depot` — rerun the whole thing; it's idempotent

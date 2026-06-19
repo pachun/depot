@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# install_arch — bare Arch Linux install. Run from the live Arch ISO
+# install/arch — bare Arch Linux install. Run from the live Arch ISO
 # after cloning the depot repo to /tmp/depot.
 #
 # This is everything `archinstall` would do automatically: partition the
 # OS NVMe, pacstrap base, set up timezone/locale/hostname, create a
 # wheel-powered daily-driver user, set the root password, install the
 # bootloader, enable NetworkManager, and copy this repo into the new
-# user's home so `install_depot` is reachable post-reboot. Anything
+# user's home so `install/depot` is reachable post-reboot. Anything
 # depot-specific (ZFS, faillock-off, the service stack) lives in
-# `install_depot`, which the user runs after first login.
+# `install/depot`, which the user runs after first login.
 #
 # SATA drives are explicitly refused as install targets — the NAS's
 # data HDDs are SATA and the OS drive is NVMe; this guard makes it
@@ -31,7 +31,7 @@ shopt -s nullglob
 
 require_root() {
   if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-    echo "install_arch must run as root" >&2
+    echo "install/arch must run as root" >&2
     exit 1
   fi
 }
@@ -144,10 +144,10 @@ pacstrap_base() {
   echo
   echo "Installing base packages (pacstrap)..."
   # linux-lts (not linux): archzfs publishes precompiled zfs-linux-lts
-  # matched to each linux-lts release, so install_depot can pin them
+  # matched to each linux-lts release, so install/depot can pin them
   # together without DKMS. linux-lts also gets a longer support window
   # than `linux`, which suits a NAS. linux-lts-headers is NOT installed
-  # — install_depot uses the precompiled module.
+  # — install/depot uses the precompiled module.
   pacstrap -K /mnt base linux-lts linux-firmware vim git networkmanager sudo
 }
 
@@ -170,7 +170,7 @@ run_chroot_phase() {
     INSTALL_HOSTNAME="$INSTALL_HOSTNAME" \
     INSTALL_USER_PASSWORD="$INSTALL_USER_PASSWORD" \
     PART_ROOT="$PART_ROOT" \
-    bash /depot-installer/install_arch --chroot-phase </dev/tty
+    bash /depot-installer/install/arch --chroot-phase </dev/tty
 }
 
 unmount_and_reboot() {
@@ -186,11 +186,11 @@ unmount_and_reboot() {
   # Arch on the NVMe.
   echo
   echo "=========================================================="
-  echo "  install_arch complete."
+  echo "  install/arch complete."
   echo
   echo "  REMOVE THE USB DRIVE from the NAS now."
   echo "  Then press Enter to reboot into Arch."
-  echo "  After reboot, log in and run install_depot."
+  echo "  After reboot, log in and run install/depot."
   echo "=========================================================="
   read -r -p "> " _ </dev/tty || true
 
@@ -279,14 +279,14 @@ enable_wheel_sudo() {
   # touch /etc/sudoers. Validated with visudo -cf before being trusted.
   #
   # SETENV tag: Arch's default sudoers has `Defaults env_reset` which
-  # silently strips env vars passed via `sudo VAR=val cmd`. install_depot
+  # silently strips env vars passed via `sudo VAR=val cmd`. install/depot
   # relies on passing PUID, PGID, TZ, DEPOT_USER_HOME, WIREGUARD_* etc.
   # through sudo for docker-compose substitution. SETENV lets wheel
   # members override the env reset on the command line. No real
   # privilege expansion — wheel already has full sudo.
   #
   # HOME specifically is NOT preserved by sudo even with SETENV (sudo
-  # hardcodes target-user's home for HOME regardless). install_depot's
+  # hardcodes target-user's home for HOME regardless). install/depot's
   # compose files use `${DEPOT_USER_HOME}` instead of `${HOME}` to dodge
   # this; the SETENV here covers the rest.
   echo '%wheel ALL=(ALL:ALL) SETENV: ALL' > /etc/sudoers.d/10-wheel
@@ -366,7 +366,7 @@ fi
 # Outer phase (live ISO). Prompts, then unattended work.
 # ============================================================
 
-DEPOT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPOT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 require_root
 require_uefi

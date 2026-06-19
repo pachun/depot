@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# install_depot — everything depot installs on top of a usable Arch box.
+# install/depot — everything depot installs on top of a usable Arch box.
 #
-# Run as the daily-driver user (created by install_arch) from
-# ~/code/depot/install_depot. Idempotent: re-running brings every
+# Run as the daily-driver user (created by install/arch) from
+# ~/code/depot/install/depot. Idempotent: re-running brings every
 # component to current desired state. The only update mechanism for
 # everything except aviary; aviary has its own update_aviary script
 # for the git-pull-and-rebuild dance.
@@ -19,13 +19,13 @@
 #   4. Run order (function calls in dependency order)
 #   5. Summary
 #
-# To read what install_depot does, scroll to "=== Run ===" near the
+# To read what install/depot does, scroll to "=== Run ===" near the
 # bottom — that's the canonical order. The function defs above are
 # the named-block implementation of each step.
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPOT_CONFIG_DIR="$HOME/hdds/.config/depot"
 ADMIN_ENV="$DEPOT_CONFIG_DIR/admin.env"
 USENET_ENV="$DEPOT_CONFIG_DIR/usenet.env"
@@ -881,7 +881,7 @@ write_admin_env() {
   umask 077
   {
     cat <<'EOF'
-# Auto-managed by install_depot. Same credentials used across every
+# Auto-managed by install/depot. Same credentials used across every
 # service's admin user (Jellyfin, qBittorrent, Prowlarr, Sonarr,
 # Radarr, Jellyseerr).
 EOF
@@ -896,8 +896,8 @@ write_usenet_env() {
   umask 077
   {
     cat <<'EOF'
-# Auto-managed by install_depot. Edit to rotate Frugal Usenet credentials
-# or NZBGeek API key. Re-run install_depot after edits.
+# Auto-managed by install/depot. Edit to rotate Frugal Usenet credentials
+# or NZBGeek API key. Re-run install/depot after edits.
 EOF
     printf 'USENET_USERNAME=%q\n' "$USENET_USERNAME"
     printf 'USENET_PASSWORD=%q\n' "$USENET_PASSWORD"
@@ -925,7 +925,7 @@ write_ipt_env() {
   umask 077
   {
     cat <<'EOF'
-# Auto-managed by install_depot. The IPT cookie expires periodically;
+# Auto-managed by install/depot. The IPT cookie expires periodically;
 # when IPTorrents searches start failing months later, edit + re-run.
 EOF
     printf 'IPT_COOKIE=%q\n' "$IPT_COOKIE"
@@ -939,7 +939,7 @@ write_tailscale_env() {
   umask 077
   {
     cat <<'EOF'
-# Auto-managed by install_depot. Used at first install only;
+# Auto-managed by install/depot. Used at first install only;
 # subsequent runs see tailscale already authenticated and skip
 # `tailscale up`.
 EOF
@@ -1027,7 +1027,7 @@ PORT_SYNC_SH
     WIREGUARD_PRIVATE_KEY="$WIREGUARD_PRIVATE_KEY" \
     WIREGUARD_ADDRESSES="$WIREGUARD_ADDRESSES" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/gluetun.yml" up -d
+    docker-compose -f "$ROOT/compose/gluetun.yml" up -d
 }
 
 # ============================================================
@@ -1211,7 +1211,7 @@ install_jellyfin() {
     PGID="$(id -g)" \
     TZ="$(timedatectl show -p Timezone --value)" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/jellyfin.yml" up -d
+    docker-compose -f "$ROOT/compose/jellyfin.yml" up -d
 
   local jf_url="http://localhost:8096"
   if jellyfin_wait_for_api "$jf_url"; then
@@ -1360,7 +1360,7 @@ EOF
     PGID="$(id -g)" \
     TZ="$(timedatectl show -p Timezone --value)" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/qbittorrent.yml" up -d
+    docker-compose -f "$ROOT/compose/qbittorrent.yml" up -d
 
   tailscale_serve_https 8080
 
@@ -1491,11 +1491,11 @@ _install_arr_common() {
 }
 
 install_sonarr() {
-  _install_arr_common sonarr 8989 "$HERE/compose/sonarr.yml" "/tv" "tv"
+  _install_arr_common sonarr 8989 "$ROOT/compose/sonarr.yml" "/tv" "tv"
 }
 
 install_radarr() {
-  _install_arr_common radarr 7878 "$HERE/compose/radarr.yml" "/movies" "movies"
+  _install_arr_common radarr 7878 "$ROOT/compose/radarr.yml" "/movies" "movies"
 }
 
 # ============================================================
@@ -1689,7 +1689,7 @@ install_prowlarr() {
     PGID="$(id -g)" \
     TZ="$(timedatectl show -p Timezone --value)" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/prowlarr.yml" up -d
+    docker-compose -f "$ROOT/compose/prowlarr.yml" up -d
 
   tailscale_serve_https 9696
 
@@ -1916,7 +1916,7 @@ EOF
     PGID="$(id -g)" \
     TZ="$(timedatectl show -p Timezone --value)" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/sabnzbd.yml" up -d
+    docker-compose -f "$ROOT/compose/sabnzbd.yml" up -d
 
   # Tailscale serve on 8086 (NOT 8085) — 8085 is docker-proxy's host
   # bind. Different host ports means docker restart doesn't fight
@@ -2000,7 +2000,7 @@ install_jellyseerr() {
   sudo \
     TZ="$(timedatectl show -p Timezone --value)" \
     DEPOT_USER_HOME="$HOME" \
-    docker-compose -f "$HERE/compose/jellyseerr.yml" up -d
+    docker-compose -f "$ROOT/compose/jellyseerr.yml" up -d
 
   tailscale_serve_https 5055
 
@@ -2205,7 +2205,7 @@ install_aviary() {
     AVIARY_DATA_DIR="$aviary_data_dir" \
     HOST_UID="$(id -u)" \
     HOST_GID="$(id -g)" \
-    docker-compose -f "$HERE/compose/aviary.yml" up -d --build
+    docker-compose -f "$ROOT/compose/aviary.yml" up -d --build
 
   # Wait for the BEAM to actually accept work before migrating. up -d
   # returns when the container starts, not when Phoenix is listening.
@@ -2307,7 +2307,7 @@ install_unpackerr() {
     DEPOT_USER_HOME="$HOME" \
     SONARR_API_KEY="$sonarr_api_key" \
     RADARR_API_KEY="$radarr_api_key" \
-    docker-compose -f "$HERE/compose/unpackerr.yml" up -d
+    docker-compose -f "$ROOT/compose/unpackerr.yml" up -d
 }
 
 # ============================================================
@@ -2359,7 +2359,7 @@ print_summary() {
 # ============================================================
 
 echo
-echo "install_depot — collecting prompts (you can walk away after these)."
+echo "install/depot — collecting prompts (you can walk away after these)."
 echo
 
 # Admin credentials shared across every service's admin user.
