@@ -57,18 +57,7 @@ SERVICES = [
 COMMANDS = {
   "help" => {
     description: "Show this help and exit",
-    action: -> {
-      puts "Usage: depot <command>"
-      puts
-      puts "Commands:"
-      COMMANDS.each do |name, cmd|
-        puts "  #{name.ljust(10)} #{cmd[:description]}"
-      end
-      puts "  <service>  Update just one service (e.g. `depot aviary`)"
-      puts
-      puts "Services: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
-      exit 0
-    },
+    action: -> { print_help; exit 0 },
   },
   "install" => {
     description: "Install every service from scratch (prompts collected up front)",
@@ -104,6 +93,18 @@ COMMANDS = {
   },
 }.freeze
 
+def print_help
+  puts "Usage: depot <command>"
+  puts
+  puts "Commands:"
+  COMMANDS.each do |name, cmd|
+    puts "  #{name.ljust(10)} #{cmd[:description]}"
+  end
+  puts "  <service>  Update just one service (e.g. `depot aviary`)"
+  puts
+  puts "Services: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
+end
+
 mode = ARGV.first || "help"
 
 begin
@@ -115,7 +116,7 @@ begin
   else
     puts "Unknown command: #{mode.inspect}"
     puts
-    COMMANDS["help"][:action].call  # exits 1 after printing? No — exits 0. Override:
+    print_help
     exit 1
   end
 
