@@ -48,12 +48,39 @@ module Storage
 
   def self.summary
     if system("sudo zpool list #{POOL_NAME}", out: File::NULL, err: File::NULL)
-      size = `sudo zpool list -H -o size #{POOL_NAME}`.strip
-      puts "Storage pool:   #{size} mounted at #{ZFS_MOUNT}"
+      # zpool list -o size shows the RAW total (sum of disk sizes,
+      # before RAIDZ1 parity). For "what can actually be stored,"
+      # use zfs list -o avail,used — those are post-parity, post-
+      # overhead and their sum is the real usable capacity.
+      bytes = usable_tank_bytes
+      puts "Storage pool:   #{humanize(bytes)} mounted at #{ZFS_MOUNT}"
     end
     if `mountpoint -q #{DOWNLOADING_MOUNT}; echo $?`.strip == "0"
       puts "Active downloads: #{DOWNLOADING_MOUNT}"
     end
+  end
+
+  # Usable tank capacity in bytes (AVAIL + USED from `zfs list -H -p`).
+  # Returns 0 if the pool isn't imported. -p gives parseable bytes
+  # rather than the default human "82T" string.
+  def self.usable_tank_bytes
+    out = `sudo zfs list -H -p -o avail,used #{POOL_NAME} 2>/dev/null`.strip
+    return 0 if out.empty?
+    avail, used = out.split.map(&:to_i)
+    avail + used
+  end
+
+  def self.humanize(bytes)
+    return "0" if bytes.zero?
+    %w[B K M G T P].each_with_index do |unit, i|
+      threshold = 1024**i
+      next_threshold = 1024**(i + 1)
+      if bytes < next_threshold
+        value = bytes / threshold.to_f
+        return value >= 100 ? "#{value.round}#{unit}" : "#{value.round(1)}#{unit}"
+      end
+    end
+    bytes.to_s
   end
 
   # ------------------------------------------------------------

@@ -135,6 +135,14 @@ module Aviary
       "AVIARY_DATA_DIR"       => AVIARY_DATA_DIR,
       "HOST_UID"              => Process.uid,
       "HOST_GID"              => Process.gid,
+      # Usable tank capacity in bytes (post-RAIDZ1 parity, post-ZFS
+      # overhead). `zfs list -H -p -o avail,used` returns AVAIL + USED
+      # in bytes, no formatting. Their sum is what the pool can
+      # actually hold; zpool list would show RAW (sum of all disk
+      # sizes) which over-counts by one disk's worth of parity.
+      # Aviary's Settings page Storage panel uses this to scale the
+      # stacked bar to a real "% of tank used."
+      "TANK_BYTES"            => Storage.usable_tank_bytes.to_s,
     })
 
     # Wait for Phoenix to actually accept connections before migrating.
