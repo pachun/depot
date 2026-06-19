@@ -66,14 +66,31 @@ module Jellyseerr
              "password" => admin_pass, "urlBase" => "" }
     resp = http(:post, "#{BASE_URL}/api/v1/auth/jellyfin", body: body)
     if resp.nil? || !resp.code.to_i.between?(200, 299)
-      puts "  WARN: jellyseerr /api/v1/auth/jellyfin failed"
+      puts "  WARN: jellyseerr /api/v1/auth/jellyfin failed: #{resp&.code} #{resp&.body.to_s[0, 200]}"
       return
     end
-    cookie = (resp["Set-Cookie"] || "").split(",").map { |c| c.strip.split(";").first }.compact.join("; ")
-    headers = { "Cookie" => cookie }
 
-    http(:post, "#{BASE_URL}/api/v1/settings/main",
-         body: { "initialized" => true }, headers: headers)
+    # Build the Cookie header from every Set-Cookie line. Using
+    # get_fields() rather than [] because [] joins multi-line
+    # Set-Cookie with ", " — and cookies contain commas in date
+    # attributes (expires=Mon, 09 Jun 2025 ...), so splitting on
+    # comma mangles the session cookie. Each Set-Cookie is its own
+    # array entry; we just want the name=value part before the first
+    # semicolon.
+    cookies = (resp.get_fields("Set-Cookie") || []).map { |c| c.split(";").first.strip }
+    if cookies.empty?
+      puts "  WARN: jellyseerr auth response had no Set-Cookie — bootstrap can't authenticate the rest"
+      return
+    end
+    cookie_header = cookies.join("; ")
+    headers = { "Cookie" => cookie_header }
+
+    main_resp = http(:post, "#{BASE_URL}/api/v1/settings/main",
+                     body: { "initialized" => true }, headers: headers)
+    if main_resp.nil? || !main_resp.code.to_i.between?(200, 299)
+      puts "  WARN: jellyseerr /api/v1/settings/main failed: #{main_resp&.code} #{main_resp&.body.to_s[0, 200]}"
+      return
+    end
 
     if (sonarr_key = Sonarr.api_key)
       http(:post, "#{BASE_URL}/api/v1/settings/sonarr", headers: headers, body: {
