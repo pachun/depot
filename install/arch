@@ -6,9 +6,9 @@
 # OS NVMe, pacstrap base, set up timezone/locale/hostname, create a
 # wheel-powered daily-driver user, set the root password, install the
 # bootloader, enable NetworkManager, and copy this repo into the new
-# user's home so `install/depot` is reachable post-reboot. Anything
+# user's home so `depot` is reachable post-reboot. Anything
 # depot-specific (ZFS, faillock-off, the service stack) lives in
-# `install/depot`, which the user runs after first login.
+# `depot`, which the user runs after first login.
 #
 # SATA drives are explicitly refused as install targets — the NAS's
 # data HDDs are SATA and the OS drive is NVMe; this guard makes it
@@ -144,10 +144,10 @@ pacstrap_base() {
   echo
   echo "Installing base packages (pacstrap)..."
   # linux-lts (not linux): archzfs publishes precompiled zfs-linux-lts
-  # matched to each linux-lts release, so install/depot can pin them
+  # matched to each linux-lts release, so depot can pin them
   # together without DKMS. linux-lts also gets a longer support window
   # than `linux`, which suits a NAS. linux-lts-headers is NOT installed
-  # — install/depot uses the precompiled module.
+  # — depot uses the precompiled module.
   pacstrap -K /mnt base linux-lts linux-firmware vim git networkmanager sudo
 }
 
@@ -190,7 +190,7 @@ unmount_and_reboot() {
   echo
   echo "  REMOVE THE USB DRIVE from the NAS now."
   echo "  Then press Enter to reboot into Arch."
-  echo "  After reboot, log in and run install/depot."
+  echo "  After reboot: ./install/orchard, ./install/depot-cli, depot install"
   echo "=========================================================="
   read -r -p "> " _ </dev/tty || true
 
@@ -279,14 +279,14 @@ enable_wheel_sudo() {
   # touch /etc/sudoers. Validated with visudo -cf before being trusted.
   #
   # SETENV tag: Arch's default sudoers has `Defaults env_reset` which
-  # silently strips env vars passed via `sudo VAR=val cmd`. install/depot
+  # silently strips env vars passed via `sudo VAR=val cmd`. depot
   # relies on passing PUID, PGID, TZ, DEPOT_USER_HOME, WIREGUARD_* etc.
   # through sudo for docker-compose substitution. SETENV lets wheel
   # members override the env reset on the command line. No real
   # privilege expansion — wheel already has full sudo.
   #
   # HOME specifically is NOT preserved by sudo even with SETENV (sudo
-  # hardcodes target-user's home for HOME regardless). install/depot's
+  # hardcodes target-user's home for HOME regardless). depot's
   # compose files use `${DEPOT_USER_HOME}` instead of `${HOME}` to dodge
   # this; the SETENV here covers the rest.
   echo '%wheel ALL=(ALL:ALL) SETENV: ALL' > /etc/sudoers.d/10-wheel

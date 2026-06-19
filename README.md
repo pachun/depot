@@ -91,28 +91,54 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
 ## 8. Install orchard
 
-[Orchard](https://github.com/pachun/orchard) is the dotfile setup depot uses for familiarity when SSHing into the NAS (zsh + .zshrc.d, nvim with pre-warmed plugins, tmux, mise, git config, …).
+[Orchard](https://github.com/pachun/orchard) is the dotfile setup depot uses for familiarity when SSHing into the NAS (zsh + .zshrc.d, nvim with pre-warmed plugins, tmux, **mise — which provides the Ruby that `depot` runs on**, claude, git config, …).
 
 ```
 ~/code/depot/install/orchard
 ```
 
-Re-run `./update_orchard` any time to pull and re-apply.
+Re-run any time to pull and re-apply.
 
-## 9. Install depot
+## 9. Make `depot` runnable from anywhere
 
 ```
-~/code/depot/install/depot
+~/code/depot/install/depot-cli
 ```
 
-`install/depot` reads top-to-bottom: function defs, prompts (all up front so you can walk away), then the work in explicit order, then a summary. It's idempotent — re-run it any time. To rotate a credential, edit the relevant env file under `~/hdds/.config/depot/` and re-run.
+This symlinks `/usr/local/bin/depot` to the script in this repo so every subsequent `depot install` / `depot update` / `depot aviary` invocation works from any directory and any SSH session — no full path needed.
 
-## 10. Open Aviary in your browser
+## 10. Install depot
 
-The summary printed at the end of `install/depot` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
+```
+depot install
+```
+
+`depot install` reads top-to-bottom: collects every service's prompts up front (so you can walk away), then brings each service up in dependency order, then prints a summary of tailnet URLs. Idempotent — re-run any time.
+
+## 11. Open Aviary in your browser
+
+The summary at the end of `depot install` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
 
 ## Updating
 
-- `./update_orchard` — pull and re-apply orchard dotfiles
-- `./update_aviary` — pull new aviary code, rebuild the container, run migrations
-- `./install/depot` — rerun the whole thing; it's idempotent
+- `./install/orchard` — pull and re-apply orchard dotfiles
+- `depot update` — bring every service to current desired state (re-pulls aviary, rebuilds it, runs migrations; restarts every container)
+- `depot <service>` — update just that service. E.g. `depot aviary` from anywhere on the box to pull a new aviary build without touching the others.
+
+## File layout
+
+```
+depot/
+├── depot                 ruby, the CLI tool — `depot install`/`update`/<service>
+├── install/
+│   ├── arch              bash, run once from the live Arch ISO
+│   ├── orchard           bash, run after reboot to bring up the shell
+│   └── depot-cli         bash, symlinks `depot` into /usr/local/bin
+└── services/
+    ├── helpers.rb        shared utilities (HTTP, prompts, shell, arr API)
+    └── <name>/
+        ├── <name>.rb     module with .install_prompt/.install/.update/.summary
+        └── docker-compose.yml   (for services that run as containers)
+```
+
+Each service module is the spec for that service. The `depot` script's `SERVICES` array is the install order. Reading the bottom of `depot` tells you exactly what runs and in what order; reading any module tells you what installing that one service does.

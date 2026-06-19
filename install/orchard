@@ -3,13 +3,13 @@
 # Orchard is the personal dotfiles + shell tooling repo at
 # github.com/pachun/orchard. depot uses its CLI subset for familiarity
 # when SSHing in to the NAS — zsh + .zshrc.d/cli/, nvim with pre-warmed
-# plugins, tmux, mise, claude, git config, etc. — without dragging in
-# the graphical environment.
+# plugins, tmux, mise (which provides Ruby for the `depot` script),
+# claude, git config, etc. — without dragging in the graphical
+# environment.
 #
 # Idempotent: re-runs pick up upstream changes via git pull and
 # orchard's own install.sh no-ops on already-installed components.
-# update_orchard is a symlink to this script — orchard's install IS
-# its update.
+# Re-run this script any time to update orchard.
 set -euo pipefail
 
 ORCHARD=~/code/orchard

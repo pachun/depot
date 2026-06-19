@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+# depot — install and update every service running on this NAS.
+#
+# Usage:
+#   depot install          # collect prompts, install every service from scratch
+#   depot                  # same as `depot install` (default)
+#   depot update           # bring every service to its current desired state
+#                          #   (docker-compose up -d per service; aviary also
+#                          #   git-pulls and rebuilds)
+#   depot <service>        # update just one service. e.g. `depot aviary`
+#
+# Installable from anywhere on the box by running install/depot-cli once,
+# which symlinks this script to /usr/local/bin/depot.
+#
+# Reading guide: scroll to the bottom. The services array IS the install
+# order, and the case statement IS the dispatch. Every service is a
+# module under services/<name>/<name>.rb, implementing four class
+# methods: install_prompt, install(prompts), update, summary. Adding a
+# new service = define the module + add it to the services array.
+
+require_relative 'services/helpers'
+
+# Load every service module. Sorted so the require order is
+# deterministic; the actual install/update order is the services array.
+Dir[File.join(__dir__, 'services', '*', '*.rb')].sort.each { |f| require f }
+
+# Service install order. Storage before Docker (containers need a place
+# to bind-mount volumes from). Docker before any container. Tailscale
+# before any tailscale_serve mapping. Autologin anywhere before the
+# install ends. Gluetun before qBittorrent (they share a netns).
+# Jellyfin before Sonarr/Radarr/Jellyseerr/Aviary (they all wire to it).
+# Prowlarr before sonarr/radarr aren't strict, but configured-after is
+# fine because Prowlarr pushes config into the arrs.
+SERVICES = [
+  Storage,
+  Docker,
+  Tailscale,
+  Autologin,
+  Gluetun,
+  Jellyfin,
+  QBittorrent,
+  Sonarr,
+  Radarr,
+  Prowlarr,
+  Sabnzbd,
+  Jellyseerr,
+  Aviary,
+  Unpackerr,
+]
+
+mode = ARGV.first
+
+case mode
+when nil, "install"
+  puts "depot install — collecting prompts (walk away after these)."
+  puts
+  prompts = SERVICES.each_with_object({}) do |service, hash|
+    hash.merge!(service.install_prompt)
+  end
+  puts
+  puts "Installing #{SERVICES.size} services..."
+  SERVICES.each do |service|
+    puts
+    puts "═══ #{service.name} ═══"
+    service.install(prompts)
+  end
+when "update"
+  puts "depot update — bringing every service to current desired state."
+  SERVICES.each do |service|
+    puts
+    puts "═══ #{service.name} ═══"
+    service.update
+  end
+else
+  service = SERVICES.find { |s| s.name.downcase == mode.downcase }
+  if service.nil?
+    abort "Unknown service: #{mode.inspect}. Known: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
+  end
+  puts "depot #{mode} — updating just #{service.name}."
+  service.update
+end
+
+puts
+puts "═══ Summary ═══"
+SERVICES.each(&:summary)
