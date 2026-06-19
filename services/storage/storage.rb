@@ -67,12 +67,12 @@ module Storage
       return []
     end
 
-    preamble = "Storage HDDs:\n" +
+    preamble = "Pick storage HDDs:\n" +
       available.each_with_index.map { |name, i| disk_info_line(name, i + 1) }.join("\n")
 
     selected = prompt(
       preamble: preamble,
-      question: "Pick storage HDDs (space-separated numbers)",
+      question: "numbers (space separated)",
       parse:    parse_indices_against(available),
       confirm:  "destroy and create pool",
     )
@@ -87,12 +87,12 @@ module Storage
     available = list_download_ssd_candidates
     return nil if available.empty?
 
-    preamble = "Non-boot NVMe drives:\n" +
+    preamble = "Pick the SSD for downloads:\n" +
       available.each_with_index.map { |name, i| disk_info_line(name, i + 1) }.join("\n")
 
     selected = prompt(
       preamble: preamble,
-      question: "Pick the SSD for downloads (single number)",
+      question: "number",
       parse:    ->(input) {
         i = Integer(input.strip) rescue (raise "not a number: #{input}")
         raise "index out of range" unless (1..available.size).cover?(i)

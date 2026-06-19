@@ -20,24 +20,22 @@ module Prowlarr
   def self.install_prompt
     {
       nzbgeek_api_key: prompt(
-        question: "NZBGeek API key (from nzbgeek.info → account → API)",
+        preamble: "NZBGeek:",
+        question: "API key (from nzbgeek.info → account → API)",
         secret:   true,
       ),
       ipt_cookie: prompt(
-        preamble: <<~TEXT,
-          ── IPTorrents setup ───────────────────────────────────────────────
-          IPTorrents needs a browser session cookie + the User-Agent that
-          came with it. Steps:
-            1. Open https://iptorrents.com and log in.
-            2. F12 → Network tab → reload the page.
-            3. Click the first request (the page itself).
-            4. Headers → Request Headers → copy "Cookie:" value below.
-            5. Then for "User-Agent:" at the next prompt.
-          ───────────────────────────────────────────────────────────────────
+        preamble: <<~TEXT.chomp,
+          IPTorrents:
+            1. Open https://iptorrents.com and log in
+            2. F12 → Network tab → reload the page
+            3. Click the first request (the page itself)
+            4. Headers → Request Headers → copy "Cookie:" value below
+            5. Then "User-Agent:" at the next prompt
         TEXT
-        question: "IPTorrents Cookie",
+        question: "Cookie",
       ),
-      ipt_useragent: prompt(question: "IPTorrents User-Agent"),
+      ipt_useragent: prompt(question: "User-Agent"),
     }
   end
 

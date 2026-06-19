@@ -18,10 +18,11 @@ module Sabnzbd
   def self.install_prompt
     {
       usenet_username: prompt(
-        question: "Frugal Usenet username (newsreader user, not your email)",
+        preamble: "Frugal Usenet:",
+        question: "Username (newsreader user, not your email)",
       ),
       usenet_password: prompt(
-        question: "Frugal Usenet password",
+        question: "Password",
         secret:   true,
       ),
     }

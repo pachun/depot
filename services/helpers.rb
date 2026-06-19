@@ -220,7 +220,10 @@ end
 #              no completion.
 def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, completion: nil)
   loop do
-    puts preamble if preamble
+    if preamble
+      puts
+      puts preamble
+    end
     line = "  #{question}: "
 
     if secret
