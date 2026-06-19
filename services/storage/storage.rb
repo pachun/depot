@@ -164,8 +164,19 @@ module Storage
     puts "  Creating RAIDZ1 pool '#{POOL_NAME}' across:"
     disk_ids.each { |id| puts "    #{id}" }
 
+    # Wipe any stale ZFS labels left over from a previous failed/
+    # aborted pool. The "destroy and create pool" confirmation phrase
+    # in the prompt authorized this — without labelclear, a re-run
+    # fails with "is part of potentially active pool".
+    disk_ids.each do |id|
+      system("sudo zpool labelclear -f #{id}", out: File::NULL, err: File::NULL)
+    end
+
+    # -f because the user already confirmed "destroy and create pool";
+    # this covers cases where the disks have any kind of stale
+    # signature (zfs label, partition table, mdraid, etc).
     sudo!(<<~CMD.gsub("\n", " ").strip)
-      zpool create
+      zpool create -f
         -o ashift=12
         -O compression=lz4
         -O atime=off
