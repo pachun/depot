@@ -11,5 +11,5 @@ sudo systemctl enable --now sshd
 
 ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
 echo
-echo "continue the install on your favorite machine: ssh $USER@$ip"
+echo "ssh $USER@$ip"
 echo
