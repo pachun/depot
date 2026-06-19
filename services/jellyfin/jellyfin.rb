@@ -140,18 +140,51 @@ module Jellyfin
   # Wait + bootstrap detection
   # ============================================================
 
-  # Poll Jellyfin's public endpoint AND wait for "Startup complete"
-  # in container logs. 10.11 has new normalized-username EF migrations
-  # that race the wizard endpoints if you hit them too early; the log
-  # line is Jellyfin's own "core init done" signal.
+  # Wait until Jellyfin is genuinely ready for the wizard. Three
+  # signals; we declare ready when the HTTP endpoint responds AND any
+  # one of several known "I'm ready" log lines appears:
+  #
+  #   - "Startup complete"     — Jellyfin's own readiness line (older versions)
+  #   - "Application started"  — .NET generic-host startup line (stable across .NET versions)
+  #   - "Now listening on"     — Kestrel's bind-confirmation line
+  #
+  # We OR these instead of pinning to one because the wording has
+  # historically changed between Jellyfin releases (10.11 introduced
+  # new EF migrations and reshuffled startup logging), and pinning to
+  # one missing pattern means waiting forever for a line that never
+  # appears.
+  #
+  # Container-death short-circuit: if the container is no longer
+  # running, bail immediately instead of waiting out the timeout.
+  #
+  # Backstop is 10 minutes — generous because the alternative is
+  # spurious failures on slow disks during first-run migrations. If
+  # you actually hit it, that's a real problem to investigate via
+  # `docker logs jellyfin --tail 100`, not a bigger number.
+  READINESS_LOG_LINES = [
+    "Startup complete",
+    "Application started",
+    "Now listening on",
+  ].freeze
+
   def self.wait_for_jellyfin_api
-    60.times do
-      reachable = http(:get, "#{BASE_URL}/System/Info/Public")
-      logs_ok   = `docker logs jellyfin 2>&1`.include?("Startup complete")
-      return true if reachable && reachable.code.to_i.between?(200, 299) && logs_ok
+    600.times do
+      state = `docker inspect jellyfin --format '{{.State.Status}}' 2>/dev/null`.strip
+      if state != "running"
+        puts "  WARN: jellyfin container is #{state.inspect} — bailing wait"
+        return false
+      end
+
+      resp = http(:get, "#{BASE_URL}/System/Info/Public")
+      http_ok = resp && resp.code.to_i.between?(200, 299)
+
+      logs = `docker logs jellyfin 2>&1`
+      log_ok = READINESS_LOG_LINES.any? { |line| logs.include?(line) }
+
+      return true if http_ok && log_ok
       sleep 1
     end
-    puts "  WARN: Jellyfin API didn't respond within 60s"
+    puts "  WARN: Jellyfin not ready after 10 minutes — `docker logs jellyfin --tail 100`"
     false
   end
 

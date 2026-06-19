@@ -170,7 +170,14 @@ def http(method, url, body: nil, headers: {})
                   open_timeout: 10, read_timeout: 30) do |http|
     http.request(req)
   end
-rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Net::OpenTimeout, Net::ReadTimeout
+rescue Errno::ECONNREFUSED,  # nothing listening yet
+       Errno::ECONNRESET,    # server closed connection mid-handshake (LSIO containers do this during init)
+       Errno::EHOSTUNREACH,  # no route
+       Errno::ENETUNREACH,   # network unreachable
+       Errno::EPIPE,         # write to closed socket
+       EOFError,             # server died mid-response
+       Net::OpenTimeout,
+       Net::ReadTimeout
   nil
 end
 
