@@ -57,10 +57,12 @@ SERVICES = [
 COMMANDS = {
   "help" => {
     description: "Show this help and exit",
+    needs_sudo: false,
     action: -> { print_help; exit 0 },
   },
   "install" => {
     description: "Install every service from scratch (prompts collected up front)",
+    needs_sudo: true,
     action: -> {
       puts "depot install — collecting prompts (walk away after these)."
       puts
@@ -78,6 +80,7 @@ COMMANDS = {
   },
   "update" => {
     description: "Bring every service to its current desired state",
+    needs_sudo: true,
     action: -> {
       puts "depot update — bringing every service to current desired state."
       SERVICES.each do |service|
@@ -89,7 +92,13 @@ COMMANDS = {
   },
   "summary" => {
     description: "Print URLs and status for every service",
+    needs_sudo: true,  # zpool list, docker logs, docker ps
     action: -> { },  # empty — summary block runs automatically after dispatch
+  },
+  "completion" => {
+    description: "Print the zsh completion script (already installed by install/depot-cli)",
+    needs_sudo: false,
+    action: -> { print_zsh_completion; exit 0 },
   },
 }.freeze
 
@@ -105,12 +114,46 @@ def print_help
   puts "Services: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
 end
 
+# Emit a zsh completion file in fpath/autoload format. Both COMMANDS
+# and SERVICES are walked at emit time so re-running this after adding
+# a new command or service produces an up-to-date completion list —
+# there's no static word list to keep in sync.
+#
+# Output is the body of an autoloaded completion function — the
+# `#compdef depot` directive at the top is what tells zsh's compinit
+# to register this file as the completion for the `depot` command.
+# install/depot-cli writes the output to /usr/share/zsh/site-functions/_depot,
+# which is in zsh's default fpath, so completion just works in every
+# new zsh shell with no shellrc changes.
+def print_zsh_completion
+  candidates = COMMANDS.map { |name, cmd| "#{name}:#{cmd[:description]}" }
+  candidates += SERVICES.map { |s| "#{s.name.downcase}:Update #{s.name}" }
+
+  puts "#compdef depot"
+  puts
+  puts "local -a candidates"
+  puts "candidates=("
+  candidates.each { |c| puts "  #{c.dump}" }
+  puts ")"
+  puts "_describe 'depot command' candidates"
+end
+
 mode = ARGV.first || "help"
 
 # Warm sudo's timestamp so the first sudo call mid-run doesn't bisect
-# output with a password prompt. Skipped for `help` (no sudo needed)
-# and unknown commands (we just print help and exit).
-if mode != "help" && (COMMANDS.key?(mode) || SERVICES.any? { |s| s.name.downcase == mode.downcase })
+# output with a password prompt. Each COMMANDS entry declares whether
+# it needs sudo; single-service updates always do (every service does
+# docker / tailscale work).
+needs_sudo =
+  if COMMANDS.key?(mode)
+    COMMANDS[mode][:needs_sudo]
+  elsif SERVICES.any? { |s| s.name.downcase == mode.downcase }
+    true
+  else
+    false  # unknown command — print help and exit, no sudo needed
+  end
+
+if needs_sudo
   system("sudo -v") || abort("sudo failed")
 end
 

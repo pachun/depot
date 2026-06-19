@@ -21,4 +21,13 @@ fi
 
 sudo ln -sf "$ROOT/depot" /usr/local/bin/depot
 
+# Install zsh tab-completion. /usr/share/zsh/site-functions is in zsh's
+# default fpath, and a file named `_depot` with a `#compdef depot`
+# directive at the top is auto-discovered by compinit on every new
+# zsh shell — no shellrc changes anywhere. The file regenerates from
+# COMMANDS + SERVICES on every install/depot-cli run, so adding a new
+# command or service stays in sync with the completion list.
+sudo mkdir -p /usr/share/zsh/site-functions
+"$ROOT/depot" completion | sudo tee /usr/share/zsh/site-functions/_depot >/dev/null
+
 echo "depot is now runnable from anywhere as: depot install"
