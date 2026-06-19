@@ -218,27 +218,18 @@ end
 #   completion: :filename to enable tab path completion via Readline
 #              (e.g. the WireGuard .conf path prompt). Default nil =
 #              no completion.
-def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, completion: nil)
+#   verify:    true asks the user to re-enter their answer once and
+#              re-prompts the whole thing on mismatch. For secret
+#              inputs (passwords) where a typo would lock you out
+#              with no way to see what you typed.
+def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, completion: nil, verify: false)
   loop do
     if preamble
       puts
       puts preamble
     end
-    line = "  #{question}: "
 
-    if secret
-      print line
-      raw = STDIN.noecho(&:gets).tap { puts }
-    else
-      Readline.completion_append_character = nil
-      Readline.completion_proc = case completion
-        when :filename
-          ->(str) { Dir.glob("#{str}*").map { |f| File.directory?(f) ? "#{f}/" : f } }
-        else
-          ->(_str) { [] }
-      end
-      raw = Readline.readline(line, false)
-    end
+    raw = read_prompt_input("  #{question}: ", secret: secret, completion: completion)
     raise Interrupt if raw.nil?  # Ctrl-D
     raw = raw.chomp
 
@@ -254,6 +245,16 @@ def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, co
       next
     end
 
+    if verify
+      check = read_prompt_input("  Confirm #{question.downcase}: ",
+                                secret: secret, completion: completion)
+      raise Interrupt if check.nil?
+      if check.chomp != raw
+        puts "    -> doesn't match, try again"
+        next
+      end
+    end
+
     if confirm
       print "  Type '#{confirm}' to confirm: "
       typed = STDIN.gets.to_s.chomp
@@ -263,6 +264,22 @@ def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, co
     end
 
     return parsed
+  end
+end
+
+def read_prompt_input(line, secret:, completion:)
+  if secret
+    print line
+    STDIN.noecho(&:gets).tap { puts }
+  else
+    Readline.completion_append_character = nil
+    Readline.completion_proc = case completion
+      when :filename
+        ->(str) { Dir.glob("#{str}*").map { |f| File.directory?(f) ? "#{f}/" : f } }
+      else
+        ->(_str) { [] }
+    end
+    Readline.readline(line, false)
   end
 end
 

@@ -38,7 +38,7 @@ module Jellyfin
   def self.install_prompt
     {
       admin_username: prompt(preamble: "Media Server:", question: "Admin username"),
-      admin_password: prompt(question: "Admin password", secret: true),
+      admin_password: prompt(question: "Admin password", secret: true, verify: true),
     }
   end
 
