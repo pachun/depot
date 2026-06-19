@@ -130,7 +130,7 @@ end
 # substitution resolves to the caller's home (sudo special-cases HOME
 # so we can't rely on it).
 def compose_up!(service, env: {}, build: false)
-  compose_file = File.join(__dir__, 'services', service.to_s, 'docker-compose.yml')
+  compose_file = File.join(__dir__, service.to_s, 'docker-compose.yml')
   env = { "DEPOT_USER_HOME" => Dir.home }.merge(env)
   env_str = env.map { |k, v| "#{k}=#{shellescape(v.to_s)}" }.join(' ')
   cmd = "sudo #{env_str} docker-compose -f #{compose_file} up -d"
