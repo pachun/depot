@@ -109,6 +109,20 @@ def forward_port_to_tailscale(local_port:, tailscale_port:)
   sudo!("tailscale serve --bg --https=#{tailscale_port} http://localhost:#{local_port}")
 end
 
+# Expose a serve mapping to the public internet via Tailscale Funnel.
+# Reachability still uses the tailnet's https://<hostname>.<tailnet>.ts.net/
+# URL — funnel doesn't generate a separate hostname. The operator
+# decides who gets the URL.
+#
+# Whether this actually works is entirely controlled by the tailnet's
+# ACL (admin console → ACL → nodeAttrs grants `funnel` to this device).
+# If the ACL doesn't grant it, this command fails silently and the
+# tailnet binding from forward_port_to_tailscale is unaffected.
+def forward_port_to_internet(local_port:)
+  system("sudo tailscale funnel --bg http://localhost:#{local_port}",
+         out: File::NULL, err: File::NULL)
+end
+
 # Print the tailnet HTTPS URL for the given port. Empty string if
 # tailscale isn't authenticated.
 def tailscale_url(port)

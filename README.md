@@ -117,3 +117,18 @@ depot install
 
 - `depot update` — update all depot services
 - `depot <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
+
+## Publicizing
+
+You can expose aviary (the main media UI) to people not on your tailnet.
+
+Paste this snippet into the top level of the JSON, [here](https://login.tailscale.com/admin/acls/file):
+
+```json
+"nodeAttrs": [
+  {
+    "target": ["autogroup:member"],
+    "attr":   ["funnel"]
+  }
+]
+```
