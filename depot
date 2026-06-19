@@ -52,8 +52,6 @@ mode = ARGV.first
 
 case mode
 when nil, "install"
-  puts "depot install — collecting prompts (walk away after these)."
-  puts
   prompts = SERVICES.each_with_object({}) do |service, hash|
     hash.merge!(service.install_prompt)
   end
