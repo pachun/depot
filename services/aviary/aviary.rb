@@ -14,7 +14,10 @@
 
 module Aviary
   REPO_URL                = "https://github.com/pachun/aviary.git"
-  SOURCE_DIR              = File.join(Dir.home, "hdds/apps/aviary")
+  # Pure git checkout — pre-build sources only. Lives alongside
+  # ~/code/depot and ~/code/orchard rather than under ~/hdds, where the
+  # data (db) and secrets persist. Re-cloning on OS reimage is cheap.
+  SOURCE_DIR              = File.join(Dir.home, "code/aviary")
   SECRET_DIR              = File.join(Dir.home, "hdds/.config/aviary")
   AVIARY_ENV              = File.join(SECRET_DIR, ".env")
   SECRET_KEY_BASE_FILE    = File.join(SECRET_DIR, "secret_key_base")
@@ -63,6 +66,7 @@ module Aviary
   # ============================================================
 
   def self.clone_or_pull
+    FileUtils.mkdir_p(File.dirname(SOURCE_DIR))
     if Dir.exist?(File.join(SOURCE_DIR, ".git"))
       sh!("git -C #{SOURCE_DIR} fetch origin main")
       sh!("git -C #{SOURCE_DIR} reset --hard origin/main")
