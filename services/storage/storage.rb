@@ -52,7 +52,7 @@ module Storage
       puts "Storage pool:   #{size} mounted at #{ZFS_MOUNT}"
     end
     if `mountpoint -q #{DOWNLOADING_MOUNT}; echo $?`.strip == "0"
-      puts "Downloads:      #{DOWNLOADING_MOUNT}"
+      puts "Active downloads: #{DOWNLOADING_MOUNT}"
     end
   end
 

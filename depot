@@ -107,6 +107,13 @@ end
 
 mode = ARGV.first || "help"
 
+# Warm sudo's timestamp so the first sudo call mid-run doesn't bisect
+# output with a password prompt. Skipped for `help` (no sudo needed)
+# and unknown commands (we just print help and exit).
+if mode != "help" && (COMMANDS.key?(mode) || SERVICES.any? { |s| s.name.downcase == mode.downcase })
+  system("sudo -v") || abort("sudo failed")
+end
+
 begin
   if COMMANDS.key?(mode)
     COMMANDS[mode][:action].call
