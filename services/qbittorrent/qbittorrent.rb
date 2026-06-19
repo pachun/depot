@@ -134,10 +134,18 @@ module QBittorrent
                 body: body,
                 headers: { "Content-Type" => "application/x-www-form-urlencoded" })
     return nil unless resp && resp.code.to_i.between?(200, 299)
-    # Extract SID cookie from Set-Cookie header.
+    # Newer qBit (5.x) uses `QBT_SID_<port>` as the cookie name (so
+    # multiple qBit instances on the same host on different ports
+    # don't collide). Older qBit used bare `SID`. Match both shapes
+    # — if either matches, return the matching `name=value` so callers
+    # can use it as a Cookie header verbatim.
     set_cookie = resp["Set-Cookie"] || ""
-    sid = set_cookie[/SID=([^;]+)/, 1]
-    sid ? "SID=#{sid}" : nil
+    case set_cookie
+    when /(QBT_SID_\d+)=([^;]+)/, /(SID)=([^;]+)/
+      "#{$1}=#{$2}"
+    else
+      nil
+    end
   end
 
   def self.create_category(cookie, name, save_path)

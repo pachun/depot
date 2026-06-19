@@ -253,7 +253,21 @@ module Jellyfin
   def self.upsert_library(token, name, collection_type, path)
     existing = http_get_json("#{BASE_URL}/Library/VirtualFolders",
                              headers: { "X-Emby-Token" => token }) || []
-    return if existing.any? { |f| f["Name"] == name }
+    if (current = existing.find { |f| f["Name"] == name })
+      current_path = current.dig("Locations", 0) || current.dig("PathInfos", 0, "Path")
+      return if current_path == path
+      # Path changed (e.g., we renamed /tv → /shows in depot's code).
+      # Jellyfin doesn't expose a "change library path" endpoint; the
+      # least-bad option is to delete the library and re-create at the
+      # new path. Side effect: any per-item user data (watched state,
+      # custom posters) is lost. Idempotent code path (path unchanged)
+      # returns above before reaching this.
+      puts "  Jellyfin '#{name}' library path: #{current_path.inspect} → #{path.inspect} (recreating)"
+      http(:delete,
+           "#{BASE_URL}/Library/VirtualFolders?name=#{URI.encode_www_form_component(name)}&refreshLibrary=false",
+           headers: { "X-Emby-Token" => token })
+      sleep 2
+    end
 
     options = {
       "EnableRealtimeMonitor"               => true,
