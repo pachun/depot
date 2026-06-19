@@ -26,3 +26,11 @@ else
 fi
 
 bash "$ORCHARD/setup/install.sh" cli
+
+# Drop into zsh as a login shell so the new prompt + aliases take
+# effect immediately. Orchard's chsh only switches the LOGIN shell
+# for the NEXT session, which would otherwise force the user to
+# `exit` + re-SSH to see the new prompt.
+if command -v zsh >/dev/null 2>&1; then
+  exec zsh -l
+fi
