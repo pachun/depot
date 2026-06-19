@@ -61,15 +61,13 @@ git clone https://github.com/pachun/depot /tmp/depot
 
 After reboot, sign in.
 
-## 5. Enable SSH for the rest of the install
+## 5. Enable SSH
 
 ```
-sudo pacman -S --needed --noconfirm openssh
-sudo systemctl enable --now sshd
-ip -4 -br addr show | grep -v lo
+~/code/depot/install/ssh
 ```
 
-Continue the installation from your laptop: `ssh <username>@<lan-ip>`.
+Run the displayed `ssh` command from your favorite machine and continue the install from there.
 
 ## 6. Get a ProtonVPN WireGuard config
 
