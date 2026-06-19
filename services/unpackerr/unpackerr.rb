@@ -27,7 +27,7 @@ module Unpackerr
   end
 
   def self.summary
-    if `docker ps --format '{{.Names}}'`.lines.map(&:strip).include?("unpackerr")
+    if `sudo docker ps --format '{{.Names}}'`.lines.map(&:strip).include?("unpackerr")
       puts "Unpackerr:      running"
     else
       puts "Unpackerr:      not running"

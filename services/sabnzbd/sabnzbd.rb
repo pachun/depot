@@ -52,10 +52,10 @@ module Sabnzbd
 
     # Defensive: a failed docker restart can leave the container in
     # "Up" but with no port bindings.
-    ports = `docker ps --filter name=sabnzbd --format '{{.Ports}}'`
+    ports = `sudo docker ps --filter name=sabnzbd --format '{{.Ports}}'`
     if !ports.empty? && !ports.include?("8085")
       puts "  sabnzbd container's port mapping is missing — recreating"
-      sh!("docker rm -f sabnzbd >/dev/null")
+      sh!("sudo docker rm -f sabnzbd >/dev/null")
     end
 
     compose_up!("sabnzbd", env: {

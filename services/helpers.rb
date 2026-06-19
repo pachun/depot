@@ -39,7 +39,7 @@ end
 
 # Run a command, capture stdout/stderr, return [stdout, status]. Used
 # when we need to look at the output before deciding what to do (e.g.
-# `docker inspect` to check container state).
+# `sudo docker inspect` to check container state).
 def capture(cmd)
   stdout, _stderr, status = Open3.capture3(cmd)
   [stdout, status]
@@ -62,7 +62,7 @@ end
 # Pattern: `fail unless containers_are_running :jellyfin, :sonarr`
 def containers_are_running(*names)
   names.all? do |name|
-    stdout, status = capture("docker inspect #{name} --format '{{.State.Status}}'")
+    stdout, status = capture("sudo docker inspect #{name} --format '{{.State.Status}}'")
     status.success? && stdout.strip == "running"
   end
 end
@@ -70,7 +70,7 @@ end
 # Convenience: raises with a clear message instead of returning false.
 def fail_unless_containers_are_running(*names)
   names.each do |name|
-    stdout, status = capture("docker inspect #{name} --format '{{.State.Status}}'")
+    stdout, status = capture("sudo docker inspect #{name} --format '{{.State.Status}}'")
     if !status.success? || stdout.strip != "running"
       raise "container #{name} is not running (state: #{stdout.strip.inspect})"
     end
@@ -83,11 +83,11 @@ end
 # `docker-compose up -d` tries to start them as-is and they fail again.
 # This nukes them so the next compose-up creates fresh.
 def cleanup_stale_container(name)
-  stdout, status = capture("docker inspect #{name} --format '{{.State.Status}}'")
+  stdout, status = capture("sudo docker inspect #{name} --format '{{.State.Status}}'")
   return unless status.success?
   state = stdout.strip
   return if state == "running"
-  sh_quiet!("docker rm -f #{name}")
+  sh_quiet!("sudo docker rm -f #{name}")
 end
 
 # ============================================================

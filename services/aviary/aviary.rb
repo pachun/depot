@@ -139,7 +139,7 @@ module Aviary
     # release exits non-zero.
     puts "  waiting for aviary endpoint..."
     wait_for_http("http://localhost:#{LOCAL_PORT}/", timeout: 60)
-    sh!("docker exec aviary bin/aviary eval 'Aviary.Release.migrate()'")
+    sh!("sudo docker exec aviary bin/aviary eval 'Aviary.Release.migrate()'")
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 

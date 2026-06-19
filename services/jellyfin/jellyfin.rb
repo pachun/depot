@@ -160,7 +160,7 @@ module Jellyfin
   # Backstop is 10 minutes — generous because the alternative is
   # spurious failures on slow disks during first-run migrations. If
   # you actually hit it, that's a real problem to investigate via
-  # `docker logs jellyfin --tail 100`, not a bigger number.
+  # `sudo docker logs jellyfin --tail 100`, not a bigger number.
   READINESS_LOG_LINES = [
     "Startup complete",
     "Application started",
@@ -169,7 +169,7 @@ module Jellyfin
 
   def self.wait_for_jellyfin_api
     600.times do
-      state = `docker inspect jellyfin --format '{{.State.Status}}' 2>/dev/null`.strip
+      state = `sudo docker inspect jellyfin --format '{{.State.Status}}' 2>/dev/null`.strip
       if state != "running"
         puts "  WARN: jellyfin container is #{state.inspect} — bailing wait"
         return false
@@ -178,13 +178,13 @@ module Jellyfin
       resp = http(:get, "#{BASE_URL}/System/Info/Public")
       http_ok = resp && resp.code.to_i.between?(200, 299)
 
-      logs = `docker logs jellyfin 2>&1`
+      logs = `sudo docker logs jellyfin 2>&1`
       log_ok = READINESS_LOG_LINES.any? { |line| logs.include?(line) }
 
       return true if http_ok && log_ok
       sleep 1
     end
-    puts "  WARN: Jellyfin not ready after 10 minutes — `docker logs jellyfin --tail 100`"
+    puts "  WARN: Jellyfin not ready after 10 minutes — `sudo docker logs jellyfin --tail 100`"
     false
   end
 
@@ -304,7 +304,7 @@ module Jellyfin
     FileUtils.mkdir_p(dir)
     sh!("unzip -q -o #{tmpzip} -d '#{dir}'")
     File.delete(tmpzip)
-    sh!("docker restart jellyfin >/dev/null")
+    sh!("sudo docker restart jellyfin >/dev/null")
   end
 
   # ============================================================

@@ -73,7 +73,7 @@ module QBittorrent
     # Scrape the LSIO image's temp password from logs on first run.
     # Lines roll out of the buffer over time; on a re-run it's
     # usually gone.
-    temp_pass = `docker logs qbittorrent 2>&1`.lines
+    temp_pass = `sudo docker logs qbittorrent 2>&1`.lines
       .find { |l| l =~ /temporary password is provided for this session: (\S+)/ }
       &.match(/temporary password is provided for this session: (\S+)/) &.[](1)
     if temp_pass
@@ -95,7 +95,7 @@ module QBittorrent
     # gone, so fall back to the LSIO-image default "adminadmin"
     # which also won't work — but the rotated admin creds will, and
     # we try those first.
-    temp_pass = `docker logs qbittorrent 2>&1`.lines
+    temp_pass = `sudo docker logs qbittorrent 2>&1`.lines
       .find { |l| l =~ /temporary password is provided for this session: (\S+)/ }
       &.match(/temporary password is provided for this session: (\S+)/) &.[](1) || "adminadmin"
 
