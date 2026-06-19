@@ -45,32 +45,11 @@ require_uefi() {
 }
 
 pick_install_target() {
-  echo
-  echo "Scanning block devices..."
   mapfile -t nvmes < <(lsblk -d -p -n -o NAME,TRAN | awk '$2 == "nvme" {print $1}')
-  mapfile -t satas < <(lsblk -d -p -n -o NAME,TRAN | awk '$2 == "sata" {print $1}')
 
   if [ "${#nvmes[@]}" -eq 0 ]; then
     echo "No NVMe drive found. Aborting." >&2
     exit 1
-  fi
-
-  echo
-  echo "NVMe device(s) — candidates for the OS drive:"
-  for d in "${nvmes[@]}"; do
-    size=$(lsblk -d -n -o SIZE "$d")
-    model=$(lsblk -d -n -o MODEL "$d" | sed 's/  *$//')
-    echo "  $d  ${size}  ${model}"
-  done
-
-  if [ "${#satas[@]}" -gt 0 ]; then
-    echo
-    echo "SATA device(s) — WILL NOT be touched (data drives, refused as targets):"
-    for d in "${satas[@]}"; do
-      size=$(lsblk -d -n -o SIZE "$d")
-      model=$(lsblk -d -n -o MODEL "$d" | sed 's/  *$//')
-      echo "  $d  ${size}  ${model}"
-    done
   fi
 
   if [ "${#nvmes[@]}" -eq 1 ]; then
