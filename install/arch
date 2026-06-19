@@ -170,7 +170,6 @@ unmount_and_reboot() {
   echo
   echo "  REMOVE THE USB DRIVE from the NAS now."
   echo "  Then press Enter to reboot into Arch."
-  echo "  After reboot: ./install/orchard, ./install/depot-cli, depot install"
   echo "=========================================================="
   read -r -p "> " _ </dev/tty || true
 
