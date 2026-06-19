@@ -12,6 +12,8 @@ A self-hosted home media server with a [beautiful, no-cruft UI](https://github.c
 
 Depot runs on a [UGreen NAS](https://www.ugreen.com/), but any x86 NAS with three or more drive bays and two or more M.2 NVMe slots works. It uses one NVMe as the OS drive and a second (bought separately) for download staging, which keeps streaming smooth while downloads are in progress. The HDDs are arranged RAIDZ1. Any one drive can fail; swap in a new one and the pool rebuilds itself.
 
+**The steps below describe how to turn a brand new NAS device into a family media depot**.
+
 You'll also need some accounts:
 
 - [Tailscale](https://tailscale.com) (free)
@@ -59,9 +61,7 @@ git clone https://github.com/pachun/depot /tmp/depot
 
 After reboot, sign in.
 
-## 5. (Optional) Enable SSH for the rest of the install
-
-depot doesn't depend on ssh, but it's a lot nicer to copy a ProtonVPN .conf onto the NAS and run the rest of the install from a laptop than from a single TTY.
+## 5. Enable SSH for the rest of the install
 
 ```
 sudo pacman -S --needed --noconfirm openssh
@@ -69,7 +69,7 @@ sudo systemctl enable --now sshd
 ip -4 -br addr show | grep -v lo
 ```
 
-That last line prints your LAN IP. From your laptop: `ssh <username>@<lan-ip>`.
+Continue the installation from your laptop: `ssh <username>@<lan-ip>`.
 
 ## 6. Get a ProtonVPN WireGuard config
 
@@ -91,21 +91,19 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
 ## 8. Install orchard
 
-[Orchard](https://github.com/pachun/orchard) is the dotfile setup depot uses for familiarity when SSHing into the NAS (zsh + .zshrc.d, nvim with pre-warmed plugins, tmux, **mise — which provides the Ruby that `depot` runs on**, claude, git config, …).
+[Orchard](https://github.com/pachun/orchard) contain my dotfiles for convenience when SSHing into the NAS. They also install ruby, which you need to run `depot install` later.
 
 ```
 ~/code/depot/install/orchard
 ```
 
-Re-run any time to pull and re-apply.
+Re-run any time to update to orchard's latest version.
 
-## 9. Make `depot` runnable from anywhere
+## 9. Install the depot CLI
 
 ```
 ~/code/depot/install/depot-cli
 ```
-
-This symlinks `/usr/local/bin/depot` to the script in this repo so every subsequent `depot install` / `depot update` / `depot aviary` invocation works from any directory and any SSH session — no full path needed.
 
 ## 10. Install depot
 
@@ -113,32 +111,11 @@ This symlinks `/usr/local/bin/depot` to the script in this repo so every subsequ
 depot install
 ```
 
-`depot install` reads top-to-bottom: collects every service's prompts up front (so you can walk away), then brings each service up in dependency order, then prints a summary of tailnet URLs. Idempotent — re-run any time.
-
 ## 11. Open Aviary in your browser
 
-The summary at the end of `depot install` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
+`depot install` outputs Aviary's URL. Open it in your browser and sign in.
 
 ## Updating
 
-- `./install/orchard` — pull and re-apply orchard dotfiles
-- `depot update` — bring every service to current desired state (re-pulls aviary, rebuilds it, runs migrations; restarts every container)
-- `depot <service>` — update just that service. E.g. `depot aviary` from anywhere on the box to pull a new aviary build without touching the others.
-
-## File layout
-
-```
-depot/
-├── depot                 ruby, the CLI tool — `depot install`/`update`/<service>
-├── install/
-│   ├── arch              bash, run once from the live Arch ISO
-│   ├── orchard           bash, run after reboot to bring up the shell
-│   └── depot-cli         bash, symlinks `depot` into /usr/local/bin
-└── services/
-    ├── helpers.rb        shared utilities (HTTP, prompts, shell, arr API)
-    └── <name>/
-        ├── <name>.rb     module with .install_prompt/.install/.update/.summary
-        └── docker-compose.yml   (for services that run as containers)
-```
-
-Each service module is the spec for that service. The `depot` script's `SERVICES` array is the install order. Reading the bottom of `depot` tells you exactly what runs and in what order; reading any module tells you what installing that one service does.
+- `depot update` — update all depot services
+- `depot <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
