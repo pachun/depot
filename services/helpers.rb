@@ -10,6 +10,7 @@ require 'uri'
 require 'io/console'
 require 'fileutils'
 require 'readline'
+require 'socket'
 
 # ============================================================
 # Shell helpers

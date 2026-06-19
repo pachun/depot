@@ -112,7 +112,7 @@ module Sabnzbd
   def self.seed_config_ini(fqdn, username, password)
     return if File.file?(CONFIG_INI)
     sab_key = `openssl rand -hex 16`.strip
-    whitelist = "#{fqdn}, #{`hostname`.strip}, localhost, host.docker.internal"
+    whitelist = "#{fqdn}, #{Socket.gethostname}, localhost, host.docker.internal"
     File.open(CONFIG_INI, "w", 0o600) do |f|
       f.write(<<~INI)
         [misc]
@@ -174,7 +174,7 @@ module Sabnzbd
 
   def self.repair_host_whitelist(fqdn)
     return if fqdn.empty? || !File.file?(CONFIG_INI)
-    desired = "#{fqdn}, #{`hostname`.strip}, localhost, host.docker.internal"
+    desired = "#{fqdn}, #{Socket.gethostname}, localhost, host.docker.internal"
     body = File.read(CONFIG_INI)
     return if body =~ /^host_whitelist = #{Regexp.escape(desired)}$/
     body.sub!(/^host_whitelist = .*$/, "host_whitelist = #{desired}")

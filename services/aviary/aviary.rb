@@ -109,7 +109,7 @@ module Aviary
     phx_host = `tailscale status --json 2>/dev/null`.then { |j|
       JSON.parse(j).dig("Self", "DNSName").to_s.chomp(".") rescue ""
     }
-    phx_host = `hostname`.strip if phx_host.empty?
+    phx_host = Socket.gethostname if phx_host.empty?
     jellyfin_public_url = "https://#{phx_host}:#{Jellyfin::TAILSCALE_PORT}"
 
     free_tailscale_port(TAILSCALE_PORT)
