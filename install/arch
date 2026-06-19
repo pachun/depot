@@ -56,9 +56,10 @@ pick_install_target() {
     TARGET="${nvmes[0]}"
   else
     echo
-    echo "Multiple NVMe drives found. Pick by index:"
+    echo "Pick the OS drive by index:"
     for i in "${!nvmes[@]}"; do
-      echo "  $i: ${nvmes[$i]}"
+      size=$(lsblk -d -n -o SIZE "${nvmes[$i]}")
+      echo "  $i: ${nvmes[$i]}  ${size}"
     done
     read -rp "Index: " idx </dev/tty
     TARGET="${nvmes[$idx]}"
