@@ -30,4 +30,12 @@ sudo ln -sf "$ROOT/depot" /usr/local/bin/depot
 sudo mkdir -p /usr/share/zsh/site-functions
 "$ROOT/depot" completion | sudo tee /usr/share/zsh/site-functions/_depot >/dev/null
 
+# Nuke zsh's completion cache. Some compinit setups (`compinit -C` for
+# fast startup) skip the "is any fpath file newer than the dump?"
+# check, so a freshly-installed _depot doesn't get picked up until the
+# dump is regenerated. Removing the dump forces the next zsh shell to
+# rebuild it from scratch.
+rm -f "$HOME"/.zcompdump*
+
 echo "depot is now runnable from anywhere as: depot install"
+echo "Open a new shell (or 'exec zsh -l') to enable tab completion."
