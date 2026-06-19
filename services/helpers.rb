@@ -9,6 +9,7 @@ require 'open3'
 require 'uri'
 require 'io/console'
 require 'fileutils'
+require 'readline'
 
 # ============================================================
 # Shell helpers
@@ -214,11 +215,27 @@ end
 #              destructive actions ("destroy and create pool"). After
 #              the parsed answer is collected, we ask the confirm
 #              question; mismatch raises Aborted.
-def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil)
+#   completion: :filename to enable tab path completion via Readline
+#              (e.g. the WireGuard .conf path prompt). Default nil =
+#              no completion.
+def prompt(question:, preamble: nil, secret: false, parse: nil, confirm: nil, completion: nil)
   loop do
     puts preamble if preamble
-    print "  #{question}: "
-    raw = secret ? STDIN.noecho(&:gets).tap { puts } : STDIN.gets
+    line = "  #{question}: "
+
+    if secret
+      print line
+      raw = STDIN.noecho(&:gets).tap { puts }
+    else
+      Readline.completion_append_character = nil
+      Readline.completion_proc = case completion
+        when :filename
+          ->(str) { Dir.glob("#{str}*").map { |f| File.directory?(f) ? "#{f}/" : f } }
+        else
+          ->(_str) { [] }
+      end
+      raw = Readline.readline(line, false)
+    end
     raise Interrupt if raw.nil?  # Ctrl-D
     raw = raw.chomp
 
@@ -254,6 +271,7 @@ PARSERS = {
   # gluetun's default mode doesn't enable IPv6 inside the container
   # and a dual-stack Address line crashes it.
   wireguard_conf: ->(path) {
+    path = File.expand_path(path)
     raise "no file at #{path}" unless File.file?(path)
     body = File.read(path).gsub("\r", "")
     private_key = body[/^\s*PrivateKey\s*=\s*(\S+)/, 1]

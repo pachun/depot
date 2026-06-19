@@ -48,8 +48,9 @@ module Gluetun
       } }
     end
     conf = prompt(
-      question: "Path to ProtonVPN WireGuard .conf",
-      parse:    :wireguard_conf,
+      question:   "Path to ProtonVPN WireGuard .conf",
+      parse:      :wireguard_conf,
+      completion: :filename,
     )
     { wireguard_config: conf }
   end
