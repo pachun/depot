@@ -61,6 +61,12 @@ services:
       # container's writable layer and gets wiped on every rebuild.
       - DATABASE_PATH=/data/aviary.db
       - TZ=${TZ}
+      # Usable tank capacity in bytes (post-RAIDZ1, from depot's
+      # zfs list of avail+used). Aviary's Storage stats panel scales
+      # the stacked bar against this so the bar shows real "% of tank
+      # used" rather than just household-share. Unset → bar falls
+      # back to household-share scaling.
+      - TANK_BYTES=${TANK_BYTES}
     volumes:
       # Persist aviary's SQLite DB on the host so it survives
       # `docker-compose up --build` (which is what configure.sh
