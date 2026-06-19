@@ -30,19 +30,33 @@ module Jellyfin
   BASE_URL          = "http://localhost:8096"
   WIZARD_API_HEADER = "X-Emby-Authorization"
   WIZARD_API_VALUE  = %q(MediaBrowser Client="depot", Device="depot-install", DeviceId="depot-install", Version="1.0")
+  # Admin creds are shared across every service (qBit, Sonarr, Radarr,
+  # Prowlarr, Jellyseerr, Aviary), so they live under depot/ rather
+  # than jellyfin/.
+  PROMPT_CACHE      = File.join(Dir.home, "hdds/.config/depot/admin.env")
 
   # ============================================================
   # Module surface
   # ============================================================
 
   def self.install_prompt
-    {
-      admin_username: prompt(preamble: "Media Server:", question: "Admin username"),
-      admin_password: prompt(question: "Admin password", secret: true, verify: true),
-    }
+    cached = read_env_file(PROMPT_CACHE)
+    answers = {}
+    answers[:admin_username] = cached["ADMIN_USERNAME"].to_s.empty? ?
+      prompt(preamble: "Media Server:", question: "Admin username") :
+      cached["ADMIN_USERNAME"]
+    answers[:admin_password] = cached["ADMIN_PASSWORD"].to_s.empty? ?
+      prompt(question: "Admin password", secret: true, verify: true) :
+      cached["ADMIN_PASSWORD"]
+    answers
   end
 
   def self.install(prompts)
+    write_env_file(PROMPT_CACHE,
+      "ADMIN_USERNAME" => prompts[:admin_username],
+      "ADMIN_PASSWORD" => prompts[:admin_password],
+    )
+
     FileUtils.mkdir_p([CONFIG_DIR, MOVIES_DIR, SHOWS_DIR])
     cleanup_stale_container("jellyfin")
     free_tailscale_port(TAILSCALE_PORT)

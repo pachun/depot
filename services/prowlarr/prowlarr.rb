@@ -16,30 +16,40 @@ module Prowlarr
   TV_USENET_CATS      = [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5060, 5070, 5080].freeze
   MOVIE_USENET_CATS   = [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060].freeze
   ALL_CATS            = (TV_USENET_CATS + MOVIE_USENET_CATS).freeze
+  PROMPT_CACHE        = File.join(Dir.home, "hdds/.config/depot/prowlarr.env")
 
   def self.install_prompt
-    {
-      nzbgeek_api_key: prompt(
-        preamble: "NZBGeek:",
-        question: "API key (from nzbgeek.info → account → API)",
-        secret:   true,
-      ),
-      ipt_cookie: prompt(
-        preamble: <<~TEXT.chomp,
-          IPTorrents:
-            1. Open https://iptorrents.com and log in
-            2. F12 → Network tab → reload the page
-            3. Click the first request (the page itself)
-            4. Headers → Request Headers → copy "Cookie:" value below
-            5. Then "User-Agent:" at the next prompt
-        TEXT
-        question: "Cookie",
-      ),
-      ipt_useragent: prompt(question: "User-Agent"),
-    }
+    cached = read_env_file(PROMPT_CACHE)
+    answers = {}
+    answers[:nzbgeek_api_key] = cached["NZBGEEK_API_KEY"].to_s.empty? ?
+      prompt(preamble: "NZBGeek:",
+             question: "API key (from nzbgeek.info → account → API)",
+             secret:   true) :
+      cached["NZBGEEK_API_KEY"]
+    answers[:ipt_cookie] = cached["IPT_COOKIE"].to_s.empty? ?
+      prompt(preamble: <<~TEXT.chomp,
+               IPTorrents:
+                 1. Open https://iptorrents.com and log in
+                 2. F12 → Network tab → reload the page
+                 3. Click the first request (the page itself)
+                 4. Headers → Request Headers → copy "Cookie:" value below
+                 5. Then "User-Agent:" at the next prompt
+             TEXT
+             question: "Cookie") :
+      cached["IPT_COOKIE"]
+    answers[:ipt_useragent] = cached["IPT_USERAGENT"].to_s.empty? ?
+      prompt(question: "User-Agent") :
+      cached["IPT_USERAGENT"]
+    answers
   end
 
   def self.install(prompts)
+    write_env_file(PROMPT_CACHE,
+      "NZBGEEK_API_KEY" => prompts[:nzbgeek_api_key],
+      "IPT_COOKIE"      => prompts[:ipt_cookie],
+      "IPT_USERAGENT"   => prompts[:ipt_useragent],
+    )
+
     FileUtils.mkdir_p(CONFIG_DIR)
     cleanup_stale_container("prowlarr")
     free_tailscale_port(TAILSCALE_PORT)

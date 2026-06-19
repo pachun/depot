@@ -14,21 +14,27 @@ module Sabnzbd
   LOCAL_PORT     = 8085
   TAILSCALE_PORT = 8086
   BASE_URL       = "http://localhost:8085"
+  PROMPT_CACHE   = File.join(Dir.home, "hdds/.config/depot/sabnzbd.env")
 
   def self.install_prompt
-    {
-      usenet_username: prompt(
-        preamble: "Frugal Usenet:",
-        question: "Username (newsreader user, not your email)",
-      ),
-      usenet_password: prompt(
-        question: "Password",
-        secret:   true,
-      ),
-    }
+    cached = read_env_file(PROMPT_CACHE)
+    answers = {}
+    answers[:usenet_username] = cached["USENET_USERNAME"].to_s.empty? ?
+      prompt(preamble: "Frugal Usenet:",
+             question: "Username (newsreader user, not your email)") :
+      cached["USENET_USERNAME"]
+    answers[:usenet_password] = cached["USENET_PASSWORD"].to_s.empty? ?
+      prompt(question: "Password", secret: true, verify: true) :
+      cached["USENET_PASSWORD"]
+    answers
   end
 
   def self.install(prompts)
+    write_env_file(PROMPT_CACHE,
+      "USENET_USERNAME" => prompts[:usenet_username],
+      "USENET_PASSWORD" => prompts[:usenet_password],
+    )
+
     FileUtils.mkdir_p([CONFIG_DIR, File.join(Dir.home, "downloading/usenet")])
 
     # Tailnet FQDN goes into host_whitelist so SABnzbd doesn't reject
