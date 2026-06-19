@@ -5,12 +5,20 @@
 # directory and from any SSH session, instead of typing
 # ~/code/depot/depot.
 #
-# Run once after install/orchard. Idempotent — re-running just
-# refreshes the symlink to point at whichever copy of this repo you
-# ran it from.
+# depot's entry-point uses #!/usr/bin/env ruby, so a ruby on PATH is
+# required — orchard installs that via mise (mise use --global ruby).
+# If ruby isn't there, install/orchard hasn't been run.
+#
+# Run once after install/orchard. Idempotent.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if ! command -v ruby >/dev/null 2>&1; then
+  echo "ruby not found on PATH — run install/orchard first." >&2
+  exit 1
+fi
+
 sudo ln -sf "$ROOT/depot" /usr/local/bin/depot
 
 echo "depot is now runnable from anywhere as: depot install"
