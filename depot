@@ -129,13 +129,25 @@ def print_zsh_completion
   candidates = COMMANDS.map { |name, cmd| "#{name}:#{cmd[:description]}" }
   candidates += SERVICES.map { |s| "#{s.name.downcase}:Update #{s.name}" }
 
+  # `_arguments '1:command:->command'` tells zsh: complete position 1
+  # from our list and offer NOTHING after that — no file/dir fallback,
+  # no ghost completions. Without _arguments, _describe handles only
+  # position 1 and zsh falls through to its default file completion
+  # after a space, which is what surfaced as "folders" suggestions
+  # after `depot aviary `.
   puts "#compdef depot"
   puts
-  puts "local -a candidates"
-  puts "candidates=("
-  candidates.each { |c| puts "  #{c.dump}" }
-  puts ")"
-  puts "_describe 'depot command' candidates"
+  puts "_arguments '1:command:->command'"
+  puts
+  puts "case $state in"
+  puts "  command)"
+  puts "    local -a candidates"
+  puts "    candidates=("
+  candidates.each { |c| puts "      #{c.dump}" }
+  puts "    )"
+  puts "    _describe 'depot command' candidates"
+  puts "    ;;"
+  puts "esac"
 end
 
 mode = ARGV.first || "help"
