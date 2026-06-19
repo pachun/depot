@@ -1,33 +1,31 @@
 #!/usr/bin/env ruby
 # depot — install and update every service running on this NAS.
 #
-# Usage:
-#   depot install          # collect prompts, install every service from scratch
-#   depot                  # same as `depot install` (default)
-#   depot update           # bring every service to its current desired state
-#                          #   (docker-compose up -d per service; aviary also
-#                          #   git-pulls and rebuilds)
-#   depot <service>        # update just one service. e.g. `depot aviary`
+# Run `depot` (no args) for the help menu. The full command list lives
+# in the COMMANDS hash a few lines down; the help text is generated
+# from it. Adding a command = add one entry to COMMANDS, no other
+# changes needed.
 #
 # Installable from anywhere on the box by running install/depot-cli once,
 # which symlinks this script to /usr/local/bin/depot.
 #
-# Reading guide: scroll to the bottom. The services array IS the install
-# order, and the case statement IS the dispatch. Every service is a
-# module under services/<name>/<name>.rb, implementing four class
-# methods: install_prompt, install(prompts), update, summary. Adding a
-# new service = define the module + add it to the services array.
+# Reading guide: scroll to the bottom. The COMMANDS hash IS the
+# command surface. The SERVICES array IS the install order. Every
+# service is a module under services/<name>/<name>.rb, implementing
+# four class methods: install_prompt, install(prompts), update,
+# summary. Adding a new service = define the module + add it to
+# SERVICES.
 
 # Ctrl-C is intentional 99% of the time (cancel a prompt mid-input,
 # bail during a long install). Trapping SIGINT here turns the noisy
-# Ruby stack trace into a clean exit. Suppress reads-of-nil from
-# readline too — Ctrl-D in a prompt should also just exit cleanly.
+# Ruby stack trace into a clean exit. Ctrl-D in a prompt also raises
+# Interrupt and is caught by the rescue below.
 Signal.trap("INT") { puts; exit 130 }
 
 require_relative 'services/helpers'
 
 # Load every service module. Sorted so the require order is
-# deterministic; the actual install/update order is the services array.
+# deterministic; the actual install/update order is the SERVICES array.
 Dir[File.join(__dir__, 'services', '*', '*.rb')].sort.each { |f| require f }
 
 # Service install order. Storage before Docker (containers need a place
@@ -35,8 +33,6 @@ Dir[File.join(__dir__, 'services', '*', '*.rb')].sort.each { |f| require f }
 # before any tailscale_serve mapping. Autologin anywhere before the
 # install ends. Gluetun before qBittorrent (they share a netns).
 # Jellyfin before Sonarr/Radarr/Jellyseerr/Aviary (they all wire to it).
-# Prowlarr before sonarr/radarr aren't strict, but configured-after is
-# fine because Prowlarr pushes config into the arrs.
 SERVICES = [
   Storage,
   Docker,
@@ -54,40 +50,78 @@ SERVICES = [
   Unpackerr,
 ]
 
-mode = ARGV.first
+# Commands. Each entry: description for the help menu, action for the
+# work. After any command runs (other than `help`, which exit's early),
+# the summary block prints automatically — that's why `summary`'s
+# action is empty.
+COMMANDS = {
+  "help" => {
+    description: "Show this help and exit",
+    action: -> {
+      puts "Usage: depot <command>"
+      puts
+      puts "Commands:"
+      COMMANDS.each do |name, cmd|
+        puts "  #{name.ljust(10)} #{cmd[:description]}"
+      end
+      puts "  <service>  Update just one service (e.g. `depot aviary`)"
+      puts
+      puts "Services: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
+      exit 0
+    },
+  },
+  "install" => {
+    description: "Install every service from scratch (prompts collected up front)",
+    action: -> {
+      puts "depot install — collecting prompts (walk away after these)."
+      puts
+      prompts = SERVICES.each_with_object({}) do |service, hash|
+        hash.merge!(service.install_prompt)
+      end
+      puts
+      puts "Installing #{SERVICES.size} services..."
+      SERVICES.each do |service|
+        puts
+        puts "═══ #{service.name} ═══"
+        service.install(prompts)
+      end
+    },
+  },
+  "update" => {
+    description: "Bring every service to its current desired state",
+    action: -> {
+      puts "depot update — bringing every service to current desired state."
+      SERVICES.each do |service|
+        puts
+        puts "═══ #{service.name} ═══"
+        service.update
+      end
+    },
+  },
+  "summary" => {
+    description: "Print URLs and status for every service",
+    action: -> { },  # empty — summary block runs automatically after dispatch
+  },
+}.freeze
+
+mode = ARGV.first || "help"
 
 begin
-case mode
-when nil, "install"
-  prompts = SERVICES.each_with_object({}) do |service, hash|
-    hash.merge!(service.install_prompt)
-  end
-  puts
-  puts "Installing #{SERVICES.size} services..."
-  SERVICES.each do |service|
-    puts
-    puts "═══ #{service.name} ═══"
-    service.install(prompts)
-  end
-when "update"
-  puts "depot update — bringing every service to current desired state."
-  SERVICES.each do |service|
-    puts
-    puts "═══ #{service.name} ═══"
+  if COMMANDS.key?(mode)
+    COMMANDS[mode][:action].call
+  elsif (service = SERVICES.find { |s| s.name.downcase == mode.downcase })
+    puts "depot #{mode} — updating just #{service.name}."
     service.update
+  else
+    puts "Unknown command: #{mode.inspect}"
+    puts
+    COMMANDS["help"][:action].call  # exits 1 after printing? No — exits 0. Override:
+    exit 1
   end
-else
-  service = SERVICES.find { |s| s.name.downcase == mode.downcase }
-  if service.nil?
-    abort "Unknown service: #{mode.inspect}. Known: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
-  end
-  puts "depot #{mode} — updating just #{service.name}."
-  service.update
-end
 
-puts
-puts "═══ Summary ═══"
-SERVICES.each(&:summary)
+  puts
+  puts "═══ Summary ═══"
+  SERVICES.each(&:summary)
 rescue Interrupt
   puts
   exit 130
