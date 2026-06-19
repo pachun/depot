@@ -27,5 +27,5 @@ services:
       # work, no double-storage during seeding). /usenet is on a
       # different filesystem, so SAB imports use copy+delete, which
       # is fine for one-time-per-file work.
-      - ${DEPOT_USER_HOME}/hdds/media/tv:/tv
+      - ${DEPOT_USER_HOME}/hdds/media/shows:/shows
     restart: unless-stopped

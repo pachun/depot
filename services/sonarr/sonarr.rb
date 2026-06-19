@@ -1,7 +1,7 @@
 # sonarr — TV automation. Watches new releases of subscribed shows
 # via Prowlarr's indexer aggregation, sends accepted releases to
 # qBittorrent (tagged with category "tv"), waits for download to
-# finish, moves into ~/hdds/media/tv with renamed/organized filename,
+# finish, moves into ~/hdds/media/shows with renamed/organized filename,
 # then pings Jellyfin to rescan.
 #
 # First-run install: bring container up, create admin user, set root
@@ -13,7 +13,7 @@
 module Sonarr
   CONFIG_DIR     = File.join(Dir.home, "hdds/.config/sonarr")
   CONFIG_XML     = File.join(CONFIG_DIR, "config.xml")
-  LIBRARY_DIR    = File.join(Dir.home, "hdds/media/tv")
+  LIBRARY_DIR    = File.join(Dir.home, "hdds/media/shows")
   LOCAL_PORT     = 8989
   TAILSCALE_PORT = 8989
   BASE_URL       = "http://localhost:8989"
@@ -43,7 +43,7 @@ module Sonarr
     return if key.nil?
 
     arr_opinionate_downloads(BASE_URL, key)
-    arr_set_library_directory(BASE_URL, key, "/tv")
+    arr_set_library_directory(BASE_URL, key, "/shows")
     arr_connect_to_qbit(BASE_URL, key,
                         prompts[:admin_username], prompts[:admin_password], "tv")
 

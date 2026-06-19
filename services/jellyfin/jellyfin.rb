@@ -1,7 +1,7 @@
 # jellyfin — media server. Direct-streams h264/aac to a browser when
 # possible; transcodes everything else via Intel QuickSync (hardware
 # accelerated, not CPU). Library scan watches ~/hdds/media/movies and
-# ~/hdds/media/tv. Aviary, Sonarr, and Jellyseerr all talk to it.
+# ~/hdds/media/shows. Aviary, Sonarr, and Jellyseerr all talk to it.
 #
 # First-run install:
 #   - bring container up
@@ -23,7 +23,7 @@
 module Jellyfin
   CONFIG_DIR        = File.join(Dir.home, "hdds/.config/jellyfin")
   MOVIES_DIR        = File.join(Dir.home, "hdds/media/movies")
-  SHOWS_DIR         = File.join(Dir.home, "hdds/media/tv")
+  SHOWS_DIR         = File.join(Dir.home, "hdds/media/shows")
   LOCAL_PORT        = 8096
   TAILSCALE_PORT    = 8443
   INTRO_VERSION     = "1.10.11.21"
@@ -83,7 +83,7 @@ module Jellyfin
       puts "  upserting Movies library"
       upsert_library(token, "Movies", "movies", "/media/movies")
       puts "  upserting Shows library"
-      upsert_library(token, "Shows", "tvshows", "/media/tv")
+      upsert_library(token, "Shows", "tvshows", "/media/shows")
       puts "  upserting aviary + sonarr API keys"
       upsert_api_key(token, "aviary")
       upsert_api_key(token, "sonarr")
