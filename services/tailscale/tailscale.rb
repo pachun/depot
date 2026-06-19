@@ -16,13 +16,13 @@ module Tailscale
     end
 
     key = prompt(
-      preamble: <<~TEXT,
-        ── Tailscale auth key ─────────────────────────────────────────────
+      preamble: <<~TEXT.chomp,
+        Tailscale auth key:
           1. Open https://login.tailscale.com/admin/settings/keys
           2. Click "Generate auth key"
-          3. Set Ephemeral off
-          4. Copy the key and paste below
-        ───────────────────────────────────────────────────────────────────
+          3. Name the key
+          4. Click "Generate Key"
+          5. Copy the key and paste below
       TEXT
       question: "Auth key",
       secret:   true,
