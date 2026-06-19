@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# update_aviary — pull new aviary code, rebuild the container, and
+# run migrations against the existing DB.
+#
+# The one piece of depot whose update story is meaningfully different
+# from its install story: pulling new aviary code doesn't require
+# re-running every service's first-time setup. install_depot's
+# install_aviary() does the harvest of API keys + secret generation +
+# first build. This script reads the resulting .env + secret files
+# and refreshes the running container with the latest aviary main.
+#
+# Requires install_depot to have been run at least once.
+set -euo pipefail
+
+SRC=~/hdds/apps/aviary
+SECRET_DIR=~/hdds/.config/aviary
+AVIARY_ENV="$SECRET_DIR/.env"
+SECRET_KEY_BASE_FILE="$SECRET_DIR/secret_key_base"
+WEBHOOK_SECRET_FILE="$SECRET_DIR/sonarr_webhook_secret"
+COMPOSE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose/aviary.yml"
+
+if [ ! -f "$AVIARY_ENV" ]; then
+  echo "update_aviary: $AVIARY_ENV missing. Run install_depot first." >&2
+  exit 1
+fi
+if [ ! -d "$SRC/.git" ]; then
+  echo "update_aviary: $SRC isn't a git checkout. Run install_depot first." >&2
+  exit 1
+fi
+
+# Pull the latest aviary main. `fetch + reset --hard` rather than `pull`
+# because this clone is a deploy artifact, not a dev tree — a local
+# divergence (which shouldn't happen) must never block the deploy.
+echo "Pulling aviary..."
+git -C "$SRC" fetch origin main
+git -C "$SRC" reset --hard origin/main
+
+# Read the API keys from .env (written by install_depot's install_aviary).
+# shellcheck disable=SC1090
+source "$AVIARY_ENV"
+
+# Re-derive the rest of the env at run time so we pick up any tailnet
+# hostname change since the install.
+SECRET_KEY_BASE=$(cat "$SECRET_KEY_BASE_FILE")
+SONARR_WEBHOOK_SECRET=$(cat "$WEBHOOK_SECRET_FILE")
+AVIARY_DATA_DIR="$SECRET_DIR/data"
+PHX_HOST=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+[ -z "$PHX_HOST" ] && PHX_HOST="$HOSTNAME"
+JELLYFIN_PUBLIC_URL="https://${PHX_HOST}:8443"
+
+echo "Rebuilding aviary container..."
+sudo \
+  TZ="$(timedatectl show -p Timezone --value)" \
+  DEPOT_USER_HOME="$HOME" \
+  SRC="$SRC" \
+  SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+  PHX_HOST="$PHX_HOST" \
+  JELLYFIN_URL=http://host.docker.internal:8096 \
+  JELLYFIN_PUBLIC_URL="$JELLYFIN_PUBLIC_URL" \
+  JELLYFIN_API_KEY="$JELLYFIN_API_KEY" \
+  JELLYSEERR_URL=http://host.docker.internal:5055 \
+  JELLYSEERR_API_KEY="$JELLYSEERR_API_KEY" \
+  SONARR_URL=http://host.docker.internal:8989 \
+  SONARR_API_KEY="$SONARR_API_KEY" \
+  SONARR_WEBHOOK_SECRET="$SONARR_WEBHOOK_SECRET" \
+  RADARR_URL=http://host.docker.internal:7878 \
+  RADARR_API_KEY="$RADARR_API_KEY" \
+  AVIARY_DATA_DIR="$AVIARY_DATA_DIR" \
+  HOST_UID="$(id -u)" \
+  HOST_GID="$(id -g)" \
+  docker-compose -f "$COMPOSE" up -d --build
+
+# Wait for the BEAM to actually accept work before migrating. `up -d`
+# returns when the container starts, not when the Phoenix endpoint is
+# listening. bin/aviary eval against an un-booted release exits
+# non-zero. Don't redirect stderr — silent migrate failures previously
+# left aviary running against an empty DB.
+echo "Waiting for aviary endpoint..."
+for _ in $(seq 1 60); do
+  if curl -sf http://localhost:4000/ >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+docker exec aviary bin/aviary eval "Aviary.Release.migrate()"
+
+echo
+echo "aviary updated."

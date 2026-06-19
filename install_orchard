@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# install_orchard — pull (or update) orchard and run its CLI install.
+# Orchard is the personal dotfiles + shell tooling repo at
+# github.com/pachun/orchard. depot uses its CLI subset for familiarity
+# when SSHing in to the NAS — zsh + .zshrc.d/cli/, nvim with pre-warmed
+# plugins, tmux, mise, claude, git config, etc. — without dragging in
+# the graphical environment.
+#
+# Idempotent: re-runs pick up upstream changes via git pull and
+# orchard's own install.sh no-ops on already-installed components.
+# update_orchard is a symlink to this script — orchard's install IS
+# its update.
+set -euo pipefail
+
+ORCHARD=~/code/orchard
+
+if [ -d "$ORCHARD/.git" ]; then
+  git -C "$ORCHARD" pull
+else
+  mkdir -p ~/code
+  # HTTPS clone so this works on a fresh machine before any SSH key
+  # has been generated and added to GitHub. After this you can switch
+  # the remote to SSH for push access:
+  #   git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
+  git clone https://github.com/pachun/orchard.git "$ORCHARD"
+fi
+
+bash "$ORCHARD/setup/install.sh" cli

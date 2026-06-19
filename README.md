@@ -54,46 +54,26 @@ The machine will restart and boot into the live Arch ISO.
 ```
 pacman -Sy --noconfirm git
 git clone https://github.com/pachun/depot /tmp/depot
-/tmp/depot/arch/install.sh
+/tmp/depot/install_arch
 ```
 
 After reboot, sign in.
 
-## 5. Configure Arch
+## 5. (Optional) Enable SSH for the rest of the install
+
+depot doesn't depend on ssh, but it's a lot nicer to copy a ProtonVPN .conf onto the NAS and run the rest of the install from a laptop than from a single TTY.
 
 ```
-~/code/depot/arch/configure.sh
+sudo pacman -S --needed --noconfirm openssh
+sudo systemctl enable --now sshd
+ip -4 -br addr show | grep -v lo
 ```
 
-## 6. SSH into the NAS from your favorite machine
+That last line prints your LAN IP. From your laptop: `ssh <username>@<lan-ip>`.
 
-The prior step prints an SSH command. Run it from your favorite machine and continue from there.
+## 6. Get a ProtonVPN WireGuard config
 
-## 7. SSH-authenticate with GitHub
-
-```
-ssh-keygen -t ed25519 -C "your@email.address"
-cat ~/.ssh/id_ed25519.pub
-```
-
-Copy the output and [add it to GitHub](https://github.com/settings/ssh/new).
-
-## 8. Switch repo remotes to SSH
-
-```
-git -C ~/code/depot   remote set-url origin git@github.com:pachun/depot.git
-git -C ~/code/orchard remote set-url origin git@github.com:pachun/orchard.git
-```
-
-[Orchard](https://github.com/pachun/orchard) is my dotfile setup. Depot installs
-it for familiarity when SSHing into the NAS.
-
-Re-running `./arch/configure.sh` now pulls and applies the latest from both repos.
-
-## 9. Get a ProtonVPN WireGuard config
-
-qBittorrent's torrent traffic is routed through ProtonVPN (via a
-gluetun container) so your ISP can't see what's being seeded.
+qBittorrent's torrent traffic is routed through ProtonVPN (via a gluetun container) so your ISP can't see what's being seeded.
 
 You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
@@ -102,21 +82,37 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
    - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
    - pick a P2P-capable server
    - Create → Download → you get a `.conf` file.
-3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <admin-username>@<lan-ip>:/tmp/proton.conf`
+3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <username>@<lan-ip>:/tmp/proton.conf`
 
-## 10. Enable Tailscale HTTPS certificates
+## 7. Enable Tailscale HTTPS certificates
 
 1. Open https://login.tailscale.com/admin/dns.
 2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
 
-## 11. Install depot
+## 8. Install orchard
+
+[Orchard](https://github.com/pachun/orchard) is the dotfile setup depot uses for familiarity when SSHing into the NAS (zsh + .zshrc.d, nvim with pre-warmed plugins, tmux, mise, git config, …).
 
 ```
-~/code/depot/services/configure.sh
+~/code/depot/install_orchard
 ```
 
-**`services/configure.sh` is idempotent**. Re-run it any time.
+Re-run `./update_orchard` any time to pull and re-apply.
 
-## 12. Open Aviary in your browser
+## 9. Install depot
 
-Sign in with the admin credentials from earlier.
+```
+~/code/depot/install_depot
+```
+
+`install_depot` reads top-to-bottom: function defs, prompts (all up front so you can walk away), then the work in explicit order, then a summary. It's idempotent — re-run it any time. To rotate a credential, edit the relevant env file under `~/hdds/.config/depot/` and re-run.
+
+## 10. Open Aviary in your browser
+
+The summary printed at the end of `install_depot` lists every service's tailnet URL. Aviary is the one at `https://<hostname>.<tailnet>.ts.net` (no port suffix). Sign in with the admin credentials you set during prompts.
+
+## Updating
+
+- `./update_orchard` — pull and re-apply orchard dotfiles
+- `./update_aviary` — pull new aviary code, rebuild the container, run migrations
+- `./install_depot` — rerun the whole thing; it's idempotent
