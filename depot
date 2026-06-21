@@ -79,16 +79,22 @@ COMMANDS = {
     },
   },
   "update" => {
-    description: "Bring every service to its current desired state",
-    needs_sudo: true,
+    description: "Pull the latest depot code (git pull --ff-only)",
+    needs_sudo: false,
     action: -> {
-      puts "depot update — bringing every service to current desired state."
-      SERVICES.each do |service|
-        puts
-        puts "═══ #{service.name} ═══"
-        service.update
-      end
+      puts "depot update — pulling latest depot..."
+      # __dir__ in this lambda's body resolves to depot's repo root.
+      # --ff-only refuses to auto-merge if you've made local edits —
+      # better to surface that as an error than silently merge.
+      sh!("git -C #{__dir__} pull --ff-only")
+      puts
+      puts "Done. Re-run `depot install` (or `depot <service>`) to apply."
     },
+  },
+  "upgrade" => {
+    description: "Same as `update` — included so either verb works",
+    needs_sudo: false,
+    action: -> { COMMANDS["update"][:action].call },
   },
   "summary" => {
     description: "Print URLs and status for every service",
