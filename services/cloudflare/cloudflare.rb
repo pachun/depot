@@ -39,7 +39,7 @@ module Cloudflare
           2. Create a tunnel (connector type: Cloudflared, name: aviary)
           3. Copy the `--token ...` value shown in the install command
           4. Configure a Public Hostname: your domain → HTTP localhost:4000
-        Leave blank to skip Cloudflare Tunnel entirely (tailscale-only).
+          Leave blank to skip Cloudflare Tunnel entirely (tailscale-only).
       TEXT
       question: "Tunnel token",
       secret:   true,
@@ -49,9 +49,7 @@ module Cloudflare
       if token.empty?
         ""
       else
-        prompt(
-          question: "Public hostname (e.g. pachulski.tv) — must match the Public Hostname you configured in the Cloudflare dashboard"
-        )
+        prompt(question: "Domain Name")
       end
 
     # Persist immediately, not in install(). Otherwise an unrelated
