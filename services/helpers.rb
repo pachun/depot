@@ -16,11 +16,71 @@ require 'socket'
 # Shell helpers
 # ============================================================
 
-# Run a shell command, echo it, raise on failure.
+# Braille pattern that reads as a smooth rotating animation in a
+# monospaced terminal — same set Docker / Heroku use.
+SPINNER_FRAMES = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
+
+# Cycles a single-character spinner on the current line while `yield`
+# runs. On success, replaces the spinner with ✓ and a newline. On
+# any exception, replaces with ✗ and a newline before re-raising —
+# the caller is responsible for surfacing the actual error output
+# AFTER this returns (see sh! for the pattern).
+#
+# Non-TTY contexts (piped output, CI) fall through to a plain echo
+# with the command line so logs stay greppable.
+def with_spinner(label)
+  unless STDOUT.tty?
+    puts "  $ #{label}"
+    return yield
+  end
+
+  # Truncate so a long command doesn't wrap and mangle our \r-based
+  # redraw. 75 chars leaves a few columns for the leading marker +
+  # margin even on 80-col terminals; the full command (untruncated)
+  # still appears in any exception we raise.
+  display = label.length > 75 ? "#{label[0..71]}..." : label
+
+  running = true
+  thread = Thread.new do
+    i = 0
+    while running
+      STDOUT.print("\r\e[2K  #{SPINNER_FRAMES[i % SPINNER_FRAMES.size]} #{display}")
+      STDOUT.flush
+      sleep(0.1)
+      i += 1
+    end
+  end
+
+  success = false
+  begin
+    result = yield
+    success = true
+    result
+  ensure
+    running = false
+    thread.join
+    mark = success ? "✓" : "✗"
+    STDOUT.print("\r\e[2K  #{mark} #{display}\n")
+  end
+end
+
+# Run a shell command with a spinner. On success, the line collapses
+# to a green check. On failure, the line shows an ✗, the captured
+# stdout+stderr is dumped immediately below it, and we raise so the
+# caller sees both the visual marker AND the actual error.
 def sh!(cmd)
-  puts "  $ #{cmd}"
-  unless system(cmd)
-    raise "command failed: #{cmd}"
+  output = nil
+  begin
+    with_spinner(cmd) do
+      output, status = Open3.capture2e(cmd)
+      raise "command failed: #{cmd}" unless status.success?
+    end
+  rescue
+    if output && !output.empty?
+      output = "#{output}\n" unless output.end_with?("\n")
+      print(output)
+    end
+    raise
   end
 end
 
