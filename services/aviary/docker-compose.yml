@@ -24,6 +24,12 @@ services:
       # http://<hostname>:4000/... — reachable over Tailscale MagicDNS
       # from any device on the tailnet.
       - PHX_HOST=${PHX_HOST}
+      # Comma-separated additional hostnames LiveView should accept
+      # for check_origin (e.g., "pachulski.tv,depot.tail5f6ec2.ts.net"
+      # so both the Cloudflare-fronted URL AND the tailscale URL
+      # work for WebSocket upgrades). Aviary's runtime.exs parses
+      # this into the check_origin list.
+      - CHECK_ORIGINS=${CHECK_ORIGINS}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       # Jellyfin reach from inside the container — host.docker.internal
       # routes back to the host's bridge gateway, where Jellyfin is

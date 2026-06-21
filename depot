@@ -56,6 +56,9 @@ SERVICES = [
   Jellyseerr,
   Aviary,
   Unpackerr,
+  # Cloudflare Tunnel runs last — it's the public-facing layer
+  # and only meaningful once aviary is up to receive traffic.
+  Cloudflare,
 ]
 
 # Commands. Each entry: description for the help menu, action for the

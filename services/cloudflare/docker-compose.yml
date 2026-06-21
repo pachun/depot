@@ -1,0 +1,25 @@
+# cloudflared — outbound-tunnel daemon that connects this NAS to
+# Cloudflare's edge. Public visitors hit https://<your-domain>;
+# Cloudflare routes the request through the tunnel to whatever
+# this container can reach on the host (aviary on localhost:4000,
+# per the Cloudflare dashboard's Public Hostname config).
+#
+# network_mode: host so cloudflared can reach aviary at
+# `localhost:4000` — same way we'd reach it from the host shell.
+# Without host networking, "localhost" inside the container is
+# the container itself, and the tunnel would have nowhere to
+# forward traffic to.
+#
+# The TUNNEL_TOKEN contains all the credentials cloudflared
+# needs (tunnel ID, secret, account info). depot's
+# Cloudflare.install writes it to ~/hdds/.config/cloudflared/token
+# and passes it via the compose env.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}

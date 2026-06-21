@@ -110,11 +110,23 @@ module Aviary
       f.puts "RADARR_API_KEY=#{radarr_api_key}"
     end
 
-    phx_host = `tailscale status --json 2>/dev/null`.then { |j|
+    tailscale_host = `tailscale status --json 2>/dev/null`.then { |j|
       JSON.parse(j).dig("Self", "DNSName").to_s.chomp(".") rescue ""
     }
-    phx_host = Socket.gethostname if phx_host.empty?
-    jellyfin_public_url = "https://#{phx_host}:#{Jellyfin::TAILSCALE_PORT}"
+    tailscale_host = Socket.gethostname if tailscale_host.empty?
+
+    # PHX_HOST controls aviary's URL generation (redirects, link
+    # rendering). If Cloudflare Tunnel is configured with a public
+    # hostname, use that as the canonical URL — family members visit
+    # https://<your-domain> via Cloudflare. Tailscale URL still works
+    # for tailnet-internal access; the check_origin list (set below)
+    # accepts both.
+    phx_host = Cloudflare.public_hostname || tailscale_host
+
+    # Jellyfin's public URL stays on the tailscale URL — Jellyfin
+    # isn't fronted by Cloudflare, only aviary is. The video
+    # player hits Jellyfin directly via Tailscale Serve at :8443.
+    jellyfin_public_url = "https://#{tailscale_host}:#{Jellyfin::TAILSCALE_PORT}"
 
     free_tailscale_port(TAILSCALE_PORT)
     compose_up!("aviary", build: true, env: {
@@ -122,6 +134,12 @@ module Aviary
       "SRC"                   => SOURCE_DIR,
       "SECRET_KEY_BASE"       => secret_key_base,
       "PHX_HOST"              => phx_host,
+      # Comma-separated list of additional hostnames that LiveView's
+      # check_origin should allow for WebSocket upgrades. PHX_HOST
+      # is implicitly allowed; this is for the OTHER URL someone
+      # might hit aviary at (tailscale URL if PHX_HOST is the
+      # custom domain, or vice versa).
+      "CHECK_ORIGINS"         => [phx_host, tailscale_host].uniq.join(","),
       "JELLYFIN_URL"          => "http://host.docker.internal:8096",
       "JELLYFIN_PUBLIC_URL"   => jellyfin_public_url,
       "JELLYFIN_API_KEY"      => jellyfin_api_key,
