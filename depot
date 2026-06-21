@@ -208,6 +208,21 @@ needs_sudo =
 
 if needs_sudo
   system("sudo -v") || abort("sudo failed")
+
+  # Background thread that re-warms sudo's auth timestamp every 4
+  # minutes (sudo's default timeout is 5 min). Without this, a long
+  # prompt-collection phase or slow service install can cause sudo
+  # to expire mid-run — and because `with_spinner` captures STDOUT,
+  # the subsequent "[sudo] password for ..." prompt is invisible
+  # and the command times out with "sudo: timed out reading
+  # password". Daemon thread so it dies when the main process exits;
+  # silent so it doesn't interfere with the spinner output.
+  Thread.new do
+    loop do
+      sleep 240
+      system("sudo -v", out: File::NULL, err: File::NULL)
+    end
+  end
 end
 
 begin
