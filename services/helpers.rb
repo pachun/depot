@@ -69,6 +69,15 @@ def with_spinner(label)
   # the spinner.
   buffer = StringIO.new
 
+  # Hide the terminal cursor for the duration of the spinner. \e[?25l
+  # hides, \e[?25h restores. Without this, the blinking cursor sits at
+  # the end of the spinner line ("Updating aviary█") and visually
+  # competes with the spinning glyph. Restore happens in the ensure
+  # block so it survives exceptions; the SIGINT trap in `depot` also
+  # restores so Ctrl-C never leaves the cursor hidden.
+  STDOUT.print("\e[?25l")
+  STDOUT.flush
+
   running = true
   thread = Thread.new do
     i = 0
@@ -98,6 +107,7 @@ def with_spinner(label)
       STDOUT.print("\r\e[2K✗ #{failed}.\n")
       STDOUT.print(buffer.string) unless buffer.string.empty?
     end
+    STDOUT.print("\e[?25h")  # restore cursor
     STDOUT.flush
   end
 end

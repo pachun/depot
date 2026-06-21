@@ -20,7 +20,15 @@
 # bail during a long install). Trapping SIGINT here turns the noisy
 # Ruby stack trace into a clean exit. Ctrl-D in a prompt also raises
 # Interrupt and is caught by the rescue below.
-Signal.trap("INT") { puts; exit 130 }
+Signal.trap("INT") do
+  # Restore the terminal cursor in case Ctrl-C happens mid-spinner.
+  # `\e[?25h` is the show-cursor sequence; with_spinner sets `\e[?25l`
+  # to hide it during work. Without restoring here, a Ctrl-C'd run
+  # would leave the cursor invisible in the shell that runs depot.
+  STDOUT.print("\e[?25h")
+  puts
+  exit 130
+end
 
 require_relative 'services/helpers'
 
