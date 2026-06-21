@@ -73,6 +73,10 @@ services:
       # used" rather than just household-share. Unset → bar falls
       # back to household-share scaling.
       - TANK_BYTES=${TANK_BYTES}
+      # Browser tab title brand. Aviary renders each tab as
+      # "<page> · <TAB_TITLE>"; unset falls back to "Aviary". Set in
+      # aviary.rb to whatever the household wants.
+      - TAB_TITLE=${TAB_TITLE}
       # How many hours between the last household subscriber removing
       # a show/movie and the auto-deletion firing. Re-adding within
       # the window cancels. Unset → aviary defaults to 24h. See

@@ -166,6 +166,12 @@ module Aviary
       # left alone to preserve seeding). Bump this for a wider undo
       # window, lower it if disk pressure is tight.
       "DELETION_GRACE_PERIOD_HOURS" => "24",
+      # Browser tab title brand. Aviary renders each tab as
+      # "<page> · <TAB_TITLE>", so the household sees their own name
+      # in every tab instead of the generic "Aviary". Hardcoded here
+      # (one-line edit); if you want a depot prompt for it, easy
+      # follow-up.
+      "TAB_TITLE"             => "Pachulski TV",
     })
 
     # Wait for Phoenix to actually accept connections before migrating.
