@@ -51,7 +51,8 @@ def with_spinner(label)
   # wraps onto a second visual line, and our \r-based redraw then
   # targets the wrapped row only, leaving prior frames in scrollback.
   cols = (IO.console.winsize[1] rescue 80)
-  max = [cols - 5, 20].max
+  # Account for "X " prefix (no leading indent now) + 1 margin column.
+  max = [cols - 3, 20].max
   display = label.length > max ? "#{label[0, max - 3]}..." : label
 
   # STDOUT (constant) writes always reach the terminal — they're
@@ -64,7 +65,7 @@ def with_spinner(label)
   thread = Thread.new do
     i = 0
     while running
-      STDOUT.print("\r\e[2K  #{SPINNER_FRAMES[i % SPINNER_FRAMES.size]} #{display}")
+      STDOUT.print("\r\e[2K#{SPINNER_FRAMES[i % SPINNER_FRAMES.size]} #{display}")
       STDOUT.flush
       sleep(0.1)
       i += 1
@@ -84,13 +85,27 @@ def with_spinner(label)
     $stdout = original_stdout
 
     if success
-      STDOUT.print("\r\e[2K  ✓ #{display}.\n")
+      STDOUT.print("\r\e[2K✓ #{past_tense(display)}.\n")
     else
-      STDOUT.print("\r\e[2K  ✗ #{display}.\n")
+      STDOUT.print("\r\e[2K✗ #{display} failed.\n")
       STDOUT.print(buffer.string) unless buffer.string.empty?
     end
     STDOUT.flush
   end
+end
+
+# Append "ed" / "d" to the last word of a label so the completion
+# line reads as past tense:
+#   "depot update"   → "depot updated"
+#   "Aviary update"  → "Aviary updated"
+#   "Storage install" → "Storage installed"
+# Generic enough for any verb depot uses today.
+def past_tense(label)
+  parts = label.split
+  return label if parts.empty?
+  last = parts.pop
+  past = last.end_with?("e") ? "#{last}d" : "#{last}ed"
+  (parts + [past]).join(" ")
 end
 
 # Execute a shell command silently. Captures stdout+stderr; on
