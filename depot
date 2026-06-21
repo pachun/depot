@@ -74,20 +74,27 @@ COMMANDS = {
     },
   },
   "update" => {
-    description: "Pull the latest depot code (git pull --ff-only)",
-    needs_sudo: false,
+    description: "Pull depot (no arg) or update one service (`depot update aviary`)",
+    needs_sudo: false,  # conditional below — set to true if ARGV[1] is a service
     action: -> {
-      # __dir__ in this lambda's body resolves to depot's repo root.
-      # --ff-only refuses to auto-merge if you've made local edits —
-      # better to surface that as an error than silently merge.
-      with_spinner("depot update") do
-        sh!("git -C #{__dir__} pull --ff-only")
+      target = ARGV[1]
+      if target.nil?
+        # __dir__ in this lambda resolves to depot's repo root.
+        # --ff-only refuses to auto-merge if you've made local edits —
+        # better to surface that as an error than silently merge.
+        with_spinner("depot update") do
+          sh!("git -C #{__dir__} pull --ff-only")
+        end
+      elsif (service = SERVICES.find { |s| s.name.downcase == target.downcase })
+        with_spinner("#{service.name} update") { service.update }
+      else
+        abort "Unknown service: #{target.inspect}. Known: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
       end
     },
   },
   "upgrade" => {
     description: "Same as `update` — included so either verb works",
-    needs_sudo: false,
+    needs_sudo: false,  # see update's note
     action: -> { COMMANDS["update"][:action].call },
   },
   "summary" => {
@@ -103,15 +110,14 @@ COMMANDS = {
 }.freeze
 
 def print_help
-  puts "Usage: depot <command>"
+  puts "Usage: depot <command> [<service>]"
   puts
   puts "Commands:"
   COMMANDS.each do |name, cmd|
     puts "  #{name.ljust(10)} #{cmd[:description]}"
   end
-  puts "  <service>  Update just one service (e.g. `depot aviary`)"
   puts
-  puts "Services: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
+  puts "Services (for `depot update <service>`): #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
 end
 
 # Emit a zsh completion file in fpath/autoload format. Both COMMANDS
@@ -126,41 +132,65 @@ end
 # which is in zsh's default fpath, so completion just works in every
 # new zsh shell with no shellrc changes.
 def print_zsh_completion
-  candidates = COMMANDS.map { |name, cmd| "#{name}:#{cmd[:description]}" }
-  candidates += SERVICES.map { |s| "#{s.name.downcase}:Update #{s.name}" }
+  commands = COMMANDS.map { |name, cmd| "#{name}:#{cmd[:description]}" }
+  services = SERVICES.map { |s| "#{s.name.downcase}:Update #{s.name}" }
 
-  # `_arguments '1:command:->command'` tells zsh: complete position 1
-  # from our list and offer NOTHING after that — no file/dir fallback,
-  # no ghost completions. Without _arguments, _describe handles only
-  # position 1 and zsh falls through to its default file completion
-  # after a space, which is what surfaced as "folders" suggestions
-  # after `depot aviary `.
+  # Position 1 (the command): always offered from our static list,
+  # nothing else — no file/dir fallback.
+  # Position 2 (the service arg): only meaningful after `update` /
+  # `upgrade`; for any other position-1, position 2 completes to
+  # nothing (no file fallback either).
   puts "#compdef depot"
   puts
-  puts "_arguments '1:command:->command'"
+  puts "_arguments \\"
+  puts "  '1:command:->command' \\"
+  puts "  '2:service:->service'"
   puts
   puts "case $state in"
   puts "  command)"
   puts "    local -a candidates"
   puts "    candidates=("
-  candidates.each { |c| puts "      #{c.dump}" }
+  commands.each { |c| puts "      #{zsh_quote(c)}" }
   puts "    )"
   puts "    _describe 'depot command' candidates"
   puts "    ;;"
+  puts "  service)"
+  puts "    case ${words[2]} in"
+  puts "      update|upgrade)"
+  puts "        local -a services"
+  puts "        services=("
+  services.each { |s| puts "          #{zsh_quote(s)}" }
+  puts "        )"
+  puts "        _describe 'service' services"
+  puts "        ;;"
+  puts "    esac"
+  puts "    ;;"
   puts "esac"
+end
+
+# Wrap a string in single quotes for safe embedding in a zsh array
+# literal. Single quotes (not double) so backticks inside the string
+# can't be interpreted as command substitution. The `'\''` dance is
+# the standard way to embed a literal single quote in a single-quoted
+# shell string. UTF-8 passes through as-is (no escape).
+def zsh_quote(str)
+  "'" + str.gsub("'", "'\\''") + "'"
 end
 
 mode = ARGV.first || "help"
 
 # Warm sudo's timestamp so the first sudo call mid-run doesn't bisect
-# output with a password prompt. Each COMMANDS entry declares whether
-# it needs sudo; single-service updates always do (every service does
-# docker / tailscale work).
+# output with a password prompt. Most commands declare their sudo
+# need via COMMANDS. The one runtime check: `depot update <service>`
+# is a service update (every service does docker / tailscale work),
+# while `depot update` alone is just a git pull. We detect the
+# service-arg form by checking ARGV[1].
 needs_sudo =
-  if COMMANDS.key?(mode)
-    COMMANDS[mode][:needs_sudo]
-  elsif SERVICES.any? { |s| s.name.downcase == mode.downcase }
+  if (mode == "update" || mode == "upgrade") && ARGV[1] &&
+     SERVICES.any? { |s| s.name.downcase == ARGV[1].downcase }
     true
+  elsif COMMANDS.key?(mode)
+    COMMANDS[mode][:needs_sudo]
   else
     false  # unknown command — print help and exit, no sudo needed
   end
@@ -172,8 +202,6 @@ end
 begin
   if COMMANDS.key?(mode)
     COMMANDS[mode][:action].call
-  elsif (service = SERVICES.find { |s| s.name.downcase == mode.downcase })
-    with_spinner("#{service.name} update") { service.update }
   else
     puts "Unknown command: #{mode.inspect}"
     puts
