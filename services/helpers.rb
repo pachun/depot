@@ -11,6 +11,7 @@ require 'io/console'
 require 'fileutils'
 require 'readline'
 require 'socket'
+require 'io/console'
 
 # ============================================================
 # Shell helpers
@@ -34,11 +35,14 @@ def with_spinner(label)
     return yield
   end
 
-  # Truncate so a long command doesn't wrap and mangle our \r-based
-  # redraw. 75 chars leaves a few columns for the leading marker +
-  # margin even on 80-col terminals; the full command (untruncated)
-  # still appears in any exception we raise.
-  display = label.length > 75 ? "#{label[0..71]}..." : label
+  # Truncate to fit terminal width. Without this, a label wider than
+  # the terminal wraps onto a second visual line, and our \r-based
+  # redraw then targets the wrapped row only — leaving every prior
+  # frame in scrollback. The 4-char prefix accounts for "  X " and
+  # the trailing 1 leaves a margin so we never reach the wrap column.
+  cols = (IO.console.winsize[1] rescue 80)
+  max = [cols - 5, 20].max
+  display = label.length > max ? "#{label[0, max - 3]}..." : label
 
   running = true
   thread = Thread.new do
@@ -71,7 +75,7 @@ end
 def sh!(cmd)
   output = nil
   begin
-    with_spinner(cmd) do
+    with_spinner(shorten_for_spinner(cmd)) do
       output, status = Open3.capture2e(cmd)
       raise "command failed: #{cmd}" unless status.success?
     end
@@ -82,6 +86,24 @@ def sh!(cmd)
     end
     raise
   end
+end
+
+# Reduce a command to something readable in a spinner line. Strips
+# the noisy `VAR=value VAR=value ...` env-var prefix that depot puts
+# in front of every `sudo` invocation so the spinner shows the
+# actual command (`docker-compose -f .../jellyfin/docker-compose.yml
+# up -d`) instead of three screens of env vars. Leading `sudo` is
+# kept as a one-word cue, then any `WORD=...` tokens are dropped
+# until the next token without `=`.
+def shorten_for_spinner(cmd)
+  parts = cmd.strip.split(/\s+/)
+  return cmd if parts.empty?
+
+  out = []
+  out << parts.shift if parts.first == "sudo"
+  parts.shift while parts.first && parts.first.include?("=") && parts.first =~ /\A[A-Z_][A-Z0-9_]*=/
+  out + parts
+  (out + parts).join(" ")
 end
 
 # Run a shell command silently, raise on failure. For quiet
