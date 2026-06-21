@@ -11,6 +11,7 @@ require 'io/console'
 require 'fileutils'
 require 'readline'
 require 'socket'
+require 'stringio'
 require 'io/console'
 
 # ============================================================
@@ -21,28 +22,43 @@ require 'io/console'
 # monospaced terminal — same set Docker / Heroku use.
 SPINNER_FRAMES = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
 
-# Cycles a single-character spinner on the current line while `yield`
-# runs. On success, replaces the spinner with ✓ and a newline. On
-# any exception, replaces with ✗ and a newline before re-raising —
-# the caller is responsible for surfacing the actual error output
-# AFTER this returns (see sh! for the pattern).
+# Runs `yield` with a single spinner on the current line, labeled as
+# the top-level action ("Aviary update", "Sonarr install", "depot
+# update"). For the duration of the block:
 #
-# Non-TTY contexts (piped output, CI) fall through to a plain echo
-# with the command line so logs stay greppable.
+#   - $stdout is redirected to a buffer, so any `puts`/`print` from
+#     inside the operation is captured silently rather than breaking
+#     the spinner's \r-based redraw.
+#   - The spinner thread writes to a saved reference to the real
+#     STDOUT (the terminal), bypassing the redirection so it stays
+#     visible.
+#
+# On success: the spinner's line collapses to `✓ <label>.`
+# On failure: collapses to `✗ <label>.`, dumps the captured output
+# beneath it so the actual error is visible, then re-raises.
+#
+# Non-TTY (piped output, CI): falls through to plain text so logs
+# stay greppable.
 def with_spinner(label)
   unless STDOUT.tty?
-    puts "  $ #{label}"
-    return yield
+    puts "  #{label}..."
+    yield
+    puts "  #{label}: done"
+    return
   end
 
-  # Truncate to fit terminal width. Without this, a label wider than
-  # the terminal wraps onto a second visual line, and our \r-based
-  # redraw then targets the wrapped row only — leaving every prior
-  # frame in scrollback. The 4-char prefix accounts for "  X " and
-  # the trailing 1 leaves a margin so we never reach the wrap column.
+  # Truncate to fit terminal width — a label wider than the terminal
+  # wraps onto a second visual line, and our \r-based redraw then
+  # targets the wrapped row only, leaving prior frames in scrollback.
   cols = (IO.console.winsize[1] rescue 80)
   max = [cols - 5, 20].max
   display = label.length > max ? "#{label[0, max - 3]}..." : label
+
+  # STDOUT (constant) writes always reach the terminal — they're
+  # unaffected by `$stdout = buffer` below. The block's puts/print
+  # calls go through $stdout, into the buffer, so they don't break
+  # the spinner.
+  buffer = StringIO.new
 
   running = true
   thread = Thread.new do
@@ -55,55 +71,39 @@ def with_spinner(label)
     end
   end
 
+  original_stdout = $stdout
+  $stdout = buffer
   success = false
+
   begin
-    result = yield
+    yield
     success = true
-    result
   ensure
     running = false
     thread.join
-    mark = success ? "✓" : "✗"
-    STDOUT.print("\r\e[2K  #{mark} #{display}\n")
+    $stdout = original_stdout
+
+    if success
+      STDOUT.print("\r\e[2K  ✓ #{display}.\n")
+    else
+      STDOUT.print("\r\e[2K  ✗ #{display}.\n")
+      STDOUT.print(buffer.string) unless buffer.string.empty?
+    end
+    STDOUT.flush
   end
 end
 
-# Run a shell command with a spinner. On success, the line collapses
-# to a green check. On failure, the line shows an ✗, the captured
-# stdout+stderr is dumped immediately below it, and we raise so the
-# caller sees both the visual marker AND the actual error.
+# Execute a shell command silently. Captures stdout+stderr; on
+# success, throws the output away. On failure, raises with the
+# captured output embedded in the exception message so the caller
+# (or with_spinner's failure path) can surface it.
 def sh!(cmd)
-  output = nil
-  begin
-    with_spinner(shorten_for_spinner(cmd)) do
-      output, status = Open3.capture2e(cmd)
-      raise "command failed: #{cmd}" unless status.success?
-    end
-  rescue
-    if output && !output.empty?
-      output = "#{output}\n" unless output.end_with?("\n")
-      print(output)
-    end
-    raise
-  end
-end
+  output, status = Open3.capture2e(cmd)
+  return if status.success?
 
-# Reduce a command to something readable in a spinner line. Strips
-# the noisy `VAR=value VAR=value ...` env-var prefix that depot puts
-# in front of every `sudo` invocation so the spinner shows the
-# actual command (`docker-compose -f .../jellyfin/docker-compose.yml
-# up -d`) instead of three screens of env vars. Leading `sudo` is
-# kept as a one-word cue, then any `WORD=...` tokens are dropped
-# until the next token without `=`.
-def shorten_for_spinner(cmd)
-  parts = cmd.strip.split(/\s+/)
-  return cmd if parts.empty?
-
-  out = []
-  out << parts.shift if parts.first == "sudo"
-  parts.shift while parts.first && parts.first.include?("=") && parts.first =~ /\A[A-Z_][A-Z0-9_]*=/
-  out + parts
-  (out + parts).join(" ")
+  message = "command failed: #{cmd}"
+  message += "\n#{output.strip}" unless output.nil? || output.empty?
+  raise message
 end
 
 # Run a shell command silently, raise on failure. For quiet

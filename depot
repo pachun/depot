@@ -64,17 +64,12 @@ COMMANDS = {
     description: "Install every service from scratch (prompts collected up front)",
     needs_sudo: true,
     action: -> {
-      puts "depot install — collecting prompts (walk away after these)."
-      puts
+      # Prompts run OUTSIDE any spinner — they're interactive.
       prompts = SERVICES.each_with_object({}) do |service, hash|
         hash.merge!(service.install_prompt)
       end
-      puts
-      puts "Installing #{SERVICES.size} services..."
       SERVICES.each do |service|
-        puts
-        puts "═══ #{service.name} ═══"
-        service.install(prompts)
+        with_spinner("#{service.name} install") { service.install(prompts) }
       end
     },
   },
@@ -82,13 +77,12 @@ COMMANDS = {
     description: "Pull the latest depot code (git pull --ff-only)",
     needs_sudo: false,
     action: -> {
-      puts "depot update — pulling latest depot..."
       # __dir__ in this lambda's body resolves to depot's repo root.
       # --ff-only refuses to auto-merge if you've made local edits —
       # better to surface that as an error than silently merge.
-      sh!("git -C #{__dir__} pull --ff-only")
-      puts
-      puts "Done. Re-run `depot install` (or `depot <service>`) to apply."
+      with_spinner("depot update") do
+        sh!("git -C #{__dir__} pull --ff-only")
+      end
     },
   },
   "upgrade" => {
@@ -179,8 +173,7 @@ begin
   if COMMANDS.key?(mode)
     COMMANDS[mode][:action].call
   elsif (service = SERVICES.find { |s| s.name.downcase == mode.downcase })
-    puts "depot #{mode} — updating just #{service.name}."
-    service.update
+    with_spinner("#{service.name} update") { service.update }
   else
     puts "Unknown command: #{mode.inspect}"
     puts
