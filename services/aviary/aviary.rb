@@ -143,6 +143,11 @@ module Aviary
       # Aviary's Settings page Storage panel uses this to scale the
       # stacked bar to a real "% of tank used."
       "TANK_BYTES"            => Storage.usable_tank_bytes.to_s,
+      # Hours between last-subscriber-removal and auto-delete of the
+      # on-disk media (only when downloaded via Usenet — torrents are
+      # left alone to preserve seeding). Bump this for a wider undo
+      # window, lower it if disk pressure is tight.
+      "DELETION_GRACE_PERIOD_HOURS" => "24",
     })
 
     # Wait for Phoenix to actually accept connections before migrating.

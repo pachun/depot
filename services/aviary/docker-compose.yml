@@ -67,6 +67,11 @@ services:
       # used" rather than just household-share. Unset → bar falls
       # back to household-share scaling.
       - TANK_BYTES=${TANK_BYTES}
+      # How many hours between the last household subscriber removing
+      # a show/movie and the auto-deletion firing. Re-adding within
+      # the window cancels. Unset → aviary defaults to 24h. See
+      # Aviary.Deletions for the lifecycle.
+      - DELETION_GRACE_PERIOD_HOURS=${DELETION_GRACE_PERIOD_HOURS}
     volumes:
       # Persist aviary's SQLite DB on the host so it survives
       # `docker-compose up --build` (which is what configure.sh
