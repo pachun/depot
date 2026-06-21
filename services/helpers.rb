@@ -41,9 +41,9 @@ SPINNER_FRAMES = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
 # stay greppable.
 def with_spinner(label)
   unless STDOUT.tty?
-    puts "  #{label}..."
+    puts "  #{present_progressive(label)}..."
     yield
-    puts "  #{label}: done"
+    puts "  #{past_tense(label)}."
     return
   end
 
@@ -53,7 +53,15 @@ def with_spinner(label)
   cols = (IO.console.winsize[1] rescue 80)
   # Account for "X " prefix (no leading indent now) + 1 margin column.
   max = [cols - 3, 20].max
-  display = label.length > max ? "#{label[0, max - 3]}..." : label
+
+  # Three forms of the label, derived from the single "Subject verb"
+  # input (e.g., "Aviary update"):
+  #   active → "Updating Aviary"      (spinning)
+  #   done   → "Aviary updated"       (success)
+  #   failed → "Aviary update failed" (failure)
+  active = truncate_for_terminal(present_progressive(label), max)
+  done   = truncate_for_terminal(past_tense(label), max)
+  failed = truncate_for_terminal("#{label} failed", max)
 
   # STDOUT (constant) writes always reach the terminal — they're
   # unaffected by `$stdout = buffer` below. The block's puts/print
@@ -65,7 +73,7 @@ def with_spinner(label)
   thread = Thread.new do
     i = 0
     while running
-      STDOUT.print("\r\e[2K#{SPINNER_FRAMES[i % SPINNER_FRAMES.size]} #{display}")
+      STDOUT.print("\r\e[2K#{SPINNER_FRAMES[i % SPINNER_FRAMES.size]} #{active}")
       STDOUT.flush
       sleep(0.1)
       i += 1
@@ -85,21 +93,38 @@ def with_spinner(label)
     $stdout = original_stdout
 
     if success
-      STDOUT.print("\r\e[2K✓ #{past_tense(display)}.\n")
+      STDOUT.print("\r\e[2K✓ #{done}.\n")
     else
-      STDOUT.print("\r\e[2K✗ #{display} failed.\n")
+      STDOUT.print("\r\e[2K✗ #{failed}.\n")
       STDOUT.print(buffer.string) unless buffer.string.empty?
     end
     STDOUT.flush
   end
 end
 
+def truncate_for_terminal(str, max)
+  str.length > max ? "#{str[0, max - 3]}..." : str
+end
+
+# Convert the last word of a "Subject verb" label to present
+# progressive, with the verbing in front:
+#   "Aviary update"   → "Updating Aviary"
+#   "Storage install" → "Installing Storage"
+#   "depot update"    → "Updating depot"
+# "update" → "updating" (drop trailing "e"); "install" → "installing".
+def present_progressive(label)
+  parts = label.split
+  return label if parts.empty?
+  verb = parts.pop
+  ing = (verb.end_with?("e") ? verb[0..-2] : verb) + "ing"
+  ([ing.capitalize] + parts).join(" ")
+end
+
 # Append "ed" / "d" to the last word of a label so the completion
 # line reads as past tense:
-#   "depot update"   → "depot updated"
-#   "Aviary update"  → "Aviary updated"
+#   "depot update"    → "depot updated"
+#   "Aviary update"   → "Aviary updated"
 #   "Storage install" → "Storage installed"
-# Generic enough for any verb depot uses today.
 def past_tense(label)
   parts = label.split
   return label if parts.empty?
