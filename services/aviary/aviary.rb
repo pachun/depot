@@ -166,12 +166,22 @@ module Aviary
       # left alone to preserve seeding). Bump this for a wider undo
       # window, lower it if disk pressure is tight.
       "DELETION_GRACE_PERIOD_HOURS" => "24",
-      # Browser tab title brand. Aviary renders each tab as
-      # "<page> · <TAB_TITLE>", so the household sees their own name
-      # in every tab instead of the generic "Aviary". Hardcoded here
-      # (one-line edit); if you want a depot prompt for it, easy
-      # follow-up.
-      "TAB_TITLE"             => "Pachulski TV",
+      # Brand identity. TAB_TITLE is the one brand string used
+      # everywhere: browser tabs ("<page> · PACHULSKI.TV"), the
+      # share/link-unfurl title, and the PWA name — so the household
+      # sees their own name instead of the generic "Aviary". The
+      # others tune the edges:
+      #   HOME_SCREEN_TITLE — short label under the iOS home-screen
+      #     icon, where the OS truncates past ~12 chars (so the full
+      #     "PACHULSKI.TV" doesn't clip to "PACHULSKI.…").
+      #   SITE_DESCRIPTION  — the line under the title in the iMessage
+      #     / Slack link preview and the <meta description>.
+      #   OG_IMAGE          — left unset; Aviary derives the preview
+      #     image URL from this host (…/images/og-image.png). Set it
+      #     only to point at an externally hosted image.
+      "TAB_TITLE"             => "PACHULSKI.TV",
+      "HOME_SCREEN_TITLE"     => "Pachulski",
+      "SITE_DESCRIPTION"      => "The Pachulski family's movie and TV library.",
     })
 
     # Wait for Phoenix to actually accept connections before migrating.

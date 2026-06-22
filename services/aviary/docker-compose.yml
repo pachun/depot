@@ -73,10 +73,16 @@ services:
       # used" rather than just household-share. Unset → bar falls
       # back to household-share scaling.
       - TANK_BYTES=${TANK_BYTES}
-      # Browser tab title brand. Aviary renders each tab as
-      # "<page> · <TAB_TITLE>"; unset falls back to "Aviary". Set in
-      # aviary.rb to whatever the household wants.
+      # Brand identity, all set in aviary.rb. TAB_TITLE is the one
+      # brand string (tabs "<page> · <TAB_TITLE>", share title, PWA
+      # name); unset falls back to "Aviary". HOME_SCREEN_TITLE is the
+      # short iOS home-screen label; SITE_DESCRIPTION is the link-
+      # preview / meta description; OG_IMAGE optionally overrides the
+      # share image (unset → aviary derives it from this host).
       - TAB_TITLE=${TAB_TITLE}
+      - HOME_SCREEN_TITLE=${HOME_SCREEN_TITLE}
+      - SITE_DESCRIPTION=${SITE_DESCRIPTION}
+      - OG_IMAGE=${OG_IMAGE}
       # How many hours between the last household subscriber removing
       # a show/movie and the auto-deletion firing. Re-adding within
       # the window cancels. Unset → aviary defaults to 24h. See
