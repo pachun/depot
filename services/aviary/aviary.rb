@@ -54,8 +54,12 @@ module Aviary
     )
     tab_title = DEFAULT_TAB_TITLE if tab_title.empty?
 
-    FileUtils.mkdir_p(SECRET_DIR)
-    File.write(TAB_TITLE_FILE, tab_title + "\n", perm: 0o600)
+    # NOTE: do NOT mkdir SECRET_DIR or write to TAB_TITLE_FILE here.
+    # SECRET_DIR is under ~/hdds, which doesn't exist yet — storage's
+    # install hasn't created the ZFS pool mountpoint. If we mkdir
+    # now, ~/hdds gets created as a regular directory and storage's
+    # `zpool create` fails with "mountpoint exists and is not empty."
+    # The actual write happens in install() once storage has run.
 
     { aviary_tab_title: tab_title }
   end
@@ -72,6 +76,11 @@ module Aviary
 
   def self.install(prompts)
     FileUtils.mkdir_p([File.dirname(SOURCE_DIR), SECRET_DIR, AVIARY_DATA_DIR])
+    # Persist the brand name now that the ZFS pool is mounted at
+    # ~/hdds. (Deferred from install_prompt — see the note there.)
+    if prompts[:aviary_tab_title] && !File.file?(TAB_TITLE_FILE)
+      File.write(TAB_TITLE_FILE, prompts[:aviary_tab_title] + "\n", perm: 0o600)
+    end
     clone_or_pull
     generate_secrets
 

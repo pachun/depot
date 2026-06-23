@@ -85,15 +85,16 @@ module Cloudflare
         )
       end
 
-    # Persist immediately, not in install(). Otherwise an unrelated
-    # later-service failure (storage's pacman-key, gluetun's wg.conf,
-    # whatever) leaves these prompts unsaved and the next retry asks
-    # again — even though the user already entered them correctly.
-    unless token.empty?
-      FileUtils.mkdir_p(CONFIG_DIR)
-      File.write(TOKEN_FILE, token + "\n", perm: 0o600)
-      File.write(HOSTNAME_FILE, hostname + "\n", perm: 0o600) unless hostname.empty?
-    end
+    # NOTE: do NOT mkdir CONFIG_DIR or persist files here. CONFIG_DIR
+    # is under ~/hdds, which doesn't exist yet — storage's install
+    # hasn't created the ZFS pool mountpoint. Writing here creates
+    # ~/hdds as a regular directory and storage's `zpool create`
+    # fails with "mountpoint exists and is not empty." Persistence
+    # happens in install() instead, after storage has run.
+    #
+    # Trade-off accepted: if depot install aborts before cloudflare's
+    # install runs (e.g., a storage or jellyfin failure), the token
+    # entered this run is lost and the user re-pastes on retry.
 
     { cloudflare_tunnel_token: token, cloudflare_public_hostname: hostname }
   end
