@@ -9,7 +9,10 @@ module Prowlarr
   CONFIG_DIR     = File.join(Dir.home, "hdds/.config/prowlarr")
   CONFIG_XML     = File.join(CONFIG_DIR, "config.xml")
   LOCAL_PORT     = 9696
-  TAILSCALE_PORT = 9696
+  # See sonarr.rb's TAILSCALE_PORT comment for the rationale: must
+  # differ from LOCAL_PORT so the on-boot tailscaled bind doesn't
+  # block the container's 0.0.0.0:PORT wildcard bind.
+  TAILSCALE_PORT = 9697
   BASE_URL       = "http://localhost:9696"
 
   NZBGEEK_DEFAULT_URL = "https://api.nzbgeek.info"

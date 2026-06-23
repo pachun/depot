@@ -11,7 +11,10 @@ module Jellyseerr
   CONFIG_DIR     = File.join(Dir.home, "hdds/.config/jellyseerr")
   SETTINGS_JSON  = File.join(CONFIG_DIR, "settings.json")
   LOCAL_PORT     = 5055
-  TAILSCALE_PORT = 5055
+  # See sonarr.rb's TAILSCALE_PORT comment for the rationale: must
+  # differ from LOCAL_PORT so the on-boot tailscaled bind doesn't
+  # block the container's 0.0.0.0:PORT wildcard bind.
+  TAILSCALE_PORT = 5056
   BASE_URL       = "http://localhost:5055"
 
   # Jellyseerr's MediaServerType enum (server/constants/server.ts):

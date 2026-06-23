@@ -8,7 +8,10 @@ module Radarr
   CONFIG_XML     = File.join(CONFIG_DIR, "config.xml")
   LIBRARY_DIR    = File.join(Dir.home, "hdds/media/movies")
   LOCAL_PORT     = 7878
-  TAILSCALE_PORT = 7878
+  # See sonarr.rb's TAILSCALE_PORT comment for the rationale: must
+  # differ from LOCAL_PORT so the on-boot tailscaled bind doesn't
+  # block the container's 0.0.0.0:PORT wildcard bind.
+  TAILSCALE_PORT = 7879
   BASE_URL       = "http://localhost:7878"
 
   def self.install_prompt

@@ -18,7 +18,12 @@ module QBittorrent
   SEEDING_DIR       = File.join(Dir.home, "hdds/seeding")
   DOWNLOADING_DIR   = File.join(Dir.home, "downloading/torrents")
   LOCAL_PORT        = 8080
-  TAILSCALE_PORT    = 8080
+  # See sonarr.rb's TAILSCALE_PORT comment for the rationale: must
+  # differ from LOCAL_PORT so the on-boot tailscaled bind doesn't
+  # block the bind on the same port. qBittorrent's bind is owned by
+  # gluetun (qbit shares gluetun's netns) so the port published by
+  # gluetun's docker-compose is what tailscale must NOT match.
+  TAILSCALE_PORT    = 8081
   BASE_URL          = "http://localhost:8080"
 
   def self.install_prompt

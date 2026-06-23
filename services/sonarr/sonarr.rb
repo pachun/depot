@@ -15,7 +15,13 @@ module Sonarr
   CONFIG_XML     = File.join(CONFIG_DIR, "config.xml")
   LIBRARY_DIR    = File.join(Dir.home, "hdds/media/shows")
   LOCAL_PORT     = 8989
-  TAILSCALE_PORT = 8989
+  # Tailscale Serve listens on this port and forwards to LOCAL_PORT.
+  # Must differ from LOCAL_PORT — tailscaled restores its serve config
+  # on boot and binds tailscale_ip:PORT; if the container also tries
+  # to bind 0.0.0.0:PORT for the same number, Linux refuses the
+  # wildcard bind ("address already in use") and the container fails
+  # to start. Convention: LOCAL_PORT + 1 (same pattern as sabnzbd).
+  TAILSCALE_PORT = 8990
   BASE_URL       = "http://localhost:8989"
 
   def self.install_prompt
