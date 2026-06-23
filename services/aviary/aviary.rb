@@ -184,10 +184,20 @@ module Aviary
     # accepts both.
     phx_host = Cloudflare.public_hostname || tailscale_host
 
-    # Jellyfin's public URL stays on the tailscale URL — Jellyfin
-    # isn't fronted by Cloudflare, only aviary is. The video
-    # player hits Jellyfin directly via Tailscale Serve at :8443.
-    jellyfin_public_url = "https://#{tailscale_host}:#{Jellyfin::TAILSCALE_PORT}"
+    # Jellyfin's public URL — the address the user's browser hits
+    # for HLS chunks. Two paths:
+    #   * Cloudflare Tunnel configured with a Jellyfin hostname →
+    #     use https://<that hostname>. Family members not on the
+    #     tailnet can stream. (cloudflare.rb's second prompt.)
+    #   * Otherwise → tailnet URL, viewers need tailscale to stream.
+    # check_origin (set below) accepts both hostnames so flipping
+    # between paths doesn't break the WebSocket origin check.
+    jellyfin_public_url =
+      if (h = Cloudflare.jellyfin_public_hostname)
+        "https://#{h}"
+      else
+        "https://#{tailscale_host}:#{Jellyfin::TAILSCALE_PORT}"
+      end
 
     free_tailscale_port(TAILSCALE_PORT)
     compose_up!("aviary", build: true, env: {

@@ -86,7 +86,22 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 1. Open https://login.tailscale.com/admin/dns.
 2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
 
-## 8. Install orchard
+## 8. Enable Funnel for tailnet members
+
+Aviary's UI is published via Tailscale Funnel so family members not on your tailnet can reach the sign-in page. Without this ACL entry, depot's `tailscale funnel … on` call during install fails.
+
+Paste this into the top level of the JSON at https://login.tailscale.com/admin/acls/file:
+
+```json
+"nodeAttrs": [
+  {
+    "target": ["autogroup:member"],
+    "attr":   ["funnel"]
+  }
+]
+```
+
+## 9. Install orchard
 
 [Orchard](https://github.com/pachun/orchard) contains my dotfiles for convenience when SSHing into the NAS.
 
@@ -98,19 +113,19 @@ They also install ruby, which `depot install` needs in a later step.
 
 Re-run any time to update to orchard's latest version.
 
-## 9. Install the depot CLI
+## 10. Install the depot CLI
 
 ```
 ~/code/depot/install/depot-cli
 ```
 
-## 10. Install depot
+## 11. Install depot
 
 ```
 depot install
 ```
 
-## 11. Open Aviary in your browser
+## 12. Open Aviary in your browser
 
 `depot install` outputs Aviary's URL. Open it in your browser and sign in.
 

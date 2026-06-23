@@ -29,6 +29,15 @@ module Jellyfin
   INTRO_VERSION     = "1.10.11.21"
   BASE_URL          = "http://localhost:8096"
   WIZARD_API_HEADER = "X-Emby-Authorization"
+  # Sized for ~20 Mbps household upload: two remote 1080p streams
+  # fit (~16 Mbps). Tighten if more concurrent remote viewers are
+  # expected, or loosen if upload pipe is fatter.
+  REMOTE_CLIENT_BITRATE_LIMIT = 8_000_000  # 8 Mbps
+  # cloudflared forwards from the host loopback, so Jellyfin sees
+  # requests originate at 127.0.0.1. Trusting that proxy lets it
+  # honor X-Forwarded-For and classify viewers as Internet (capped)
+  # instead of LAN (unlimited).
+  CLOUDFLARED_PROXY = "127.0.0.1"
   WIZARD_API_VALUE  = %q(MediaBrowser Client="depot", Device="depot-install", DeviceId="depot-install", Version="1.0")
   # Admin creds are shared across every service (qBit, Sonarr, Radarr,
   # Prowlarr, Jellyseerr, Aviary), so they live under depot/ rather
@@ -93,6 +102,7 @@ module Jellyfin
 
     install_intro_skipper_plugin
     enable_qsv_transcoding
+    ensure_remote_streaming_caps
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -104,6 +114,8 @@ module Jellyfin
       "PGID" => Process.gid,
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
+    return unless wait_for_jellyfin_api
+    ensure_remote_streaming_caps
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -354,5 +366,57 @@ module Jellyfin
     )
     http(:post, "#{BASE_URL}/System/Configuration/encoding", body: patched, headers: headers)
     puts "    enabled QSV + 10-bit HEVC decode"
+  end
+
+  # Trust the cloudflared loopback proxy and cap remote-client
+  # streaming bitrate so a high-bitrate REMUX doesn't blow the
+  # household's upload pipe and buffer the player every few seconds.
+  #
+  # Without the proxy: cloudflared forwards from 127.0.0.1, Jellyfin
+  # sees that as LAN, applies no cap, direct-streams the source. A
+  # 25-Mbps REMUX through a 20-Mbps upload = buffering.
+  # With the proxy: Jellyfin honors X-Forwarded-For from cloudflared,
+  # sees the real remote IP, classifies as Internet, and falls under
+  # RemoteClientBitrateLimit (transcodes down to 8 Mbps default).
+  def self.ensure_remote_streaming_caps
+    puts "  configuring Jellyfin remote-streaming caps..."
+    key = api_key_for("aviary")
+    if key.nil?
+      puts "    skipped: no 'aviary' API key in Jellyfin yet"
+      return
+    end
+
+    headers = { "X-Emby-Token" => key }
+    changed = false
+
+    network = http_get_json("#{BASE_URL}/System/Configuration/network", headers: headers)
+    if network
+      known = Array(network["KnownProxies"]).map(&:to_s)
+      unless known.include?(CLOUDFLARED_PROXY)
+        patched = network.merge("KnownProxies" => (known + [CLOUDFLARED_PROXY]).uniq)
+        http(:post, "#{BASE_URL}/System/Configuration/network", body: patched, headers: headers)
+        puts "    added #{CLOUDFLARED_PROXY} to KnownProxies"
+        changed = true
+      end
+    end
+
+    system_config = http_get_json("#{BASE_URL}/System/Configuration", headers: headers)
+    if system_config && system_config["RemoteClientBitrateLimit"] != REMOTE_CLIENT_BITRATE_LIMIT
+      patched = system_config.merge("RemoteClientBitrateLimit" => REMOTE_CLIENT_BITRATE_LIMIT)
+      http(:post, "#{BASE_URL}/System/Configuration", body: patched, headers: headers)
+      puts "    set internet streaming cap to #{REMOTE_CLIENT_BITRATE_LIMIT / 1_000_000} Mbps"
+      changed = true
+    end
+
+    # KnownProxies in particular is read once at startup; without a
+    # restart Jellyfin keeps treating cloudflared requests as
+    # localhost = LAN and the bitrate cap never applies. Restart only
+    # when something actually changed so re-runs of `depot update
+    # jellyfin` don't trigger unnecessary container cycles.
+    if changed
+      puts "    restarting Jellyfin so the new config takes effect..."
+      sh!("sudo docker restart jellyfin >/dev/null")
+      wait_for_jellyfin_api
+    end
   end
 end
