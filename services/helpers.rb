@@ -230,8 +230,10 @@ end
 # container up. Tailscaled binds tailnet-IP:PORT for each active serve
 # mapping and that bind persists across container removals; a re-run
 # that recreates the container then fails with "address already in use".
-def free_tailscale_port(port)
-  system("sudo tailscale serve --https=#{port} off", out: File::NULL, err: File::NULL)
+def free_tailscale_port(*ports)
+  ports.each do |port|
+    system("sudo tailscale serve --https=#{port} off", out: File::NULL, err: File::NULL)
+  end
 end
 
 # Re-establish a tailscale serve mapping AFTER the container is up.

@@ -34,7 +34,7 @@ module Sonarr
                        File.join(Dir.home, "downloading/usenet")])
 
     cleanup_stale_container("sonarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("sonarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,
@@ -59,7 +59,7 @@ module Sonarr
 
   def self.update
     cleanup_stale_container("sonarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("sonarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,

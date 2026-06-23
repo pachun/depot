@@ -54,7 +54,7 @@ module Prowlarr
 
     FileUtils.mkdir_p(CONFIG_DIR)
     cleanup_stale_container("prowlarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("prowlarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,
@@ -80,7 +80,7 @@ module Prowlarr
 
   def self.update
     cleanup_stale_container("prowlarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("prowlarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,

@@ -28,7 +28,7 @@ module Jellyseerr
   def self.install(prompts)
     FileUtils.mkdir_p(CONFIG_DIR)
     cleanup_stale_container("jellyseerr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("jellyseerr", env: {
       "TZ" => `timedatectl show -p Timezone --value`.strip,
     })
@@ -49,7 +49,7 @@ module Jellyseerr
 
   def self.update
     cleanup_stale_container("jellyseerr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("jellyseerr", env: {
       "TZ" => `timedatectl show -p Timezone --value`.strip,
     })

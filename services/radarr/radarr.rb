@@ -24,7 +24,7 @@ module Radarr
                        File.join(Dir.home, "downloading/usenet")])
 
     cleanup_stale_container("radarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("radarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,
@@ -49,7 +49,7 @@ module Radarr
 
   def self.update
     cleanup_stale_container("radarr")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("radarr", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,

@@ -45,7 +45,7 @@ module QBittorrent
     end
 
     cleanup_stale_container("qbittorrent")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,
@@ -59,7 +59,7 @@ module QBittorrent
 
   def self.update
     cleanup_stale_container("qbittorrent")
-    free_tailscale_port(TAILSCALE_PORT)
+    free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
       "PUID" => Process.uid,
       "PGID" => Process.gid,
