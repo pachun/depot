@@ -54,11 +54,16 @@ SERVICES = [
   Prowlarr,
   Sabnzbd,
   Jellyseerr,
+  # Cloudflare Tunnel must run BEFORE Aviary: it persists the
+  # public hostname to disk and Aviary's bring_up reads that
+  # hostname to set PHX_HOST + CHECK_ORIGINS in its compose env.
+  # Cloudflared starting before Aviary is harmless — it forwards
+  # to localhost:4000 which 502s until Aviary comes up moments
+  # later. Cheap to skip when the token is blank (cloudflare.install
+  # returns early).
+  Cloudflare,
   Aviary,
   Unpackerr,
-  # Cloudflare Tunnel runs last — it's the public-facing layer
-  # and only meaningful once aviary is up to receive traffic.
-  Cloudflare,
 ]
 
 # Commands. Each entry: description for the help menu, action for the
