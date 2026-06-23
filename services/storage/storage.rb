@@ -155,6 +155,55 @@ module Storage
     unless `lsmod`.lines.any? { |l| l.start_with?("zfs") }
       sudo!("modprobe zfs")
     end
+
+    # Persist module autoload at boot. Without this, modprobe only
+    # loads zfs for THIS session; after reboot the kernel comes up
+    # without zfs and the pool can't be imported.
+    #
+    # `/etc/modules-load.d/zfs.conf` is systemd-modules-load's standard
+    # autoload hook — single line `zfs` is enough; it pulls in
+    # spl/zcommon/etc as deps. Idempotent.
+    write_root_file("/etc/modules-load.d/zfs.conf", "zfs\n", mode: "0644")
+
+    # BUT: autoload alone races zfs-mount.service. By default
+    # systemd-modules-load.service and zfs-mount.service have no
+    # ordering between them, so they fire in parallel during boot.
+    # zfs-mount.service hits its ConditionPathIsDirectory=/sys/module/zfs
+    # check first, sees no module yet, and SKIPS silently — even
+    # though systemd-modules-load is about to load the module ~1s
+    # later. Result: pool isn't mounted, docker.service starts
+    # (Requires=zfs-mount.service is satisfied by the "skipped"
+    # state — not treated as failure), containers come up against
+    # empty bind-mount paths, login breaks.
+    #
+    # Fix: dropins on both zfs services telling them to wait for
+    # systemd-modules-load.service to finish before checking their
+    # conditions. By then the module IS loaded and they run normally.
+    wait_dropin = <<~CONF
+      [Unit]
+      After=systemd-modules-load.service
+      Requires=systemd-modules-load.service
+    CONF
+    %w[zfs-mount.service zfs-import-cache.service].each do |unit|
+      write_root_file("/etc/systemd/system/#{unit}.d/wait-for-modules-load.conf",
+                      wait_dropin, mode: "0644", mkdir_p: true)
+    end
+    sudo!("systemctl daemon-reload")
+  end
+
+  # Idempotent write to a root-owned path. Stages content in /tmp,
+  # then `install` (which is atomic and sets mode in one step).
+  # `mkdir_p:` creates the parent dir first — used for systemd
+  # service dropin directories.
+  def self.write_root_file(path, body, mode:, mkdir_p: false)
+    current = `sudo cat #{path} 2>/dev/null`
+    return if current == body
+
+    sudo!("mkdir -p #{File.dirname(path)}") if mkdir_p
+    tmp = "/tmp/depot-write.#{Process.pid}.#{rand(10_000)}"
+    File.write(tmp, body)
+    sudo!("install -m #{mode} #{tmp} #{path}")
+    File.delete(tmp)
   end
 
   # ------------------------------------------------------------
