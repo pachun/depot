@@ -76,10 +76,7 @@ module Cloudflare
         prompt(
           preamble: <<~TEXT.chomp,
             Public hostname:
-              The domain you configured as the Public Hostname above.
-              Bare host only — no https://, no trailing slash.
-              Example: media.example.com (or watch.example.com if
-              you used a subdomain).
+              No https://, no trailing slash.
           TEXT
           question: "Public hostname",
         )

@@ -39,18 +39,10 @@ module Aviary
 
     tab_title = prompt(
       preamble: <<~TEXT.chomp,
-        Brand name for this aviary instance. Used everywhere the
-        household sees their own name instead of generic "Aviary":
-          - browser tab titles ("Settings · <name>")
-          - iMessage / Slack link-preview card title
-          - the PWA name on family iPhones' home screens
-
-        Anything readable. Uppercase + a dot reads as a logo
-        ("SMITH.TV"), proper-cased works too ("Smith TV").
-
-        Leave blank to default to "#{DEFAULT_TAB_TITLE}".
+        Browser tab title:
+          e.g. Smith TV. Blank defaults to "#{DEFAULT_TAB_TITLE}".
       TEXT
-      question: "Brand name",
+      question: "Browser tab title",
     )
     tab_title = DEFAULT_TAB_TITLE if tab_title.empty?
 
