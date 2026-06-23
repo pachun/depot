@@ -23,8 +23,7 @@ module Prowlarr
     answers = {}
     answers[:nzbgeek_api_key] = cached["NZBGEEK_API_KEY"].to_s.empty? ?
       prompt(preamble: "NZBGeek:",
-             question: "API key (from nzbgeek.info → account → API)",
-             secret:   true) :
+             question: "API key (from nzbgeek.info → account → API)") :
       cached["NZBGEEK_API_KEY"]
     answers[:ipt_cookie] = cached["IPT_COOKIE"].to_s.empty? ?
       prompt(preamble: <<~TEXT.chomp,

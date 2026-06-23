@@ -25,7 +25,6 @@ module Tailscale
           5. Copy the key and paste below
       TEXT
       question: "Auth key",
-      secret:   true,
     )
     { tailscale_auth_key: key }
   end

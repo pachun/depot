@@ -440,22 +440,6 @@ end
 # Built-in parsers. Each gets the raw input string, returns the parsed
 # value, or raises with a one-line user-facing error message.
 PARSERS = {
-  # ProtonVPN WireGuard .conf — INI-shaped. Extracts PrivateKey and
-  # Address from [Interface]; strips IPv6 from Addresses because
-  # gluetun's default mode doesn't enable IPv6 inside the container
-  # and a dual-stack Address line crashes it.
-  wireguard_conf: ->(path) {
-    path = File.expand_path(path)
-    raise "no file at #{path}" unless File.file?(path)
-    body = File.read(path).gsub("\r", "")
-    private_key = body[/^\s*PrivateKey\s*=\s*(\S+)/, 1]
-    addresses   = body[/^\s*Address\s*=\s*(\S.*)/, 1]
-    raise "no PrivateKey in #{path}" if private_key.to_s.empty?
-    raise "no Address in #{path}"    if addresses.to_s.empty?
-    addresses = addresses.split(",").first.strip
-    { private_key: private_key, addresses: addresses }
-  },
-
   # A single non-empty line of text.
   nonempty: ->(s) {
     raise "can't be empty" if s.empty?

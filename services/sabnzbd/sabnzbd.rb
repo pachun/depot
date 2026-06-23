@@ -24,7 +24,7 @@ module Sabnzbd
              question: "Username (newsreader user, not your email)") :
       cached["USENET_USERNAME"]
     answers[:usenet_password] = cached["USENET_PASSWORD"].to_s.empty? ?
-      prompt(question: "Password", secret: true, verify: true) :
+      prompt(question: "Password") :
       cached["USENET_PASSWORD"]
     answers
   end

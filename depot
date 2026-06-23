@@ -113,6 +113,63 @@ COMMANDS = {
     needs_sudo: true,  # zpool list, docker logs, docker ps
     action: -> { },  # empty — summary block runs automatically after dispatch
   },
+  "backup" => {
+    description: "Save credentials prompted at install time for re-entry on a fresh install (`depot backup [user@host]` to scp)",
+    needs_sudo: false,  # everything we read is user-owned
+    action: -> {
+      target = ARGV[1]
+      timestamp = Time.now.strftime("%Y-%m-%d-%H%M%S")
+      out_root = File.join(Dir.home, "depot-backups")
+      FileUtils.mkdir_p(out_root)
+      out_file = File.join(out_root, "depot-credentials-#{timestamp}.txt")
+      config = File.join(Dir.home, "hdds/.config")
+      read = ->(p) { File.file?(p) ? File.read(p).strip : nil }
+
+      lines = ["# depot install credentials (#{Time.now.strftime('%Y-%m-%d %H:%M:%S')})", ""]
+
+      # Cloudflare tunnel token — buried in the dashboard, not
+      # retrievable from there after creation; this file is the only
+      # copy.
+      if v = read.call(File.join(config, "cloudflared/token"))
+        lines << "Cloudflare tunnel token: #{v}"
+      end
+
+      # ProtonVPN WireGuard — two values depot prompts for directly.
+      wg = read_env_file(File.join(config, "gluetun/wg.env"))
+      lines << "WireGuard PrivateKey: #{wg['WIREGUARD_PRIVATE_KEY']}" if wg["WIREGUARD_PRIVATE_KEY"]
+      lines << "WireGuard Address: #{wg['WIREGUARD_ADDRESSES']}"      if wg["WIREGUARD_ADDRESSES"]
+
+      pc = read_env_file(File.join(config, "depot/prowlarr.env"))
+      lines << "NZBGeek API key: #{pc['NZBGEEK_API_KEY']}"  if pc["NZBGEEK_API_KEY"]
+      lines << "IPTorrents cookie: #{pc['IPT_COOKIE']}"     if pc["IPT_COOKIE"]
+      lines << "IPTorrents user-agent: #{pc['IPT_USERAGENT']}" if pc["IPT_USERAGENT"]
+
+      sc = read_env_file(File.join(config, "depot/sabnzbd.env"))
+      lines << "Frugal username: #{sc['USENET_USERNAME']}" if sc["USENET_USERNAME"]
+      lines << "Frugal password: #{sc['USENET_PASSWORD']}" if sc["USENET_PASSWORD"]
+
+      File.write(out_file, lines.join("\n") + "\n")
+      File.chmod(0o600, out_file)
+
+      if target
+        with_spinner("copying to #{target}") do
+          sh!("scp #{out_file} #{target}:~/")
+        end
+        puts ""
+        puts "Credentials saved and copied:"
+        puts "  Local:  #{out_file}"
+        puts "  Remote: #{target}:~/#{File.basename(out_file)}"
+      else
+        puts ""
+        puts "Credentials saved at:"
+        puts "  #{out_file}"
+        puts ""
+        puts "To copy off this box:"
+        puts "  depot backup user@<peer>            # depot pushes it"
+        puts "  scp <peer>:#{out_file} <destination> # or pull from the other side"
+      end
+    },
+  },
   "completion" => {
     description: "Print the zsh completion script (already installed by install/depot-cli)",
     needs_sudo: false,

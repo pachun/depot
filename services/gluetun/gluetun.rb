@@ -47,13 +47,28 @@ module Gluetun
         addresses:   cached["WIREGUARD_ADDRESSES"],
       } }
     end
-    conf = prompt(
-      preamble:   "ProtonVPN:",
-      question:   "Path to WireGuard .conf file",
-      parse:      :wireguard_conf,
-      completion: :filename,
+
+    pk = prompt(
+      preamble: <<~TEXT.chomp,
+        ProtonVPN WireGuard:
+          Open your downloaded .conf — or grab one at
+          https://account.protonvpn.com/downloads if you haven't
+          already. Two values from the [Interface] section go here:
+          paste the value after "PrivateKey = " first, then the
+          value after "Address = " on the next prompt.
+      TEXT
+      question: "PrivateKey",
     )
-    { wireguard_config: conf }
+
+    addr = prompt(question: "Address")
+
+    # IPv4 only — gluetun's default mode doesn't enable IPv6 inside
+    # the container, and a dual-stack Address line crashes it.
+    # ProtonVPN .conf files often have "10.x.x.x/32, fe80::.../64";
+    # take the first comma-separated segment.
+    addr = addr.split(",").first.strip
+
+    { wireguard_config: { private_key: pk, addresses: addr } }
   end
 
   def self.install(prompts)

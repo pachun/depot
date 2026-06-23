@@ -71,7 +71,7 @@ Run the displayed `ssh` command from your favorite machine and continue the inst
 
 ## 6. Get a ProtonVPN WireGuard config
 
-qBittorrent's torrent traffic is routed through ProtonVPN (via a gluetun container) so your ISP can't see what's being seeded.
+qBittorrent's seed traffic is routed through ProtonVPN so your ISP can't see it.
 
 You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
@@ -80,7 +80,6 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
    - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
    - pick a P2P-capable server
    - Create → Download → you get a `.conf` file.
-3. Copy it onto the NAS: `scp ~/Downloads/proton.conf <username>@<lan-ip>:/tmp/proton.conf`
 
 ## 7. Enable Tailscale HTTPS certificates
 
@@ -89,7 +88,9 @@ You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
 
 ## 8. Install orchard
 
-[Orchard](https://github.com/pachun/orchard) contain my dotfiles for convenience when SSHing into the NAS. They also install ruby, which you need to run `depot install` later.
+[Orchard](https://github.com/pachun/orchard) contains my dotfiles for convenience when SSHing into the NAS.
+
+They also install ruby, which `depot install` needs in a later step.
 
 ```
 ~/code/depot/install/orchard
@@ -116,19 +117,8 @@ depot install
 ## Updating
 
 - `depot update` — update all depot services
-- `depot <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
+- `depot update <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
 
-## Publicizing
+## Reimaging
 
-You can expose aviary (the main media UI) to people not on your tailnet.
-
-Paste this snippet into the top level of the JSON, [here](https://login.tailscale.com/admin/acls/file):
-
-```json
-"nodeAttrs": [
-  {
-    "target": ["autogroup:member"],
-    "attr":   ["funnel"]
-  }
-]
-```
+`depot backup` creates a credentials file you can use to answer fresh install prompts without having to go into and figure out how third party jank ass web UIs work (**cough** CLOUDFLARE **cough**).

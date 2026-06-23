@@ -23,11 +23,51 @@ module Aviary
   SECRET_KEY_BASE_FILE    = File.join(SECRET_DIR, "secret_key_base")
   WEBHOOK_SECRET_FILE     = File.join(SECRET_DIR, "sonarr_webhook_secret")
   AVIARY_DATA_DIR         = File.join(SECRET_DIR, "data")
+  TAB_TITLE_FILE          = File.join(SECRET_DIR, "tab_title")
   LOCAL_PORT              = 4000
   TAILSCALE_PORT          = 443
+  DEFAULT_TAB_TITLE       = "Aviary"
 
+  # Brand name: the one string that defines this household's
+  # personalization. Used as the browser tab brand, the iMessage /
+  # Slack link-unfurl title, the PWA / home-screen name, and (after
+  # light derivation) the iOS short label and the link-preview
+  # description. Re-running install reads from disk; the prompt only
+  # fires when the file isn't there yet (or it was cleared).
   def self.install_prompt
-    {}
+    return cached_prompts if cached?
+
+    tab_title = prompt(
+      preamble: <<~TEXT.chomp,
+        Brand name for this aviary instance. Used everywhere the
+        household sees their own name instead of generic "Aviary":
+          - browser tab titles ("Settings · <name>")
+          - iMessage / Slack link-preview card title
+          - the PWA name on family iPhones' home screens
+
+        Anything readable. Uppercase + a dot reads as a logo
+        ("SMITH.TV"), proper-cased works too ("Smith TV").
+
+        Leave blank to default to "#{DEFAULT_TAB_TITLE}".
+      TEXT
+      question: "Brand name",
+    )
+    tab_title = DEFAULT_TAB_TITLE if tab_title.empty?
+
+    FileUtils.mkdir_p(SECRET_DIR)
+    File.write(TAB_TITLE_FILE, tab_title + "\n", perm: 0o600)
+
+    { aviary_tab_title: tab_title }
+  end
+
+  def self.cached?
+    File.file?(TAB_TITLE_FILE)
+  end
+
+  def self.cached_prompts
+    tab_title = File.file?(TAB_TITLE_FILE) ? File.read(TAB_TITLE_FILE).strip : DEFAULT_TAB_TITLE
+    tab_title = DEFAULT_TAB_TITLE if tab_title.empty?
+    { aviary_tab_title: tab_title }
   end
 
   def self.install(prompts)
@@ -54,6 +94,26 @@ module Aviary
       return
     end
     bring_up(jellyfin_api_key)
+  end
+
+  # Pull the persisted brand name and derive the two related labels
+  # from it. Single source of truth: the user picked the brand name
+  # in install_prompt; the iOS short label + the link-preview line
+  # are computed deterministically so re-runs always produce the
+  # same compose env.
+  def self.brand_env
+    tab_title = cached_prompts[:aviary_tab_title]
+    {
+      "TAB_TITLE"         => tab_title,
+      # iOS truncates home-screen labels past ~12 chars and looks
+      # tidiest with no punctuation, so strip non-alphanumerics
+      # before clipping. "SMITH.TV" → "SMITHTV", "Smith Family TV"
+      # → "SmithFamilyT" (clipped to 12). Users who want hand-tuned
+      # values can edit the TAB_TITLE file or override
+      # HOME_SCREEN_TITLE in the compose env.
+      "HOME_SCREEN_TITLE" => tab_title.gsub(/[^A-Za-z0-9]/, "")[0, 12],
+      "SITE_DESCRIPTION"  => "#{tab_title} — household movie and TV library.",
+    }
   end
 
   def self.summary
@@ -166,23 +226,17 @@ module Aviary
       # left alone to preserve seeding). Bump this for a wider undo
       # window, lower it if disk pressure is tight.
       "DELETION_GRACE_PERIOD_HOURS" => "24",
-      # Brand identity. TAB_TITLE is the one brand string used
-      # everywhere: browser tabs ("<page> · PACHULSKI.TV"), the
-      # share/link-unfurl title, and the PWA name — so the household
-      # sees their own name instead of the generic "Aviary". The
-      # others tune the edges:
-      #   HOME_SCREEN_TITLE — short label under the iOS home-screen
-      #     icon, where the OS truncates past ~12 chars (so the full
-      #     "PACHULSKI.TV" doesn't clip to "PACHULSKI.…").
-      #   SITE_DESCRIPTION  — the line under the title in the iMessage
-      #     / Slack link preview and the <meta description>.
-      #   OG_IMAGE          — left unset; Aviary derives the preview
-      #     image URL from this host (…/images/og-image.png). Set it
-      #     only to point at an externally hosted image.
-      "TAB_TITLE"             => "PACHULSKI.TV",
-      "HOME_SCREEN_TITLE"     => "Pachulski",
-      "SITE_DESCRIPTION"      => "The Pachulski family's movie and TV library.",
-    })
+    }.merge(
+      # Brand identity. Source of truth is the TAB_TITLE prompt
+      # collected during install (persisted to disk under
+      # ~/hdds/.config/aviary/tab_title). HOME_SCREEN_TITLE +
+      # SITE_DESCRIPTION are derived deterministically from it —
+      # see `Aviary.brand_env`. OG_IMAGE is left unset; aviary
+      # derives the preview image URL from the host (…/images/og-
+      # image.png). Set it explicitly only to point at an
+      # externally hosted image.
+      brand_env
+    ))
 
     # Wait for Phoenix to actually accept connections before migrating.
     # `docker-compose up -d` returns when the container starts, not when

@@ -1,17 +1,21 @@
 # cloudflare — Cloudflare Tunnel for serving aviary at a custom
-# domain (e.g. pachulski.tv) without port-forwarding the NAS.
+# domain (e.g. media.example.com) without port-forwarding the NAS.
+# Optional service: tailscale-only households can skip it.
 #
-# Setup, the parts depot CAN'T do:
-#   1. Go to Cloudflare Zero Trust → Networks → Tunnels → Create
-#      a tunnel. Connector type = Cloudflared. Name = aviary.
-#   2. Save. Cloudflare shows you a long `--token <...>` string in
-#      the install command. Copy that token; depot's prompt asks
-#      for it.
-#   3. On the "Public Hostname" page, add a route:
-#         Domain:    pachulski.tv
-#         Subdomain: (blank for apex; or "watch" / etc.)
-#         Service:   HTTP, localhost:4000
-#      Save. Cloudflare auto-creates the DNS for the domain.
+# Use case: family members who don't live in this house and
+# therefore can't reach the tailnet need a public URL to access
+# the household library. Cloudflare Tunnel gives that public URL
+# without exposing the NAS directly to the internet.
+#
+# Walk-through for the user's part (the bits depot CAN'T do)
+# lives in install_prompt's preamble — see that for the exact
+# Cloudflare dashboard steps. The short version:
+#   1. one.dash.cloudflare.com → Networks → Tunnels → Create
+#   2. Copy the `--token <long-string>` value from the install
+#      command Cloudflare shows you. Paste it into depot's prompt.
+#   3. Configure a Public Hostname route in the same tunnel UI:
+#      your domain → HTTP localhost:4000. Cloudflare creates the
+#      DNS record automatically.
 #
 # What depot DOES do:
 #   - Pulls + runs the cloudflared docker image with TUNNEL_TOKEN
@@ -19,9 +23,10 @@
 #   - Persists the token + public hostname so re-running install
 #     is a no-op question-wise.
 #   - Hands the public hostname to aviary so PHX_HOST + URL
-#     generation point at pachulski.tv instead of the tailnet URL.
+#     generation point at the custom domain instead of the tailnet
+#     URL.
 #
-# Tailscale Funnel still works alongside this; tailnet-internal
+# Tailnet access still works alongside this; tailnet-internal
 # users keep accessing aviary via the .ts.net URL if they want.
 
 module Cloudflare
@@ -34,22 +39,50 @@ module Cloudflare
 
     token = prompt(
       preamble: <<~TEXT.chomp,
-        Cloudflare Tunnel token:
-          1. Cloudflare → Zero Trust → Networks → Tunnels
-          2. Create a tunnel (connector type: Cloudflared, name: aviary)
-          3. Copy the `--token ...` value shown in the install command
-          4. Configure a Public Hostname: your domain → HTTP localhost:4000
-          Leave blank to skip Cloudflare Tunnel entirely (tailscale-only).
+        Cloudflare Tunnel token (optional):
+          Enables public HTTPS access to aviary at a domain you own
+          (e.g. https://media.example.com). Primarily for family
+          members who aren't on this tailnet — they need a public URL.
+          Tailnet-only households can leave this blank.
+
+          Prerequisite: a domain whose DNS Cloudflare manages.
+          Free Cloudflare account is enough; if your registrar
+          isn't Cloudflare, move the nameservers there first or
+          this won't work.
+
+          To get the token:
+            1. Sign in at https://one.dash.cloudflare.com
+            2. Networks → Overview → Manage tunnels
+            3. Create a new cloudflared tunnel
+            4. Name it (e.g. "aviary"), Save
+            5. On the install page that follows, copy the long
+               string after `--token ` from either shell command —
+               that's the value to paste below.
+            6. Click Next → Route Traffic, configure:
+                 Subdomain: blank (apex) or "watch" / etc.
+                 Domain:    pick your domain from the dropdown
+                 Service:   Type HTTP, URL localhost:4000
+               Complete setup. DNS is created automatically.
+
+          Leave blank to skip (tailscale-only mode).
       TEXT
       question: "Tunnel token",
-      secret:   true,
     )
 
     hostname =
       if token.empty?
         ""
       else
-        prompt(question: "Domain Name")
+        prompt(
+          preamble: <<~TEXT.chomp,
+            Public hostname:
+              The domain you configured as the Public Hostname above.
+              Bare host only — no https://, no trailing slash.
+              Example: media.example.com (or watch.example.com if
+              you used a subdomain).
+          TEXT
+          question: "Public hostname",
+        )
       end
 
     # Persist immediately, not in install(). Otherwise an unrelated
