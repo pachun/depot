@@ -121,4 +121,8 @@ depot install
 
 ## Reimaging
 
-`depot backup` creates a credentials file you can use to answer fresh install prompts without having to go into and figure out how third party jank ass web UIs work (**cough** CLOUDFLARE **cough**).
+We can create a credentials file and use it to answer fresh install prompts, removing the need to navigate third party web UIs and find or regenerate them.
+
+`depot backup` creates and saves the credentials file on the NAS.
+
+`depot backup name@host` auto scps the file to another machine.
