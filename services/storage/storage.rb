@@ -264,6 +264,12 @@ module Storage
     sudo!("chown #{ENV["USER"]}:#{ENV["USER"]} #{ZFS_MOUNT}")
     sudo!("systemctl enable --now zfs-import-cache.service")
     sudo!("systemctl enable --now zfs-mount.service")
+    # zfs-import.target is the chain-link between zfs.target and
+    # zfs-import-cache.service. zfs-import-cache.service is only
+    # WantedBy=zfs-import.target — without enabling zfs-import.target
+    # the import service never gets pulled in on boot, zfs-mount.service
+    # finds nothing to mount, and ~/hdds stays unmounted.
+    sudo!("systemctl enable zfs-import.target")
     sudo!("systemctl enable zfs.target")
     sudo!("systemctl enable --now zfs-scrub-weekly@#{POOL_NAME}.timer")
     sudo!("systemctl enable --now zfs-zed.service")
