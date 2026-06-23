@@ -152,22 +152,20 @@ COMMANDS = {
       File.chmod(0o600, out_file)
 
       if target
-        with_spinner("copying to #{target}") do
-          sh!("scp #{out_file} #{target}:~/")
-        end
-        puts ""
-        puts "Credentials saved and copied:"
-        puts "  Local:  #{out_file}"
-        puts "  Remote: #{target}:~/#{File.basename(out_file)}"
+        # mkdir on remote so scp lands the file in a known
+        # depot-backups dir (scp itself won't create the path). Then
+        # output ONLY the remote address so the user can scp / cp it
+        # from there with no further hunting.
+        system("ssh #{target} 'mkdir -p ~/depot-backups'", out: File::NULL, err: File::NULL)
+        system("scp -q #{out_file} #{target}:depot-backups/", out: File::NULL, err: File::NULL)
+        puts "#{target}:~/depot-backups/#{File.basename(out_file)}"
       else
-        puts ""
-        puts "Credentials saved at:"
-        puts "  #{out_file}"
-        puts ""
-        puts "To copy off this box:"
-        puts "  depot backup user@<peer>            # depot pushes it"
-        puts "  scp <peer>:#{out_file} <destination> # or pull from the other side"
+        puts out_file
       end
+
+      # Skip the post-command summary — backup is a get-the-file-and-go
+      # operation, not a status check.
+      exit 0
     },
   },
   "completion" => {
@@ -230,6 +228,9 @@ def print_zsh_completion
   services.each { |s| puts "          #{zsh_quote(s)}" }
   puts "        )"
   puts "        _describe 'service' services"
+  puts "        ;;"
+  puts "      backup)"
+  puts "        _message 'user@host (scp target — optional)'"
   puts "        ;;"
   puts "    esac"
   puts "    ;;"
