@@ -121,7 +121,7 @@ depot install
 
 ## Reimaging
 
-We can create a credentials file and use it to answer fresh install prompts, removing the need to navigate third party web UIs and find or regenerate them.
+We can create a credentials file and use it to answer fresh install prompts, removing the need to navigate third party web UIs and find or regenerate things.
 
 `depot backup` creates and saves the credentials file on the NAS.
 
