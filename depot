@@ -72,7 +72,7 @@ COMMANDS = {
     action: -> { print_help; exit 0 },
   },
   "install" => {
-    description: "Install every service from scratch (prompts collected up front)",
+    description: "Install every service from scratch",
     needs_sudo: true,
     action: -> {
       # Prompts run OUTSIDE any spinner — they're interactive.
@@ -85,7 +85,7 @@ COMMANDS = {
     },
   },
   "update" => {
-    description: "Pull depot (no arg) or update one service (`depot update aviary`)",
+    description: "Pull depot or update one service",
     needs_sudo: false,  # conditional below — set to true if ARGV[1] is a service
     action: -> {
       target = ARGV[1]
@@ -104,17 +104,17 @@ COMMANDS = {
     },
   },
   "upgrade" => {
-    description: "Same as `update` — included so either verb works",
+    description: "Alias for `update`",
     needs_sudo: false,  # see update's note
     action: -> { COMMANDS["update"][:action].call },
   },
   "summary" => {
-    description: "Print URLs and status for every service",
+    description: "Print service URLs and status",
     needs_sudo: true,  # zpool list, docker logs, docker ps
     action: -> { },  # empty — summary block runs automatically after dispatch
   },
   "backup" => {
-    description: "Save credentials prompted at install time for re-entry on a fresh install (`depot backup [user@host]` to scp)",
+    description: "Save install credentials to a file",
     needs_sudo: false,  # everything we read is user-owned
     action: -> {
       target = ARGV[1]
@@ -169,7 +169,7 @@ COMMANDS = {
     },
   },
   "completion" => {
-    description: "Print the zsh completion script (already installed by install/depot-cli)",
+    description: "Print the zsh completion script",
     needs_sudo: false,
     action: -> { print_zsh_completion; exit 0 },
   },
@@ -230,7 +230,13 @@ def print_zsh_completion
   puts "        _describe 'service' services"
   puts "        ;;"
   puts "      backup)"
-  puts "        _message 'user@host (scp target — optional)'"
+  # _message only shows if zstyle messages format is set — many
+  # configs leave it unset and silently swallow the hint. _describe
+  # with a synthetic candidate always renders, so the user sees
+  # "user@host -- scp target (optional)" in the completion menu.
+  puts "        local -a placeholders"
+  puts "        placeholders=('user@host:scp target (optional)')"
+  puts "        _describe 'scp target' placeholders"
   puts "        ;;"
   puts "    esac"
   puts "    ;;"
