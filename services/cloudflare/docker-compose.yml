@@ -20,6 +20,17 @@ services:
     container_name: cloudflared
     restart: unless-stopped
     network_mode: host
-    command: tunnel --no-autoupdate run
+    # --protocol http2 forces the tunnel to use HTTP/2 over TCP
+    # instead of the QUIC over UDP default. QUIC is faster on a
+    # quiet network but UDP has no congestion-control fairness —
+    # when sabnzbd / qBit are saturating the upload pipe with
+    # bulk downloads, cloudflared's QUIC keepalives get starved
+    # and all four edge connections drop simultaneously with
+    # "no recent network activity" errors, breaking any in-flight
+    # longpoll / WebSocket request for the user. TCP slow-start
+    # keeps the tunnel keepalives competitive even during heavy
+    # downloads. The tunnel itself runs the same; only the
+    # transport between cloudflared and Cloudflare's edge changes.
+    command: tunnel --no-autoupdate --protocol http2 run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
