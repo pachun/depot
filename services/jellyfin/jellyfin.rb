@@ -29,14 +29,15 @@ module Jellyfin
   INTRO_VERSION     = "1.10.11.21"
   BASE_URL          = "http://localhost:8096"
   WIZARD_API_HEADER = "X-Emby-Authorization"
-  # Sized for ~20 Mbps household upload: two remote 1080p streams
-  # fit (~16 Mbps). Tighten if more concurrent remote viewers are
-  # expected, or loosen if upload pipe is fatter.
-  REMOTE_CLIENT_BITRATE_LIMIT = 8_000_000  # 8 Mbps
+  # 0 = no remote bitrate cap. The ~5 Gbps symmetric fiber upload
+  # has the headroom to direct-stream source-bitrate REMUXes to
+  # remote viewers, so clients negotiate their own quality. Set a
+  # bps ceiling here if the upload pipe ever tightens again.
+  REMOTE_CLIENT_BITRATE_LIMIT = 0  # unlimited
   # cloudflared forwards from the host loopback, so Jellyfin sees
   # requests originate at 127.0.0.1. Trusting that proxy lets it
-  # honor X-Forwarded-For and classify viewers as Internet (capped)
-  # instead of LAN (unlimited).
+  # honor X-Forwarded-For and classify viewers as Internet (subject
+  # to RemoteClientBitrateLimit) instead of LAN (always unlimited).
   CLOUDFLARED_PROXY = "127.0.0.1"
   WIZARD_API_VALUE  = %q(MediaBrowser Client="depot", Device="depot-install", DeviceId="depot-install", Version="1.0")
   # Admin creds are shared across every service (qBit, Sonarr, Radarr,
@@ -368,16 +369,18 @@ module Jellyfin
     puts "    enabled QSV + 10-bit HEVC decode"
   end
 
-  # Trust the cloudflared loopback proxy and cap remote-client
-  # streaming bitrate so a high-bitrate REMUX doesn't blow the
-  # household's upload pipe and buffer the player every few seconds.
+  # Trust the cloudflared loopback proxy so Jellyfin classifies
+  # remote viewers as Internet rather than LAN, and sync the
+  # remote-client bitrate ceiling. The ceiling is currently lifted
+  # (RemoteClientBitrateLimit = 0): the ~5 Gbps symmetric upload can
+  # direct-stream source-bitrate REMUXes without blowing the pipe.
+  # The proxy trust stays so re-imposing a cap is a one-constant
+  # change away.
   #
   # Without the proxy: cloudflared forwards from 127.0.0.1, Jellyfin
-  # sees that as LAN, applies no cap, direct-streams the source. A
-  # 25-Mbps REMUX through a 20-Mbps upload = buffering.
+  # sees that as LAN, and the cap (when set) never applies.
   # With the proxy: Jellyfin honors X-Forwarded-For from cloudflared,
-  # sees the real remote IP, classifies as Internet, and falls under
-  # RemoteClientBitrateLimit (transcodes down to 8 Mbps default).
+  # sees the real remote IP, and classifies the viewer as Internet.
   def self.ensure_remote_streaming_caps
     puts "  configuring Jellyfin remote-streaming caps..."
     key = api_key_for("aviary")
@@ -404,7 +407,8 @@ module Jellyfin
     if system_config && system_config["RemoteClientBitrateLimit"] != REMOTE_CLIENT_BITRATE_LIMIT
       patched = system_config.merge("RemoteClientBitrateLimit" => REMOTE_CLIENT_BITRATE_LIMIT)
       http(:post, "#{BASE_URL}/System/Configuration", body: patched, headers: headers)
-      puts "    set internet streaming cap to #{REMOTE_CLIENT_BITRATE_LIMIT / 1_000_000} Mbps"
+      cap_label = REMOTE_CLIENT_BITRATE_LIMIT.zero? ? "unlimited" : "#{REMOTE_CLIENT_BITRATE_LIMIT / 1_000_000} Mbps"
+      puts "    set internet streaming cap to #{cap_label}"
       changed = true
     end
 
