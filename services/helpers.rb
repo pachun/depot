@@ -707,6 +707,39 @@ ARR_FORMAT_RES_2160P = {
   }],
 }.freeze
 
+# Multi/dual-audio releases bundle English with a foreign dub, but the
+# foreign track is usually the default, so playback opens in the wrong
+# language. Ban the packaging tags (MULTi/DUAL/VOSTFR/...) plus the
+# common paired-foreign tags so we grab the clean single-English
+# release instead. \b keeps tags like ITA from matching inside words
+# (e.g. DIGITAL); (?i) covers MULTi vs DUAL casing.
+ARR_FORMAT_MULTI_DUAL = {
+  "name" => "Multi / Dual Audio",
+  "includeCustomFormatWhenRenaming" => false,
+  "specifications" => [{
+    "name" => "multi or dual audio tags",
+    "implementation" => "ReleaseTitleSpecification",
+    "negate" => false, "required" => true,
+    "fields" => [{ "name" => "value",
+                   "value" => '(?i)\b(MULTI|DUAL|VOSTFR|TRUEFRENCH|SUBFRENCH|VFF|VFQ|VFI|VF2|VOF|DUBBED|ITA)\b' }],
+  }],
+}.freeze
+
+# Releases Sonarr parses as having no English audio at all. Backstops
+# the dual-audio ban above (which only sees the title) for pure-foreign
+# releases. negate=true => matches when English (language id 1) is
+# absent from the release's languages.
+ARR_FORMAT_NOT_ENGLISH = {
+  "name" => "Language: Not English",
+  "includeCustomFormatWhenRenaming" => false,
+  "specifications" => [{
+    "name" => "no english audio",
+    "implementation" => "LanguageSpecification",
+    "negate" => true, "required" => true,
+    "fields" => [{ "name" => "value", "value" => 1 }],
+  }],
+}.freeze
+
 # Upsert all banned-format custom formats into the arr, then apply a
 # policy to every quality profile: language=English, upgrades on,
 # banned formats scored at -10000 (disqualifies at search time, shows
@@ -715,13 +748,15 @@ def arr_opinionate_downloads(base_url, api_key)
   return unless arr_wait_for_api(base_url, "v3", api_key)
 
   [ARR_FORMAT_AUDIO_DESCRIPTION, ARR_FORMAT_CAM_TS, ARR_FORMAT_BAD_GROUPS,
-   ARR_FORMAT_RES_2160P, ARR_FORMAT_HEVC].each do |fmt|
+   ARR_FORMAT_RES_2160P, ARR_FORMAT_HEVC, ARR_FORMAT_MULTI_DUAL,
+   ARR_FORMAT_NOT_ENGLISH].each do |fmt|
     arr_upsert_by_name(base_url, "/api/v3/customformat", api_key, fmt["name"], fmt)
   end
 
   banned_names = [ARR_FORMAT_AUDIO_DESCRIPTION["name"], ARR_FORMAT_CAM_TS["name"],
                   ARR_FORMAT_BAD_GROUPS["name"], ARR_FORMAT_RES_2160P["name"],
-                  ARR_FORMAT_HEVC["name"]]
+                  ARR_FORMAT_HEVC["name"], ARR_FORMAT_MULTI_DUAL["name"],
+                  ARR_FORMAT_NOT_ENGLISH["name"]]
 
   cfs = http_get_json("#{base_url}/api/v3/customformat",
                       headers: { "X-Api-Key" => api_key }) || []
