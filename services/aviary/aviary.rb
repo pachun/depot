@@ -95,6 +95,10 @@ module Aviary
       return
     end
     bring_up(jellyfin_api_key)
+    # Idempotent upsert — keeps the webhook's subscribed events in sync
+    # on every update, not just first install, so event-flag changes
+    # (e.g. OnManualInteractionRequired) ship with a plain `depot update`.
+    register_sonarr_webhook
   end
 
   # Pull the persisted brand name and derive the two related labels
@@ -268,10 +272,12 @@ module Aviary
   # Sonarr webhook registration
   # ============================================================
 
-  # Register an Aviary-receiving notification in Sonarr so health-events
-  # fire to /api/sonarr/webhook with the shared secret. Aviary uses
+  # Register an Aviary-receiving notification in Sonarr so events fire to
+  # /api/sonarr/webhook with the shared secret. Aviary uses
   # OnHealthRestored + OnApplicationUpdate to re-fire EpisodeSearch for
-  # grabs that failed during an unhealthy window.
+  # grabs that failed during an unhealthy window, and
+  # OnManualInteractionRequired to auto-clear downloads Sonarr blocks
+  # from importing (parse-by-id matches whose files are actually clean).
   def self.register_sonarr_webhook
     sonarr_key = Sonarr.api_key
     return if sonarr_key.nil?
@@ -292,10 +298,11 @@ module Aviary
       "onEpisodeFileDelete" => false, "onEpisodeFileDeleteForUpgrade" => false,
       "onHealthIssue" => false, "onHealthRestored" => true,
       "onApplicationUpdate" => true,
-      "onManualInteractionRequired" => false,
+      "onManualInteractionRequired" => true,
       "supportsOnGrab" => true, "supportsOnDownload" => true,
       "supportsOnHealthIssue" => true, "supportsOnHealthRestored" => true,
       "supportsOnApplicationUpdate" => true,
+      "supportsOnManualInteractionRequired" => true,
     }
     arr_upsert_by_name("#{Sonarr::BASE_URL}", "/api/v3/notification",
                        sonarr_key, "Aviary", payload)
