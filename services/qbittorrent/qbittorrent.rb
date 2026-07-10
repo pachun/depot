@@ -7,24 +7,35 @@
 # First-run bootstrap: scrape the LSIO image's temp password from logs,
 # log in, rotate to depot's admin creds, create tv + movies categories.
 #
-# qBittorrent only flushes its in-memory config to qBittorrent.conf on a
-# clean shutdown, so settings applied solely through the WebUI API are
-# lost if the box is power-cut before a flush — which silently breaks the
-# Radarr/Sonarr download-client link (docker bridge) and gluetun's
-# port-sync (localhost). seed_webui_access writes the keys that link
-# depends on — the IPv4 bind plus the localhost and docker-subnet auth
-# bypasses — straight into the conf before the container starts, on every
-# install and every update, so they survive a power cut and an image
-# upgrade and are reproducible from the file alone. seed_webui_auth adds
+# qBittorrent only flushes its in-memory config to disk on a clean
+# shutdown, so anything applied solely through the WebUI API is lost if
+# the box is power-cut before a flush. Two things break when that
+# happens, both silently: the Radarr/Sonarr download-client link (docker
+# bridge) with gluetun's port-sync (localhost), and the save paths — the
+# image's own default is /downloads, which nothing mounts, so every
+# torrent dies at 0% on a permission error.
+#
+# So the seeds write straight into the config files before the container
+# starts, on every install and every update: seed_webui_access for the
+# IPv4 bind and the two auth bypasses, seed_storage_paths for the SSD
+# incomplete + HDD seeding tiers, seed_categories for where each arr's
+# grabs land. All reproducible from the files alone. seed_webui_auth adds
 # the admin user and PBKDF2 password hash for the human WebUI login.
 
+require "json"
 require "openssl"
 
 module QBittorrent
   CONFIG_DIR        = File.join(Dir.home, "hdds/.config/qbittorrent")
   CONFIG_FILE       = File.join(CONFIG_DIR, "qBittorrent/qBittorrent.conf")
+  CATEGORIES_FILE   = File.join(CONFIG_DIR, "qBittorrent/categories.json")
   SEEDING_DIR       = File.join(Dir.home, "hdds/seeding")
   DOWNLOADING_DIR   = File.join(Dir.home, "downloading/torrents")
+  # The same two directories as qBittorrent sees them. The compose file
+  # mounts each host path at its own last segment, so these are just the
+  # basenames — kept as constants because the conf we seed names them.
+  SEEDING_MOUNT     = "/seeding"
+  INCOMPLETE_MOUNT  = "/torrents"
   LOCAL_PORT        = 8080
   # See sonarr.rb's TAILSCALE_PORT comment for the rationale: must
   # differ from LOCAL_PORT so the on-boot tailscaled bind doesn't
@@ -49,6 +60,8 @@ module QBittorrent
     # below never has to rely on the temp password still being in the
     # log buffer.
     seed_webui_auth(prompts[:admin_username], prompts[:admin_password])
+    seed_storage_paths
+    seed_categories
 
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
@@ -65,6 +78,8 @@ module QBittorrent
   def self.update
     stop_without_flush
     seed_webui_access
+    seed_storage_paths
+    seed_categories
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
       "PUID" => Process.uid,
@@ -197,12 +212,49 @@ module QBittorrent
   # install prompts. Runs before the container starts — qBittorrent
   # rewrites this file from memory on shutdown.
   def self.seed_webui_access
-    merge_preferences(CONFIG_FILE,
+    merge_section(CONFIG_FILE, "Preferences",
       "WebUI\\Address"                    => "0.0.0.0",
       "WebUI\\LocalHostAuth"              => "false",
       "WebUI\\AuthSubnetWhitelistEnabled" => "true",
       "WebUI\\AuthSubnetWhitelist"        => "172.16.0.0/12, 127.0.0.0/8")
     puts "  seeded WebUI access into #{CONFIG_FILE}"
+  end
+
+  # Where qBittorrent puts bytes, matching the two tiers the compose file
+  # mounts: incomplete torrents on the SSD, completed ones on the HDD pool
+  # they keep seeding from. Without these the image's own default wins —
+  # /downloads, which nothing mounts, so every torrent dies at 0% with a
+  # file_open permission error against the container's read-only root.
+  #
+  # qBittorrent 5 reads Session\* under [BitTorrent]; the Downloads\* pair
+  # under [Preferences] is the pre-4.2 spelling it migrates from. Write
+  # both, so neither a migration nor a rollback reintroduces /downloads.
+  def self.seed_storage_paths
+    merge_section(CONFIG_FILE, "BitTorrent",
+      "Session\\DefaultSavePath" => SEEDING_MOUNT,
+      "Session\\TempPathEnabled" => "true",
+      "Session\\TempPath"        => INCOMPLETE_MOUNT)
+    merge_section(CONFIG_FILE, "Preferences",
+      "Downloads\\SavePath" => SEEDING_MOUNT,
+      "Downloads\\TempPath" => INCOMPLETE_MOUNT)
+    puts "  seeded storage paths into #{CONFIG_FILE}"
+  end
+
+  # Radarr and Sonarr tag every grab with a category; qBittorrent decides
+  # where that category lands. bootstrap creates them over the API, which
+  # only reaches disk on a clean exit — so write them here too, merged so
+  # a category added by hand in the WebUI survives.
+  def self.seed_categories
+    existing = File.file?(CATEGORIES_FILE) ? JSON.parse(File.read(CATEGORIES_FILE)) : {}
+
+    seeded = {
+      "movies" => { "save_path" => "#{SEEDING_MOUNT}/movies" },
+      "tv"     => { "save_path" => "#{SEEDING_MOUNT}/tv" },
+    }
+
+    merged = existing.merge(seeded) { |_, old, new| old.merge(new) }
+    File.write(CATEGORIES_FILE, JSON.pretty_generate(merged) + "\n")
+    puts "  seeded categories into #{CATEGORIES_FILE}"
   end
 
   # The admin credentials on top of the access keys. Only the human WebUI
@@ -212,7 +264,7 @@ module QBittorrent
   # belt-and-suspenders pass.
   def self.seed_webui_auth(admin_user, admin_pass)
     seed_webui_access
-    merge_preferences(CONFIG_FILE,
+    merge_section(CONFIG_FILE, "Preferences",
       "WebUI\\Username"        => admin_user,
       "WebUI\\Password_PBKDF2" => %Q("#{pbkdf2_password(admin_pass)}"))
     puts "  seeded WebUI auth into #{CONFIG_FILE}"
@@ -229,17 +281,18 @@ module QBittorrent
     "@ByteArray(#{[salt].pack("m0")}:#{[key].pack("m0")})"
   end
 
-  # Upsert key=value pairs into the [Preferences] section of a QSettings
-  # ini file, preserving every other section and key. Creates the file
-  # and/or the section when missing, and lands new keys flush against the
-  # existing ones rather than past a trailing blank line.
-  def self.merge_preferences(path, pairs)
+  # Upsert key=value pairs into one section of a QSettings ini file,
+  # preserving every other section and key. Creates the file and/or the
+  # section when missing, and lands new keys flush against the existing
+  # ones rather than past a trailing blank line.
+  def self.merge_section(path, section_name, pairs)
     lines = File.file?(path) ? File.read(path).split("\n") : []
+    header = "[#{section_name}]"
 
-    section = lines.index("[Preferences]")
+    section = lines.index(header)
     if section.nil?
       lines << "" unless lines.empty? || lines.last.to_s.empty?
-      lines << "[Preferences]"
+      lines << header
       section = lines.length - 1
     end
 
