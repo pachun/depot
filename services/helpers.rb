@@ -581,7 +581,12 @@ end
 # Add qBittorrent as a download client. tvCategory/movieCategory both
 # get the same value because the arr schema requires both fields;
 # qBit ignores the irrelevant one per release.
-def arr_connect_to_qbit(base_url, api_key, qbit_user, qbit_pass, category)
+# No credentials: qBittorrent waives auth for the docker-bridge subnet
+# (see QBittorrent.seed_webui_access), which is the only way Radarr and
+# Sonarr reach it. Keeping the link password-free is what lets `update`
+# re-assert it — updates run without the install prompts that hold the
+# admin password.
+def arr_connect_to_qbit(base_url, api_key, category)
   payload = {
     "name" => "qBittorrent", "enable" => true, "protocol" => "torrent",
     "priority" => 1, "removeCompletedDownloads" => true,
@@ -594,8 +599,8 @@ def arr_connect_to_qbit(base_url, api_key, qbit_user, qbit_pass, category)
       { "name" => "port", "value" => 8080 },
       { "name" => "useSsl", "value" => false },
       { "name" => "urlBase", "value" => "" },
-      { "name" => "username", "value" => qbit_user },
-      { "name" => "password", "value" => qbit_pass },
+      { "name" => "username", "value" => "" },
+      { "name" => "password", "value" => "" },
       { "name" => "tvCategory", "value" => category },
       { "name" => "movieCategory", "value" => category },
       { "name" => "recentTvPriority", "value" => 0 },

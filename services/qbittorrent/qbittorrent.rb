@@ -11,11 +11,12 @@
 # clean shutdown, so settings applied solely through the WebUI API are
 # lost if the box is power-cut before a flush — which silently breaks the
 # Radarr/Sonarr download-client link (docker bridge) and gluetun's
-# port-sync (localhost) until the next reinstall. seed_webui_auth writes
-# the auth-critical WebUI keys — localhost + docker-subnet auth bypass,
-# admin user, and PBKDF2 password hash — straight into the conf before
-# the container starts, so they survive a power cut and are reproducible
-# from the file alone.
+# port-sync (localhost). seed_webui_access writes the keys that link
+# depends on — the IPv4 bind plus the localhost and docker-subnet auth
+# bypasses — straight into the conf before the container starts, on every
+# install and every update, so they survive a power cut and an image
+# upgrade and are reproducible from the file alone. seed_webui_auth adds
+# the admin user and PBKDF2 password hash for the human WebUI login.
 
 require "openssl"
 
@@ -40,9 +41,7 @@ module QBittorrent
   def self.install(prompts)
     FileUtils.mkdir_p([CONFIG_DIR, SEEDING_DIR, DOWNLOADING_DIR, File.dirname(CONFIG_FILE)])
 
-    # Stop any running container first so qBittorrent can't overwrite the
-    # conf we're about to seed with its own in-memory state on exit.
-    cleanup_stale_container("qbittorrent")
+    stop_without_flush
 
     # Seed the auth-critical WebUI keys straight into qBittorrent.conf
     # (see the file header). Runs every install — not just fresh ones —
@@ -64,7 +63,8 @@ module QBittorrent
   end
 
   def self.update
-    cleanup_stale_container("qbittorrent")
+    stop_without_flush
+    seed_webui_access
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
       "PUID" => Process.uid,
@@ -170,19 +170,51 @@ module QBittorrent
   # Durable WebUI auth seeding
   # ============================================================
 
-  # Merge the auth-critical WebUI keys into qBittorrent.conf so they
-  # survive an ungraceful shutdown. LocalHostAuth=false lets gluetun's
-  # localhost port-sync through; the docker-bridge subnet whitelist lets
-  # Radarr/Sonarr (host.docker.internal) through; the PBKDF2 hash pins
-  # the admin password so WebUI login over tailscale is stable. bootstrap
-  # re-applies the same values via the API as a belt-and-suspenders pass.
-  def self.seed_webui_auth(admin_user, admin_pass)
+  # cleanup_stale_container deliberately leaves a *running* container
+  # alone. qBittorrent needs the opposite: it rewrites qBittorrent.conf
+  # from memory whenever it exits cleanly, so any key seeded into that
+  # file while it's up is clobbered the moment compose recreates the
+  # container. `docker rm -f` is a SIGKILL — it denies qBittorrent that
+  # last write, and the file we seeded is the file it reads on the way
+  # back up.
+  def self.stop_without_flush
+    _, status = capture("sudo docker inspect qbittorrent --format '{{.State.Status}}'")
+    return unless status.success?
+
+    sh_quiet!("sudo docker rm -f qbittorrent")
+  end
+
+  # The two auth bypasses Radarr, Sonarr and gluetun depend on, plus the
+  # IPv4-only bind that makes them work at all.
+  #
+  # Address must not be "*": that binds dual-stack, so an IPv4 caller
+  # arrives as the mapped form ::ffff:172.18.0.1 and matches neither the
+  # loopback test nor an IPv4 CIDR in the whitelist. Both bypasses then
+  # go quietly inert and every caller is asked for a password it doesn't
+  # carry. Binding 0.0.0.0 keeps callers in plain IPv4.
+  #
+  # Password-free by design, so `update` can re-assert it without the
+  # install prompts. Runs before the container starts — qBittorrent
+  # rewrites this file from memory on shutdown.
+  def self.seed_webui_access
     merge_preferences(CONFIG_FILE,
+      "WebUI\\Address"                    => "0.0.0.0",
       "WebUI\\LocalHostAuth"              => "false",
       "WebUI\\AuthSubnetWhitelistEnabled" => "true",
-      "WebUI\\AuthSubnetWhitelist"        => "172.16.0.0/12, 127.0.0.0/8",
-      "WebUI\\Username"                   => admin_user,
-      "WebUI\\Password_PBKDF2"            => %Q("#{pbkdf2_password(admin_pass)}"))
+      "WebUI\\AuthSubnetWhitelist"        => "172.16.0.0/12, 127.0.0.0/8")
+    puts "  seeded WebUI access into #{CONFIG_FILE}"
+  end
+
+  # The admin credentials on top of the access keys. Only the human WebUI
+  # login over tailscale needs these; the *arrs ride the subnet bypass.
+  # The PBKDF2 hash pins the password so it survives an ungraceful
+  # shutdown. bootstrap re-applies the same values via the API as a
+  # belt-and-suspenders pass.
+  def self.seed_webui_auth(admin_user, admin_pass)
+    seed_webui_access
+    merge_preferences(CONFIG_FILE,
+      "WebUI\\Username"        => admin_user,
+      "WebUI\\Password_PBKDF2" => %Q("#{pbkdf2_password(admin_pass)}"))
     puts "  seeded WebUI auth into #{CONFIG_FILE}"
   end
 

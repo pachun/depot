@@ -40,8 +40,7 @@ module Radarr
 
     arr_opinionate_downloads(BASE_URL, key)
     arr_set_library_directory(BASE_URL, key, "/movies")
-    arr_connect_to_qbit(BASE_URL, key,
-                        prompts[:admin_username], prompts[:admin_password], "movies")
+    arr_connect_to_qbit(BASE_URL, key, "movies")
 
     jf_key = Jellyfin.api_key_for("sonarr")  # Jellyfin's per-app key, named 'sonarr' but shared
     arr_connect_to_jellyfin(BASE_URL, key, jf_key) if jf_key
@@ -56,6 +55,17 @@ module Radarr
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
+
+    # Re-assert the torrent client every update, not just on install. A
+    # Radarr that has only its usenet client still looks healthy — it
+    # accepts a torrent grab, finds nowhere to send it, and parks the
+    # release at 0% as downloadClientUnavailable forever.
+    return unless wait_for_http("#{BASE_URL}/initialize.json", timeout: 30)
+
+    key = api_key
+    return if key.nil?
+
+    arr_connect_to_qbit(BASE_URL, key, "movies")
   end
 
   def self.summary

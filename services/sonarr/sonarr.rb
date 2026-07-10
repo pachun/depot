@@ -50,8 +50,7 @@ module Sonarr
 
     arr_opinionate_downloads(BASE_URL, key)
     arr_set_library_directory(BASE_URL, key, "/shows")
-    arr_connect_to_qbit(BASE_URL, key,
-                        prompts[:admin_username], prompts[:admin_password], "tv")
+    arr_connect_to_qbit(BASE_URL, key, "tv")
 
     jf_key = Jellyfin.api_key_for("sonarr")
     arr_connect_to_jellyfin(BASE_URL, key, jf_key) if jf_key
@@ -66,6 +65,15 @@ module Sonarr
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
+
+    # See Radarr.update: a missing torrent client is invisible to Sonarr's
+    # own health checks as long as its usenet client is enabled.
+    return unless wait_for_http("#{BASE_URL}/initialize.json", timeout: 30)
+
+    key = api_key
+    return if key.nil?
+
+    arr_connect_to_qbit(BASE_URL, key, "tv")
   end
 
   def self.summary
