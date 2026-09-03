@@ -616,7 +616,15 @@ end
 
 # Add Jellyfin as a notification target so on-import/upgrade/rename
 # events fire a library refresh.
-def arr_connect_to_jellyfin(base_url, api_key, jellyfin_api_key)
+#
+# The arr and Jellyfin bind-mount the same library at different
+# in-container paths (Sonarr sees /shows, Jellyfin sees /media/shows).
+# Sonarr/Radarr send Jellyfin the imported series/movie folder path,
+# and Jellyfin responds 204 but silently drops any path outside its
+# libraries — so without the translation below every import notice is
+# a no-op and new episodes sit invisible until someone forces a scan.
+def arr_connect_to_jellyfin(base_url, api_key, jellyfin_api_key,
+                            arr_library_dir:, jellyfin_library_dir:)
   payload = {
     "name" => "Jellyfin", "onGrab" => false, "onDownload" => true,
     "onUpgrade" => true, "onRename" => true,
@@ -628,6 +636,8 @@ def arr_connect_to_jellyfin(base_url, api_key, jellyfin_api_key)
       { "name" => "useSsl", "value" => false },
       { "name" => "apiKey", "value" => jellyfin_api_key },
       { "name" => "updateLibrary", "value" => true },
+      { "name" => "mapFrom", "value" => arr_library_dir },
+      { "name" => "mapTo", "value" => jellyfin_library_dir },
     ],
     "tags" => [],
   }

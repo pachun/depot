@@ -13,6 +13,7 @@ module Radarr
   # block the container's 0.0.0.0:PORT wildcard bind.
   TAILSCALE_PORT = 7879
   BASE_URL       = "http://localhost:7878"
+  CONTAINER_LIBRARY_DIR = "/movies"
 
   def self.install_prompt
     {}
@@ -39,11 +40,9 @@ module Radarr
     return if key.nil?
 
     arr_opinionate_downloads(BASE_URL, key)
-    arr_set_library_directory(BASE_URL, key, "/movies")
+    arr_set_library_directory(BASE_URL, key, CONTAINER_LIBRARY_DIR)
     arr_connect_to_qbit(BASE_URL, key, "movies")
-
-    jf_key = Jellyfin.api_key_for("sonarr")  # Jellyfin's per-app key, named 'sonarr' but shared
-    arr_connect_to_jellyfin(BASE_URL, key, jf_key) if jf_key
+    connect_to_jellyfin(key)
   end
 
   def self.update
@@ -66,6 +65,7 @@ module Radarr
     return if key.nil?
 
     arr_connect_to_qbit(BASE_URL, key, "movies")
+    connect_to_jellyfin(key)
   end
 
   def self.summary
@@ -75,5 +75,17 @@ module Radarr
 
   def self.api_key
     arr_read_api_key(CONFIG_XML)
+  end
+
+  # Jellyfin's per-app key is named 'sonarr' but shared with Radarr.
+  # Re-asserted on every update so path-mapping fixes reach existing
+  # installs with a plain `depot update radarr`.
+  def self.connect_to_jellyfin(key)
+    jf_key = Jellyfin.api_key_for("sonarr")
+    return if jf_key.nil?
+
+    arr_connect_to_jellyfin(BASE_URL, key, jf_key,
+                            arr_library_dir: CONTAINER_LIBRARY_DIR,
+                            jellyfin_library_dir: Jellyfin::CONTAINER_MOVIES_DIR)
   end
 end

@@ -24,6 +24,8 @@ module Jellyfin
   CONFIG_DIR        = File.join(Dir.home, "hdds/.config/jellyfin")
   MOVIES_DIR        = File.join(Dir.home, "hdds/media/movies")
   SHOWS_DIR         = File.join(Dir.home, "hdds/media/shows")
+  CONTAINER_MOVIES_DIR = "/media/movies"
+  CONTAINER_SHOWS_DIR  = "/media/shows"
   LOCAL_PORT        = 8096
   TAILSCALE_PORT    = 8443
   INTRO_VERSION     = "1.10.11.21"
@@ -91,9 +93,9 @@ module Jellyfin
     token = login(prompts[:admin_username], prompts[:admin_password])
     if token
       puts "  upserting Movies library"
-      upsert_library(token, "Movies", "movies", "/media/movies")
+      upsert_library(token, "Movies", "movies", CONTAINER_MOVIES_DIR)
       puts "  upserting Shows library"
-      upsert_library(token, "Shows", "tvshows", "/media/shows")
+      upsert_library(token, "Shows", "tvshows", CONTAINER_SHOWS_DIR)
       puts "  upserting aviary + sonarr API keys"
       upsert_api_key(token, "aviary")
       upsert_api_key(token, "sonarr")

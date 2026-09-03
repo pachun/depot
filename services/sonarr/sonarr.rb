@@ -23,6 +23,7 @@ module Sonarr
   # to start. Convention: LOCAL_PORT + 1 (same pattern as sabnzbd).
   TAILSCALE_PORT = 8990
   BASE_URL       = "http://localhost:8989"
+  CONTAINER_LIBRARY_DIR = "/shows"
 
   def self.install_prompt
     {}
@@ -49,11 +50,9 @@ module Sonarr
     return if key.nil?
 
     arr_opinionate_downloads(BASE_URL, key)
-    arr_set_library_directory(BASE_URL, key, "/shows")
+    arr_set_library_directory(BASE_URL, key, CONTAINER_LIBRARY_DIR)
     arr_connect_to_qbit(BASE_URL, key, "tv")
-
-    jf_key = Jellyfin.api_key_for("sonarr")
-    arr_connect_to_jellyfin(BASE_URL, key, jf_key) if jf_key
+    connect_to_jellyfin(key)
   end
 
   def self.update
@@ -74,6 +73,7 @@ module Sonarr
     return if key.nil?
 
     arr_connect_to_qbit(BASE_URL, key, "tv")
+    connect_to_jellyfin(key)
   end
 
   def self.summary
@@ -83,5 +83,16 @@ module Sonarr
 
   def self.api_key
     arr_read_api_key(CONFIG_XML)
+  end
+
+  # Re-asserted on every update so path-mapping fixes reach existing
+  # installs with a plain `depot update sonarr`.
+  def self.connect_to_jellyfin(key)
+    jf_key = Jellyfin.api_key_for("sonarr")
+    return if jf_key.nil?
+
+    arr_connect_to_jellyfin(BASE_URL, key, jf_key,
+                            arr_library_dir: CONTAINER_LIBRARY_DIR,
+                            jellyfin_library_dir: Jellyfin::CONTAINER_SHOWS_DIR)
   end
 end
