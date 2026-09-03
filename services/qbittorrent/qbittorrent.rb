@@ -62,6 +62,7 @@ module QBittorrent
     seed_webui_auth(prompts[:admin_username], prompts[:admin_password])
     seed_storage_paths
     seed_categories
+    seed_everything_at_once
 
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
@@ -80,6 +81,7 @@ module QBittorrent
     seed_webui_access
     seed_storage_paths
     seed_categories
+    seed_everything_at_once
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("qbittorrent", env: {
       "PUID" => Process.uid,
@@ -144,6 +146,7 @@ module QBittorrent
       "temp_path_enabled"                    => true,
       "temp_path"                            => "/torrents",
       "save_path"                            => "/seeding",
+      "queueing_enabled"                     => false,
     }
     http(:post, "#{BASE_URL}/api/v2/app/setPreferences",
          body: "json=#{URI.encode_www_form_component(JSON.generate(prefs))}",
@@ -238,6 +241,18 @@ module QBittorrent
       "Downloads\\SavePath" => SEEDING_MOUNT,
       "Downloads\\TempPath" => INCOMPLETE_MOUNT)
     puts "  seeded storage paths into #{CONFIG_FILE}"
+  end
+
+  # qBittorrent's torrent queueing ships on with a cap of 3 active
+  # uploads, and a torrent with no peers still counts as active. On a
+  # box whose whole job is to seed back to a private tracker, that
+  # leaves every torrent past the first three parked in "queued for
+  # upload" indefinitely and racks up hit-and-runs until the tracker
+  # blocks downloads. Turn queueing off so every torrent seeds.
+  def self.seed_everything_at_once
+    merge_section(CONFIG_FILE, "BitTorrent",
+      "Session\\QueueingSystemEnabled" => "false")
+    puts "  seeded queueing off into #{CONFIG_FILE}"
   end
 
   # Radarr and Sonarr tag every grab with a category; qBittorrent decides
