@@ -30,6 +30,7 @@ module QBittorrent
   CONFIG_FILE       = File.join(CONFIG_DIR, "qBittorrent/qBittorrent.conf")
   CATEGORIES_FILE   = File.join(CONFIG_DIR, "qBittorrent/categories.json")
   SEEDING_DIR       = File.join(Dir.home, "hdds/seeding")
+  CATEGORY_DIRS     = ["tv", "movies"].map { |category| File.join(SEEDING_DIR, category) }
   DOWNLOADING_DIR   = File.join(Dir.home, "downloading/torrents")
   # The same two directories as qBittorrent sees them. The compose file
   # mounts each host path at its own last segment, so these are just the
@@ -51,6 +52,7 @@ module QBittorrent
 
   def self.install(prompts)
     FileUtils.mkdir_p([CONFIG_DIR, SEEDING_DIR, DOWNLOADING_DIR, File.dirname(CONFIG_FILE)])
+    FileUtils.mkdir_p(CATEGORY_DIRS)
 
     stop_without_flush
 
@@ -77,6 +79,7 @@ module QBittorrent
   end
 
   def self.update
+    FileUtils.mkdir_p(CATEGORY_DIRS)
     stop_without_flush
     seed_webui_access
     seed_storage_paths
