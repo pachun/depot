@@ -99,9 +99,21 @@ module Bazarr
 
     save_settings(connection_settings + subtitle_policy_settings +
                   provider_settings(prompts) + jellyfin_settings)
-    save_settings(language_profile_settings)
+    save_settings(language_profile_settings) unless english_profile_exists?
 
     sync_libraries_and_search_for_missing_subtitles
+  end
+
+  # Saving profiles makes Bazarr re-evaluate every episode and movie
+  # against them, which takes longer than an HTTP call should, so the
+  # profile is only written when it isn't there yet.
+  def self.english_profile_exists?
+    profiles = http_get_json("#{BASE_URL}/api/system/languages/profiles",
+                             headers: { "X-API-KEY" => api_key }) || []
+    profiles.any? do |profile|
+      profile["profileId"] == ENGLISH_PROFILE_ID &&
+        (profile["items"] || []).map { |item| item["language"] } == ["en"]
+    end
   end
 
   def self.wait_for_api
