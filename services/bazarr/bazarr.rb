@@ -161,6 +161,20 @@ module Bazarr
       ["settings-general-upgrade_subs", "true"],
       ["settings-general-minimum_score", MINIMUM_SERIES_SCORE.to_s],
       ["settings-general-minimum_score_movie", MINIMUM_MOVIE_SCORE.to_s],
+    ] + subtitle_sync_settings
+  end
+
+  # A subtitle ripped from one cut of a title (WEB) lands seconds off
+  # on another (Blu-ray). After every download Bazarr re-times the
+  # file against the video's audio track. Golden-section search
+  # handles the large constant offsets that different cuts produce.
+  def self.subtitle_sync_settings
+    [
+      ["settings-subsync-use_subsync", "true"],
+      ["settings-subsync-use_subsync_threshold", "false"],
+      ["settings-subsync-use_subsync_movie_threshold", "false"],
+      ["settings-subsync-gss", "true"],
+      ["settings-subsync-max_offset_seconds", "60"],
     ]
   end
 
