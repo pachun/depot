@@ -32,6 +32,17 @@ module Bazarr
 
   ENGLISH_PROFILE_ID = 1
 
+  # Bazarr scores a candidate subtitle by how many release attributes
+  # it shares with the video (series, season, episode, source, release
+  # group, codecs...). Its default floor of 90% rejects nearly every
+  # subtitle whose release group or source differs from the video's,
+  # which is exactly the case for a Blu-ray rip that needs a text
+  # track ripped from the WEB release. Series/episode/year matching
+  # alone scores in the mid 80s, so 80 admits those while still
+  # refusing subtitles for the wrong episode.
+  MINIMUM_SERIES_SCORE = 80
+  MINIMUM_MOVIE_SCORE  = 65
+
   def self.install_prompt
     puts
     puts <<~TEXT
@@ -136,6 +147,8 @@ module Bazarr
       ["settings-general-movie_default_enabled", "true"],
       ["settings-general-movie_default_profile", ENGLISH_PROFILE_ID.to_s],
       ["settings-general-upgrade_subs", "true"],
+      ["settings-general-minimum_score", MINIMUM_SERIES_SCORE.to_s],
+      ["settings-general-minimum_score_movie", MINIMUM_MOVIE_SCORE.to_s],
     ]
   end
 
@@ -221,13 +234,18 @@ module Bazarr
     ]
   end
 
-  def self.save_settings(pairs)
+  # Bazarr answers slowly while a subtitle search is running, so a
+  # dropped or timed-out save gets one retry before it's reported.
+  def self.save_settings(pairs, attempts_left: 2)
     resp = http(:post, "#{BASE_URL}/api/system/settings",
                 body: URI.encode_www_form(pairs),
                 headers: { "X-API-KEY" => api_key,
                            "Content-Type" => "application/x-www-form-urlencoded" })
     return if resp && resp.code.to_i.between?(200, 299)
-    puts "  WARN: Bazarr settings save returned HTTP #{resp&.code} — #{resp&.body.to_s[0, 200]}"
+    return save_settings(pairs, attempts_left: attempts_left - 1) if resp.nil? && attempts_left > 1
+
+    outcome = resp ? "HTTP #{resp.code} — #{resp.body.to_s[0, 200]}" : "no response"
+    puts "  WARN: Bazarr settings save failed: #{outcome}"
   end
 
   # Series and movies sync from the arrs on Bazarr's own hourly timer;
