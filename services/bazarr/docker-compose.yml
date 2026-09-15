@@ -1,0 +1,23 @@
+services:
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 6767:6767
+    # Reaches Sonarr (8989), Radarr (7878) and Jellyfin (8096) on the
+    # host by name. Same pattern as sonarr/radarr.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${DEPOT_USER_HOME}/hdds/.config/bazarr:/config
+      # The libraries at the same in-container paths Sonarr and Radarr
+      # use (/shows, /movies), so the file paths Bazarr learns from
+      # their APIs resolve without any path mapping. Subtitles are
+      # written next to the video as <video>.en.srt.
+      - ${DEPOT_USER_HOME}/hdds/media/shows:/shows
+      - ${DEPOT_USER_HOME}/hdds/media/movies:/movies
+    restart: unless-stopped

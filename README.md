@@ -21,6 +21,7 @@ You'll also need some accounts:
 - [Frugal Usenet](https://www.frugalusenet.com) (paid ~$60/yr)
 - [NZBGeek](https://nzbgeek.info) (paid ~$15/yr)
 - [IPTorrents](https://iptorrents.com) (invite only)
+- [OpenSubtitles.com](https://www.opensubtitles.com) (free, optional — improves the hit rate when filling in missing English subtitles)
 
 [Email me](mailto:nick@pachulski.me) if you want an IPTorrents invite.
 

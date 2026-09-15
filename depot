@@ -51,6 +51,8 @@ SERVICES = [
   QBittorrent,
   Sonarr,
   Radarr,
+  # Bazarr after Sonarr/Radarr/Jellyfin: it needs all three API keys.
+  Bazarr,
   Prowlarr,
   Sabnzbd,
   Jellyseerr,
