@@ -27,7 +27,7 @@ module Bazarr
   # Providers that need no account. OpenSubtitles.com is the best
   # English source but needs a (free) login, so it's added only when
   # the install prompt got credentials.
-  ACCOUNT_FREE_PROVIDERS = %w[podnapisi gestdown tvsubtitles yifysubtitles].freeze
+  ACCOUNT_FREE_PROVIDERS = %w[gestdown tvsubtitles yifysubtitles].freeze
   OPENSUBTITLES_PROVIDER = "opensubtitlescom"
 
   ENGLISH_PROFILE_ID = 1
