@@ -6,7 +6,8 @@
 #
 # First-run install: bring container up, create admin user, set root
 # folder to /tv, apply the opinionated release-policy custom formats
-# (no HEVC/x265, no 2160p, no cam-rips, no banned groups), wire
+# (no HEVC/x265, no 2160p, no cam-rips, no banned groups, WEB over
+# Blu-ray so releases carry text subtitles), wire
 # qBittorrent as download client, wire Jellyfin as notification
 # target. Update: just docker-compose up -d.
 

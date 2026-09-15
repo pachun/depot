@@ -755,10 +755,66 @@ ARR_FORMAT_NOT_ENGLISH = {
   }],
 }.freeze
 
+# Rank the WEB release of each resolution above its Blu-ray and HDTV
+# peers. Streaming-service WEB-DLs carry English text subtitles nearly
+# every time; Blu-ray sources carry bitmap (PGS) tracks the players
+# can't render as text, and scene Blu-ray encodes often strip
+# subtitles entirely. The arrs decide on quality rank before custom
+# format score, so the preference has to live in the quality list.
+ARR_RESOLUTION = /\b(480p|576p|720p|1080p|2160p)\b/
+ARR_BLURAY_SOURCED = /Bluray|Remux|BR-DISK/i
+ARR_WEB_GROUP = /\bWEB\b/
+
+# Profile entries are either one quality ({"quality" => {...}}) or a
+# named group of them ({"name", "id", "items" => [...]}). A plain
+# quality also carries an empty "items", so "quality" is the tell.
+def arr_quality_group?(item)
+  item["quality"].nil?
+end
+
+def arr_quality_name(item)
+  arr_quality_group?(item) ? item["name"].to_s : item.dig("quality", "name").to_s
+end
+
+def arr_quality_id(item)
+  arr_quality_group?(item) ? item["id"] : item.dig("quality", "id")
+end
+
+def arr_rank_web_above_bluray(items)
+  web_groups = items.select { |i| arr_quality_group?(i) && i["name"] =~ ARR_WEB_GROUP }
+  web_groups.reduce(items) do |ordered, group|
+    resolution = group["name"][ARR_RESOLUTION, 1]
+    next ordered if resolution.nil?
+
+    highest_peer = ordered.rindex { |i| !i.equal?(group) && arr_quality_name(i).include?(resolution) }
+    next ordered if highest_peer.nil? || highest_peer < ordered.index(group)
+
+    without_group = ordered.reject { |i| i.equal?(group) }
+    above_peers = without_group.index(ordered[highest_peer]) + 1
+    without_group.dup.insert(above_peers, group)
+  end
+end
+
+# A cutoff that names a Blu-ray quality would make the arr upgrade a
+# subtitled WEB-DL to an unsubtitled Blu-ray; point it at the WEB
+# group of the same resolution instead. Any other cutoff is left alone.
+def arr_cutoff_never_demands_bluray(cutoff, ordered_items)
+  cutoff_item = ordered_items.find { |i| arr_quality_id(i) == cutoff }
+  cutoff_name = cutoff_item ? arr_quality_name(cutoff_item) : ""
+  return cutoff unless cutoff_name =~ ARR_BLURAY_SOURCED
+
+  resolution = cutoff_name[ARR_RESOLUTION, 1].to_s
+  web_group = ordered_items.find do |i|
+    arr_quality_group?(i) && i["allowed"] && i["name"] =~ ARR_WEB_GROUP && i["name"].include?(resolution)
+  end
+  web_group ? web_group["id"] : cutoff
+end
+
 # Upsert all banned-format custom formats into the arr, then apply a
 # policy to every quality profile: language=English, upgrades on,
-# banned formats scored at -10000 (disqualifies at search time, shows
-# up in Cutoff Unmet for upgrade). Idempotent.
+# WEB releases ranked above Blu-ray at every resolution, banned
+# formats scored at -10000 (disqualifies at search time, shows up in
+# Cutoff Unmet for upgrade). Idempotent.
 def arr_opinionate_downloads(base_url, api_key)
   return unless arr_wait_for_api(base_url, "v3", api_key)
 
@@ -791,7 +847,10 @@ def arr_opinionate_downloads(base_url, api_key)
     cfs.select { |cf| banned_ids.include?(cf["id"]) && !existing_ids.include?(cf["id"]) }
       .each { |cf| items << { "format" => cf["id"], "name" => cf["name"], "score" => -10000 } }
 
+    ordered_items = arr_rank_web_above_bluray(profile["items"] || [])
     updated = profile.merge(
+      "items"             => ordered_items,
+      "cutoff"            => arr_cutoff_never_demands_bluray(profile["cutoff"], ordered_items),
       "language"          => { "id" => 1, "name" => "English" },
       "upgradeAllowed"    => true,
       "minFormatScore"    => 0,
