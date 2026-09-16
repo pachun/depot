@@ -20,9 +20,9 @@ services:
       # written next to the video as <video>.en.srt.
       - ${DEPOT_USER_HOME}/hdds/media/shows:/shows
       - ${DEPOT_USER_HOME}/hdds/media/movies:/movies
-      # alass re-times each downloaded subtitle against the video's
-      # audio, splitting it where the two cuts differ. Bazarr's built-in
-      # sync can only shift and stretch. Bazarr.install fetches the
-      # static binary into the config dir.
+      # sync-subtitle.sh (in /config) re-times each downloaded subtitle
+      # with alass, splitting it where the two cuts differ. Bazarr's
+      # built-in sync can only shift and stretch. Bazarr.install fetches
+      # the static binary into the config dir.
       - ${DEPOT_USER_HOME}/hdds/.config/bazarr/alass:/usr/local/bin/alass:ro
     restart: unless-stopped
