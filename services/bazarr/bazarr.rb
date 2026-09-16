@@ -32,6 +32,9 @@ module Bazarr
 
   ENGLISH_PROFILE_ID = 1
 
+  ALASS_BINARY = File.join(CONFIG_DIR, "alass")
+  ALASS_URL    = "https://github.com/kaegi/alass/releases/download/v2.0.0/alass-linux64"
+
   # Bazarr scores a candidate subtitle by how many release attributes
   # it shares with the video (series, season, episode, source, release
   # group, codecs...). Its default floor of 90% rejects nearly every
@@ -80,6 +83,7 @@ module Bazarr
   end
 
   def self.bring_up
+    fetch_alass
     cleanup_stale_container("bazarr")
     free_tailscale_port(LOCAL_PORT, TAILSCALE_PORT)
     compose_up!("bazarr", env: {
@@ -88,6 +92,13 @@ module Bazarr
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
+  end
+
+  def self.fetch_alass
+    return if File.executable?(ALASS_BINARY)
+    FileUtils.mkdir_p(CONFIG_DIR)
+    sh!("curl -sfL -o #{ALASS_BINARY} #{ALASS_URL}")
+    File.chmod(0o755, ALASS_BINARY)
   end
 
   # Idempotent. Every setting is re-asserted so a plain
@@ -165,18 +176,27 @@ module Bazarr
   end
 
   # A subtitle ripped from one cut of a title (WEB) lands seconds off
-  # on another (Blu-ray). After every download Bazarr re-times the
-  # file against the video's audio track. Golden-section search
-  # handles the large constant offsets that different cuts produce.
+  # on another (Blu-ray), and the two cuts usually differ in more than
+  # one place, so the drift changes through the episode. After every
+  # download, alass re-times the file against the video's audio and
+  # splits it wherever the cuts diverge. Bazarr's built-in sync
+  # (ffsubsync) can only apply one shift and stretch, so it stays off.
   def self.subtitle_sync_settings
     [
-      ["settings-subsync-use_subsync", "true"],
-      ["settings-subsync-use_subsync_threshold", "false"],
-      ["settings-subsync-use_subsync_movie_threshold", "false"],
-      ["settings-subsync-gss", "true"],
-      ["settings-subsync-max_offset_seconds", "60"],
+      ["settings-subsync-use_subsync", "false"],
+      ["settings-general-use_postprocessing", "true"],
+      ["settings-general-use_postprocessing_threshold", "false"],
+      ["settings-general-use_postprocessing_threshold_movie", "false"],
+      ["settings-general-postprocessing_cmd", ALASS_POSTPROCESSING_COMMAND],
     ]
   end
+
+  # Runs inside the container after each download; Bazarr substitutes
+  # the video and subtitle paths. alass writes a fresh file (it wants
+  # the output to end in .srt like the input), which replaces the
+  # original only when alignment succeeded.
+  ALASS_POSTPROCESSING_COMMAND =
+    %q(alass "{{episode}}" "{{subtitles}}" "{{subtitles}}.alass.srt" && mv "{{subtitles}}.alass.srt" "{{subtitles}}")
 
   def self.provider_settings(prompts)
     username = prompts[:opensubtitles_username] || saved_opensubtitles_username
