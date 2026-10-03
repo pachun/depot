@@ -39,6 +39,12 @@ services:
       # tunnel. Port forwarding then dies with `i/o timeout` on
       # 10.2.0.1:5351 after 9 retries.
       - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12,100.64.0.0/10
+      # HTTP proxy on the VPN side (port 8888), reachable only from
+      # containers on this compose network. Aviary routes its NHL
+      # schedule scrape through it so the stream site sees ProtonVPN's
+      # address instead of the household's, which that site's
+      # anti-bot layer banned once already. Not published to the host.
+      - HTTPPROXY=on
     # Published here because qBittorrent shares this netns. A netns
     # has exactly one set of port bindings and gluetun owns them.
     ports:

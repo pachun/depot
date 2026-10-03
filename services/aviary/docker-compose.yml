@@ -88,6 +88,10 @@ services:
       # the window cancels. Unset → aviary defaults to 24h. See
       # Aviary.Deletions for the lifecycle.
       - DELETION_GRACE_PERIOD_HOURS=${DELETION_GRACE_PERIOD_HOURS}
+      # Gluetun's HTTP proxy, reached over gluetun's compose network
+      # (joined below). Only aviary's NHL schedule scrape uses it; see
+      # the HTTPPROXY note in gluetun's compose file.
+      - NHL_PROXY_URL=${NHL_PROXY_URL}
     volumes:
       # Persist aviary's SQLite DB on the host so it survives
       # `docker-compose up --build` (which is what configure.sh
@@ -102,4 +106,15 @@ services:
     # plumbing when those API calls start landing.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - gluetun
     restart: unless-stopped
+
+networks:
+  # Gluetun's compose network, created by services/gluetun. Joining it
+  # is what lets aviary resolve `gluetun` and reach its proxy port
+  # without that port being published on the host.
+  gluetun:
+    name: gluetun_default
+    external: true

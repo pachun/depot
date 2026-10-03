@@ -225,6 +225,7 @@ module Aviary
       "SONARR_WEBHOOK_SECRET" => sonarr_webhook_secret,
       "RADARR_URL"            => "http://host.docker.internal:7878",
       "RADARR_API_KEY"        => radarr_api_key,
+      "NHL_PROXY_URL"         => "http://gluetun:8888",
       "AVIARY_DATA_DIR"       => AVIARY_DATA_DIR,
       "HOST_UID"              => Process.uid,
       "HOST_GID"              => Process.gid,
