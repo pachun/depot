@@ -169,6 +169,16 @@ def sudo!(cmd)
   sh!("sudo #{cmd}")
 end
 
+# Put a file where only root can write, either copying `from` a path
+# or writing `content` out first.
+def install_root_file(destination, from: nil, content: nil, mode: "0644")
+  source = from || "/tmp/#{File.basename(destination)}.#{Process.pid}"
+  File.write(source, content) if content
+  sudo!("install -m #{mode} #{source} #{destination}")
+ensure
+  File.delete(source) if content && File.exist?(source)
+end
+
 # Run a command, capture stdout/stderr, return [stdout, status]. Used
 # when we need to look at the output before deciding what to do (e.g.
 # `sudo docker inspect` to check container state).

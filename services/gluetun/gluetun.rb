@@ -9,9 +9,40 @@
 # below into the gluetun bind-mount; called by gluetun via
 # VPN_PORT_FORWARDING_UP_COMMAND) pushes the new port into
 # qBittorrent's listening-port setting.
+#
+# Sharing the namespace has one trap: a gluetun restart leaves
+# qBittorrent stranded in the old namespace, unreachable but "healthy".
+# A systemd timer runs restart-qbittorrent-after-gluetun.sh every
+# minute to restart qBittorrent whenever gluetun has started after it.
 
 module Gluetun
   CONFIG_DIR = File.join(Dir.home, "hdds/.config/gluetun")
+  QBIT_RESTART_UNIT   = "restart-qbittorrent-after-gluetun"
+  QBIT_RESTART_SCRIPT = "/usr/local/lib/depot/#{QBIT_RESTART_UNIT}.sh"
+  SYSTEMD_UNIT_DIR    = "/etc/systemd/system"
+
+  QBIT_RESTART_SERVICE = <<~UNIT
+    [Unit]
+    Description=Restart qBittorrent when gluetun has restarted
+    After=docker.service
+    Requires=docker.service
+
+    [Service]
+    Type=oneshot
+    ExecStart=#{QBIT_RESTART_SCRIPT}
+  UNIT
+
+  QBIT_RESTART_TIMER = <<~UNIT
+    [Unit]
+    Description=Check every minute whether qBittorrent must rejoin gluetun's namespace
+
+    [Timer]
+    OnBootSec=2min
+    OnUnitActiveSec=1min
+
+    [Install]
+    WantedBy=timers.target
+  UNIT
 
   # POSIX sh (runs inside gluetun's BusyBox alpine container, NOT on
   # the host — no bashisms, no GNU-only flags). Auth: qBit's LSIO
@@ -101,6 +132,7 @@ module Gluetun
       "WIREGUARD_PRIVATE_KEY" => prompts[:wireguard_config][:private_key],
       "WIREGUARD_ADDRESSES"   => prompts[:wireguard_config][:addresses],
     })
+    keep_qbittorrent_in_gluetuns_namespace
   end
 
   def self.update
@@ -111,6 +143,18 @@ module Gluetun
       "WIREGUARD_PRIVATE_KEY" => wg["WIREGUARD_PRIVATE_KEY"].to_s,
       "WIREGUARD_ADDRESSES"   => wg["WIREGUARD_ADDRESSES"].to_s,
     })
+    keep_qbittorrent_in_gluetuns_namespace
+  end
+
+  def self.keep_qbittorrent_in_gluetuns_namespace
+    sudo!("mkdir -p #{File.dirname(QBIT_RESTART_SCRIPT)}")
+    install_root_file(QBIT_RESTART_SCRIPT,
+      from: File.join(__dir__, "restart-qbittorrent-after-gluetun.sh"), mode: "0755")
+    install_root_file("#{SYSTEMD_UNIT_DIR}/#{QBIT_RESTART_UNIT}.service", content: QBIT_RESTART_SERVICE)
+    install_root_file("#{SYSTEMD_UNIT_DIR}/#{QBIT_RESTART_UNIT}.timer", content: QBIT_RESTART_TIMER)
+    sudo!("systemctl daemon-reload")
+    sudo!("systemctl enable --now #{QBIT_RESTART_UNIT}.timer")
+    sudo!("systemctl start #{QBIT_RESTART_UNIT}.service")
   end
 
   def self.summary
