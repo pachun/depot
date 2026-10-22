@@ -78,6 +78,7 @@ module Sabnzbd
     end
 
     push_creds_via_api(sab_key, prompts[:usenet_username], prompts[:usenet_password])
+    fail_incomplete_posts_before_downloading(sab_key)
 
     # mode=restart applies config changes in place (sidesteps docker
     # cycle's port-already-bound dance).
@@ -98,6 +99,11 @@ module Sabnzbd
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
+
+    sab_key = api_key_from_ini
+    return if sab_key.nil?
+    return unless wait_for_http("#{BASE_URL}/api?mode=version&apikey=#{sab_key}&output=json", timeout: 60)
+    fail_incomplete_posts_before_downloading(sab_key)
   end
 
   def self.summary
@@ -125,6 +131,7 @@ module Sabnzbd
         host_whitelist = #{whitelist}
         api_logging = 0
         inet_exposure = 4
+        pre_check = 1
 
         [categories]
         [[tv]]
@@ -188,6 +195,20 @@ module Sabnzbd
       return $1
     end
     nil
+  end
+
+  # Post-processing runs one job at a time, and a post with too many
+  # articles missing costs it half a minute of par2 verification before
+  # SABnzbd gives up and Sonarr grabs another release. With a dozen
+  # such posts in a row, the episode someone is waiting to watch sat
+  # behind them for four minutes. Checking article availability before
+  # downloading fails those posts in seconds, before they reach the
+  # line.
+  def self.fail_incomplete_posts_before_downloading(sab_key)
+    body = URI.encode_www_form(section: "misc", keyword: "pre_check", value: 1, apikey: sab_key)
+    http(:post, "#{BASE_URL}/api?mode=set_config",
+         body: body,
+         headers: { "Content-Type" => "application/x-www-form-urlencoded" })
   end
 
   # Push Frugal creds via SABnzbd's API rather than into the INI

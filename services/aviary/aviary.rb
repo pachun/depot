@@ -164,6 +164,7 @@ module Aviary
     jellyseerr_api_key    = Jellyseerr.api_key.to_s
     sonarr_api_key        = Sonarr.api_key.to_s
     radarr_api_key        = Radarr.api_key.to_s
+    sabnzbd_api_key       = Sabnzbd.api_key_from_ini.to_s
 
     # Re-write .env from scratch every run (no stale-cache leak —
     # earlier versions cached and once cached, a wiped Jellyfin
@@ -223,6 +224,8 @@ module Aviary
       "SONARR_URL"            => "http://host.docker.internal:8989",
       "SONARR_API_KEY"        => sonarr_api_key,
       "SONARR_WEBHOOK_SECRET" => sonarr_webhook_secret,
+      "SABNZBD_URL"           => "http://host.docker.internal:#{Sabnzbd::LOCAL_PORT}",
+      "SABNZBD_API_KEY"       => sabnzbd_api_key,
       "RADARR_URL"            => "http://host.docker.internal:7878",
       "RADARR_API_KEY"        => radarr_api_key,
       "AVIARY_DATA_DIR"       => AVIARY_DATA_DIR,
@@ -275,9 +278,11 @@ module Aviary
   # Register an Aviary-receiving notification in Sonarr so events fire to
   # /api/sonarr/webhook with the shared secret. Aviary uses
   # OnHealthRestored + OnApplicationUpdate to re-fire EpisodeSearch for
-  # grabs that failed during an unhealthy window, and
+  # grabs that failed during an unhealthy window,
   # OnManualInteractionRequired to auto-clear downloads Sonarr blocks
-  # from importing (parse-by-id matches whose files are actually clean).
+  # from importing (parse-by-id matches whose files are actually clean),
+  # and OnDownload + OnUpgrade (Sonarr's names for an import) to get
+  # Jellyfin listing the new file within seconds.
   def self.register_sonarr_webhook
     sonarr_key = Sonarr.api_key
     return if sonarr_key.nil?
@@ -293,7 +298,7 @@ module Aviary
         { "name" => "password", "value" => "" },
         { "name" => "headers", "value" => [{ "key" => "x-aviary-secret", "value" => secret }] },
       ],
-      "onGrab" => false, "onDownload" => false, "onUpgrade" => false,
+      "onGrab" => false, "onDownload" => true, "onUpgrade" => true,
       "onRename" => false, "onSeriesAdd" => false, "onSeriesDelete" => false,
       "onEpisodeFileDelete" => false, "onEpisodeFileDeleteForUpgrade" => false,
       "onHealthIssue" => false, "onHealthRestored" => true,

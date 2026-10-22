@@ -57,6 +57,10 @@ services:
       # this at $SECRET_DIR/sonarr_webhook_secret, and also registers
       # the matching Sonarr notification pointing at this aviary.
       - SONARR_WEBHOOK_SECRET=${SONARR_WEBHOOK_SECRET}
+      # SABnzbd — the Usenet client Sonarr hands grabs to. Aviary moves
+      # the episode someone is waiting on to the front of its queue.
+      - SABNZBD_URL=${SABNZBD_URL}
+      - SABNZBD_API_KEY=${SABNZBD_API_KEY}
       # Radarr — Sonarr's movie sibling. Powers the Watch button +
       # progress chip on the movie detail page when a movie isn't in
       # the library yet.

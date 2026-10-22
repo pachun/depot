@@ -106,6 +106,7 @@ module Jellyfin
     install_intro_skipper_plugin
     enable_qsv_transcoding
     ensure_remote_streaming_caps
+    notice_new_files_within_seconds
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -119,6 +120,7 @@ module Jellyfin
     })
     return unless wait_for_jellyfin_api
     ensure_remote_streaming_caps
+    notice_new_files_within_seconds
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -424,5 +426,25 @@ module Jellyfin
       sh!("sudo docker restart jellyfin >/dev/null")
       wait_for_jellyfin_api
     end
+  end
+
+  # Jellyfin waits for a folder to go quiet before it reads a file
+  # that just changed, and ships waiting a full minute. Sonarr only
+  # tells Jellyfin about an episode once the file is completely in
+  # place, so a few seconds is all the quiet it needs, and the episode
+  # shows up that much sooner.
+  NEW_FILE_SETTLE_SECONDS = 5
+
+  def self.notice_new_files_within_seconds
+    key = api_key_for("aviary")
+    return if key.nil?
+
+    headers = { "X-Emby-Token" => key }
+    system_config = http_get_json("#{BASE_URL}/System/Configuration", headers: headers)
+    return if system_config.nil? || system_config["LibraryMonitorDelay"] == NEW_FILE_SETTLE_SECONDS
+
+    patched = system_config.merge("LibraryMonitorDelay" => NEW_FILE_SETTLE_SECONDS)
+    http(:post, "#{BASE_URL}/System/Configuration", body: patched, headers: headers)
+    puts "  Jellyfin now reads a new file #{NEW_FILE_SETTLE_SECONDS}s after it lands"
   end
 end
