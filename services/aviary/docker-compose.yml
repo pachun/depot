@@ -106,12 +106,35 @@ services:
     # plumbing when those API calls start landing.
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Aviary resolves the outside world through public resolvers rather
-    # than the household router. Every player fetches live NHL video
-    # through aviary, so this is the one place the stream host's name
-    # has to resolve, and a router's content filter (eero's sinkholed
-    # the host on 2026-10-22) no longer decides whether games play.
+    # Aviary resolves the outside world through the resolver below
+    # rather than the household router. Every player fetches live NHL
+    # video through aviary, so this is the one place the stream host's
+    # name has to resolve, and a router's content filter (eero's
+    # sinkholed the host on 2026-10-22) no longer decides whether games
+    # play.
     dns:
-      - 1.1.1.1
-      - 1.0.0.1
+      - &resolver_address 172.24.0.53
+    depends_on:
+      - dns
     restart: unless-stopped
+
+  # The household router answers every plain DNS query itself, whoever
+  # it was addressed to, so a public resolver has to be reached over
+  # TLS. CoreDNS forwards to Cloudflare on port 853 (see Corefile) and
+  # sits at a fixed address because Docker's `dns` option takes an IP.
+  dns:
+    image: coredns/coredns:1.12.1
+    container_name: aviary-dns
+    command: -conf /Corefile
+    volumes:
+      - ./Corefile:/Corefile:ro
+    networks:
+      default:
+        ipv4_address: *resolver_address
+    restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.24.0.0/16
