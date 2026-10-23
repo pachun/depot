@@ -106,4 +106,12 @@ services:
     # plumbing when those API calls start landing.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Aviary resolves the outside world through public resolvers rather
+    # than the household router. Every player fetches live NHL video
+    # through aviary, so this is the one place the stream host's name
+    # has to resolve, and a router's content filter (eero's sinkholed
+    # the host on 2026-10-22) no longer decides whether games play.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     restart: unless-stopped
