@@ -135,6 +135,36 @@ depot install
 - `depot update` — update all depot services
 - `depot update <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
 
+For Aviary development, make and test changes locally, commit and push Aviary
+and any Depot configuration changes, then pull the committed changes on the NAS
+and rebuild with the checked-in Compose configuration (or run
+`depot update aviary`). Verify the NAS checkout matches the pushed commit and
+is clean. Do not deploy copied, uncommitted source files or container-only fixes.
+
+## Daily Wire
+
+Aviary and Perch can browse The Ben Shapiro Show and The Sunday Special,
+including member episodes, using a Daily Wire membership connected on the NAS.
+The apps use their existing Aviary sign-in; they never need a Daily Wire password
+or access token.
+
+On the NAS, run `python ~/code/depot/services/aviary/daily-wire-login --user-id JELLYFIN_USER_ID`
+and approve the displayed device code on Daily Wire's website. Use `--household`
+instead to grant access to every signed-in Aviary user. User IDs are available
+from Jellyfin's user administration. On later reconnects, omit these options to
+retain the existing access list.
+
+The login saves credentials at `~/hdds/.config/aviary/data/daily-wire/tokens.json`
+in a private directory, with permissions `0600`. Aviary's container reads this
+as `/data/daily-wire/tokens.json` through `DAILY_WIRE_TOKEN_FILE`. Tokens survive
+container rebuilds and renew automatically before expiration. Back up this file
+privately with Aviary's persistent data; it grants membership access.
+
+If Daily Wire revokes the session, rerun the login command. No password is stored.
+Daily Wire's unofficial endpoints may change; DRM-protected videos are not supported.
+This integration streams episodes on demand and does not download them or sync
+watch progress with Daily Wire or Jellyfin.
+
 ## Reimaging
 
 We can create a credentials file and use it to answer fresh install prompts, removing the need to navigate third party web UIs and find or regenerate things.

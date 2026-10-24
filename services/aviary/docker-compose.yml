@@ -70,6 +70,7 @@ services:
       # mounted volume below. Without this the file lives in the
       # container's writable layer and gets wiped on every rebuild.
       - DATABASE_PATH=/data/aviary.db
+      - DAILY_WIRE_TOKEN_FILE=/data/daily-wire/tokens.json
       - TZ=${TZ}
       # Usable tank capacity in bytes (post-RAIDZ1, from depot's
       # zfs list of avail+used). Aviary's Storage stats panel scales
