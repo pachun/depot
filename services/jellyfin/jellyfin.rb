@@ -107,6 +107,7 @@ module Jellyfin
     enable_qsv_transcoding
     ensure_remote_streaming_caps
     notice_new_files_within_seconds
+    prefer_english_audio_over_file_defaults
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -121,6 +122,7 @@ module Jellyfin
     return unless wait_for_jellyfin_api
     ensure_remote_streaming_caps
     notice_new_files_within_seconds
+    prefer_english_audio_over_file_defaults
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
   end
 
@@ -446,5 +448,36 @@ module Jellyfin
     patched = system_config.merge("LibraryMonitorDelay" => NEW_FILE_SETTLE_SECONDS)
     http(:post, "#{BASE_URL}/System/Configuration", body: patched, headers: headers)
     puts "  Jellyfin now reads a new file #{NEW_FILE_SETTLE_SECONDS}s after it lands"
+  end
+
+  # Multi-language releases regularly flag a non-English track as the
+  # file's default (Disney+ rips of Futurama ship German-default), and
+  # a Jellyfin account plays that flagged track unless the account
+  # prefers a language. Asserted on every update so accounts created
+  # since the last run pick up the preference too.
+  HOUSEHOLD_AUDIO_LANGUAGE = "eng"
+
+  def self.prefer_english_audio_over_file_defaults
+    key = api_key_for("aviary")
+    return if key.nil?
+
+    headers = { "X-Emby-Token" => key }
+    accounts = http_get_json("#{BASE_URL}/Users", headers: headers)
+    return if accounts.nil?
+
+    accounts.reject { |account| prefers_english_audio?(account) }.each do |account|
+      configuration = (account["Configuration"] || {}).merge(
+        "AudioLanguagePreference" => HOUSEHOLD_AUDIO_LANGUAGE,
+        "PlayDefaultAudioTrack"   => false,
+      )
+      http(:post, "#{BASE_URL}/Users/#{account["Id"]}/Configuration", body: configuration, headers: headers)
+      puts "  #{account["Name"]} now hears English audio over a file's default track"
+    end
+  end
+
+  def self.prefers_english_audio?(account)
+    configuration = account["Configuration"] || {}
+    configuration["AudioLanguagePreference"] == HOUSEHOLD_AUDIO_LANGUAGE &&
+      configuration["PlayDefaultAudioTrack"] == false
   end
 end
