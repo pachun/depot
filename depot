@@ -30,6 +30,8 @@ Signal.trap("INT") do
   exit 130
 end
 
+Encoding.default_external = Encoding::UTF_8
+
 require_relative 'services/helpers'
 
 # Load every service module. Sorted so the require order is
