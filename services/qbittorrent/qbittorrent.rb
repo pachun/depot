@@ -92,6 +92,22 @@ module QBittorrent
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
+    adopt_gluetuns_forwarded_port
+  end
+
+  # gluetun pushes its forwarded port into qBittorrent only when the port
+  # changes, so a freshly recreated qBittorrent keeps whatever listen
+  # port its config last saved until the next renewal, which can be
+  # hours away. Push the current port now and reannounce so trackers
+  # learn the peer port straight away.
+  def self.adopt_gluetuns_forwarded_port
+    port_file = File.join(Gluetun::CONFIG_DIR, "forwarded_port")
+    return unless File.exist?(port_file)
+    port = File.read(port_file).strip
+    return if port.empty?
+
+    sh_quiet!("sudo docker exec gluetun /bin/sh /gluetun/qbit-port-sync.sh #{port}")
+    sh_quiet!("sudo docker exec gluetun wget -qO- --post-data='hashes=all' http://localhost:8080/api/v2/torrents/reannounce")
   end
 
   def self.summary
