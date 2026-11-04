@@ -144,6 +144,24 @@ module Gluetun
       "WIREGUARD_ADDRESSES"   => wg["WIREGUARD_ADDRESSES"].to_s,
     })
     keep_qbittorrent_in_gluetuns_namespace
+    rebind_qbittorrent_if_gluetun_was_recreated
+  end
+
+  # Docker resolves qBittorrent's `network_mode: container:gluetun` to
+  # gluetun's container ID the moment qBittorrent is created. Whenever
+  # compose recreates gluetun (changed config or image), qBittorrent is
+  # left bound to an ID that no longer exists and every start fails with
+  # "No such container" until qBittorrent is recreated as well. That
+  # stranded it from 2026-10-16 to 2026-11-04 with nothing red in
+  # `docker ps` beyond an old "Exited" line.
+  def self.rebind_qbittorrent_if_gluetun_was_recreated
+    bound_to, status = capture("sudo docker inspect qbittorrent --format '{{.HostConfig.NetworkMode}}'")
+    return unless status.success?
+    gluetun_id, _ = capture("sudo docker inspect gluetun --format '{{.Id}}'")
+    return if bound_to.strip == "container:#{gluetun_id.strip}"
+
+    puts "gluetun was recreated; recreating qBittorrent so it rejoins gluetun's network"
+    QBittorrent.update
   end
 
   def self.keep_qbittorrent_in_gluetuns_namespace
