@@ -23,4 +23,13 @@ services:
       # can go away. (No hardlink possible across SSD→HDD, so the
       # arr does copy+delete on import, which runs once per file.)
       - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
+    # Docker copies the host's /etc/resolv.conf into the container once,
+    # at start. After a whole-office power cut the NAS boots before the
+    # router answers, that file is still empty at that instant, and the
+    # container comes up unable to resolve any name (2026-11-04). Naming
+    # the resolver here removes the race; the router intercepts and
+    # answers plain DNS regardless, so behavior is otherwise unchanged.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     restart: unless-stopped

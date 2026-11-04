@@ -4,12 +4,21 @@
 # work after a re-login.
 
 module Docker
-  ZFS_WAIT_DROPIN_DIR  = "/etc/systemd/system/docker.service.d"
-  ZFS_WAIT_DROPIN_FILE = "#{ZFS_WAIT_DROPIN_DIR}/wait-for-zfs.conf"
+  DROPIN_DIR           = "/etc/systemd/system/docker.service.d"
+  ZFS_WAIT_DROPIN_FILE = "#{DROPIN_DIR}/wait-for-zfs.conf"
   ZFS_WAIT_DROPIN_BODY = <<~CONF
     [Unit]
     After=zfs-mount.service zfs-import-cache.service
     Requires=zfs-mount.service
+  CONF
+  DNS_WAIT_SCRIPT      = "/usr/local/lib/depot/wait-for-dns.sh"
+  DNS_WAIT_DROPIN_FILE = "#{DROPIN_DIR}/wait-for-dns.conf"
+  DNS_WAIT_DROPIN_BODY = <<~CONF
+    [Unit]
+    After=NetworkManager.service tailscaled.service
+
+    [Service]
+    ExecStartPre=#{DNS_WAIT_SCRIPT}
   CONF
 
   def self.install_prompt
@@ -20,6 +29,7 @@ module Docker
     ensure_pacman_installed("docker", "docker-compose")
     sudo!("systemctl enable --now docker.service")
     ensure_waits_for_zfs
+    ensure_waits_for_dns
     if `id -nG #{ENV["USER"]}`.split.include?("docker")
       return
     end
@@ -27,8 +37,10 @@ module Docker
   end
 
   def self.update
-    # Daemon. Nothing meaningful to update at script time — pacman -Syu
-    # at the OS level is the real update path.
+    # The daemon itself updates with pacman -Syu at the OS level; the
+    # only script-time work is keeping the boot-ordering dropins current.
+    ensure_waits_for_zfs
+    ensure_waits_for_dns
   end
 
   def self.summary
@@ -47,17 +59,34 @@ module Docker
   # `After=` only sequences IF the unit is also being started, which
   # systemd skips during normal boot when nothing else pulls in
   # zfs-mount.service.
-  #
-  # Idempotent: re-runs no-op when the dropin is already in place.
   def self.ensure_waits_for_zfs
-    current = `sudo cat #{ZFS_WAIT_DROPIN_FILE} 2>/dev/null`
-    return if current == ZFS_WAIT_DROPIN_BODY
+    ensure_dropin(ZFS_WAIT_DROPIN_FILE, ZFS_WAIT_DROPIN_BODY)
+  end
 
-    sudo!("mkdir -p #{ZFS_WAIT_DROPIN_DIR}")
-    tmp = "/tmp/wait-for-zfs.conf.#{Process.pid}"
-    File.write(tmp, ZFS_WAIT_DROPIN_BODY)
-    sudo!("install -m 0644 #{tmp} #{ZFS_WAIT_DROPIN_FILE}")
-    File.delete(tmp)
+  # systemd dropin: hold docker.service until /etc/resolv.conf names a
+  # resolver. Docker copies that file into each container exactly once,
+  # at container start, and host-networked containers (jellyfin,
+  # cloudflared) have no per-container `dns:` override to fall back on.
+  # After a whole-office power cut the NAS reaches network-online.target
+  # before the router has answered DHCP and before tailscaled has
+  # rewritten resolv.conf, so on 2026-11-04 every container started
+  # with no upstream resolver and could not look up a single name.
+  # The wait gives up after a minute so a missing router never keeps
+  # Docker down entirely.
+  def self.ensure_waits_for_dns
+    sudo!("mkdir -p #{File.dirname(DNS_WAIT_SCRIPT)}")
+    install_root_file(DNS_WAIT_SCRIPT,
+      from: File.join(__dir__, "wait-for-dns.sh"), mode: "0755")
+    ensure_dropin(DNS_WAIT_DROPIN_FILE, DNS_WAIT_DROPIN_BODY)
+  end
+
+  # Idempotent: re-runs no-op when the dropin is already in place.
+  def self.ensure_dropin(file, body)
+    current = `sudo cat #{file} 2>/dev/null`
+    return if current == body
+
+    sudo!("mkdir -p #{DROPIN_DIR}")
+    install_root_file(file, content: body)
     sudo!("systemctl daemon-reload")
   end
 end
