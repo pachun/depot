@@ -79,6 +79,7 @@ module Sabnzbd
 
     push_creds_via_api(sab_key, prompts[:usenet_username], prompts[:usenet_password])
     fail_incomplete_posts_before_downloading(sab_key)
+    fail_encrypted_posts(sab_key)
 
     # mode=restart applies config changes in place (sidesteps docker
     # cycle's port-already-bound dance).
@@ -104,6 +105,7 @@ module Sabnzbd
     return if sab_key.nil?
     return unless wait_for_http("#{BASE_URL}/api?mode=version&apikey=#{sab_key}&output=json", timeout: 60)
     fail_incomplete_posts_before_downloading(sab_key)
+    fail_encrypted_posts(sab_key)
   end
 
   def self.summary
@@ -205,7 +207,21 @@ module Sabnzbd
   # downloading fails those posts in seconds, before they reach the
   # line.
   def self.fail_incomplete_posts_before_downloading(sab_key)
-    body = URI.encode_www_form(section: "misc", keyword: "pre_check", value: 1, apikey: sab_key)
+    set_misc_option(sab_key, "pre_check", 1)
+  end
+
+  # SABnzbd's default for a password-protected RAR is to pause the job
+  # and wait for a human. Nobody watches its queue, so the episode sat
+  # "downloading" in Sonarr for weeks (SEAL Team S04E14, 2026-10-23).
+  # Aborting fails the job instead, which makes Sonarr blocklist the
+  # release and grab another one on its own.
+  def self.fail_encrypted_posts(sab_key)
+    abort = 2
+    set_misc_option(sab_key, "pause_on_pwrar", abort)
+  end
+
+  def self.set_misc_option(sab_key, keyword, value)
+    body = URI.encode_www_form(section: "misc", keyword: keyword, value: value, apikey: sab_key)
     http(:post, "#{BASE_URL}/api?mode=set_config",
          body: body,
          headers: { "Content-Type" => "application/x-www-form-urlencoded" })
