@@ -68,6 +68,26 @@ SERVICES = [
   Unpackerr,
 ]
 
+RUNNING_LATEST_DEPOT = "DEPOT_RUNNING_LATEST"
+
+def services_named(name)
+  return SERVICES if name.nil?
+
+  service = SERVICES.find { |s| s.name.downcase == name.downcase }
+  abort "Unknown service: #{name.inspect}. Known: #{SERVICES.map { |s| s.name.downcase }.join(", ")}" if service.nil?
+  [service]
+end
+
+# The process that pulls is still running the code it loaded before the
+# pull, so it hands over to a fresh one that loads what the pull
+# brought in. --ff-only refuses to auto-merge local edits — better to
+# surface that as an error than silently merge.
+def run_latest_depot
+  depot = File.realpath(__FILE__)
+  with_spinner("depot pull") { sh!("git -C #{File.dirname(depot)} pull --ff-only") }
+  exec({ RUNNING_LATEST_DEPOT => "1" }, RbConfig.ruby, depot, *ARGV)
+end
+
 # Commands. Each entry: description for the help menu, action for the
 # work. After any command runs (other than `help`, which exit's early),
 # the summary block prints automatically — that's why `summary`'s
@@ -92,27 +112,19 @@ COMMANDS = {
     },
   },
   "update" => {
-    description: "Pull depot or update one service",
-    needs_sudo: false,  # conditional below — set to true if ARGV[1] is a service
+    description: "Pull depot, then update every service or just one",
+    needs_sudo: true,
     action: -> {
-      target = ARGV[1]
-      if target.nil?
-        # __dir__ in this lambda resolves to depot's repo root.
-        # --ff-only refuses to auto-merge if you've made local edits —
-        # better to surface that as an error than silently merge.
-        with_spinner("depot update") do
-          sh!("git -C #{__dir__} pull --ff-only")
-        end
-      elsif (service = SERVICES.find { |s| s.name.downcase == target.downcase })
+      services_to_update = services_named(ARGV[1])
+      run_latest_depot unless ENV.key?(RUNNING_LATEST_DEPOT)
+      services_to_update.each do |service|
         with_spinner("#{service.name} update") { service.update }
-      else
-        abort "Unknown service: #{target.inspect}. Known: #{SERVICES.map { |s| s.name.downcase }.join(", ")}"
       end
     },
   },
   "upgrade" => {
     description: "Alias for `update`",
-    needs_sudo: false,  # see update's note
+    needs_sudo: true,
     action: -> { COMMANDS["update"][:action].call },
   },
   "summary" => {
@@ -255,16 +267,10 @@ end
 mode = ARGV.first || "help"
 
 # Warm sudo's timestamp so the first sudo call mid-run doesn't bisect
-# output with a password prompt. Most commands declare their sudo
-# need via COMMANDS. The one runtime check: `depot update <service>`
-# is a service update (every service does docker / tailscale work),
-# while `depot update` alone is just a git pull. We detect the
-# service-arg form by checking ARGV[1].
+# output with a password prompt. Commands declare their sudo need via
+# COMMANDS.
 needs_sudo =
-  if (mode == "update" || mode == "upgrade") && ARGV[1] &&
-     SERVICES.any? { |s| s.name.downcase == ARGV[1].downcase }
-    true
-  elsif COMMANDS.key?(mode)
+  if COMMANDS.key?(mode)
     COMMANDS[mode][:needs_sudo]
   else
     false  # unknown command — print help and exit, no sudo needed

@@ -98,26 +98,26 @@ They also install ruby, which `depot install` needs in a later step.
 
 Re-run any time to update to orchard's latest version.
 
-## 10. Install the depot CLI
+## 9. Install the depot CLI
 
 ```
 ~/code/depot/install/depot-cli
 ```
 
-## 11. Install depot
+## 10. Install depot
 
 ```
 depot install
 ```
 
-## 12. Open Aviary in your browser
+## 11. Open Aviary in your browser
 
 `depot install` outputs Aviary's URL. Open it in your browser and sign in.
 
 ## Updating
 
-- `depot update` — update all depot services
-- `depot update <service>` — update a specific depot [service](https://github.com/pachun/depot/tree/main/services).
+- `depot update` — pull depot's latest code, then update every depot service
+- `depot update <service>` — pull depot's latest code, then update one depot [service](https://github.com/pachun/depot/tree/main/services).
 
 For Aviary development, make and test changes locally, commit and push Aviary
 and any Depot configuration changes, then pull the committed changes on the NAS
