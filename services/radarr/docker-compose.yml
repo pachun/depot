@@ -8,18 +8,16 @@ services:
       - TZ=${TZ}
     ports:
       - 7878:7878
-    # Lets radarr reach prowlarr (9696) and qbittorrent (8080) by name
+    # Lets radarr reach prowlarr (9696) and sabnzbd by name
     # rather than by docker-bridge IP. Same pattern as sonarr/prowlarr.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ${DEPOT_USER_HOME}/hdds/.config/radarr:/config
-      # See sonarr/docker-compose.yml for the rationale on these two
-      # download-client mounts (qBit on /seeding, SAB on /usenet).
-      - ${DEPOT_USER_HOME}/hdds/seeding:/seeding
+      # See sonarr/docker-compose.yml for the rationale on the
+      # download-client mount.
       - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
       # Radarr's "root folder" — imported/renamed movies land here.
-      # On the HDD pool, hardlink-compatible with /seeding.
       - ${DEPOT_USER_HOME}/hdds/media/movies:/movies
     # Docker copies the host's /etc/resolv.conf into the container once,
     # at start. After a whole-office power cut the NAS boots before the

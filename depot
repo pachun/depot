@@ -41,16 +41,14 @@ Dir[File.join(__dir__, 'services', '*', '*.rb')].sort.each { |f| require f }
 # Service install order. Storage before Docker (containers need a place
 # to bind-mount volumes from). Docker before any container. Tailscale
 # before any tailscale_serve mapping. Autologin anywhere before the
-# install ends. Gluetun before qBittorrent (they share a netns).
+# install ends.
 # Jellyfin before Sonarr/Radarr/Jellyseerr/Aviary (they all wire to it).
 SERVICES = [
   Storage,
   Docker,
   Tailscale,
   Autologin,
-  Gluetun,
   Jellyfin,
-  QBittorrent,
   Sonarr,
   Radarr,
   # Bazarr after Sonarr/Radarr/Jellyfin: it needs all three API keys.
@@ -143,15 +141,8 @@ COMMANDS = {
         lines << "Cloudflare tunnel token: #{v}"
       end
 
-      # ProtonVPN WireGuard — two values depot prompts for directly.
-      wg = read_env_file(File.join(config, "gluetun/wg.env"))
-      lines << "WireGuard PrivateKey: #{wg['WIREGUARD_PRIVATE_KEY']}" if wg["WIREGUARD_PRIVATE_KEY"]
-      lines << "WireGuard Address: #{wg['WIREGUARD_ADDRESSES']}"      if wg["WIREGUARD_ADDRESSES"]
-
       pc = read_env_file(File.join(config, "depot/prowlarr.env"))
       lines << "NZBGeek API key: #{pc['NZBGEEK_API_KEY']}"  if pc["NZBGEEK_API_KEY"]
-      lines << "IPTorrents cookie: #{pc['IPT_COOKIE']}"     if pc["IPT_COOKIE"]
-      lines << "IPTorrents user-agent: #{pc['IPT_USERAGENT']}" if pc["IPT_USERAGENT"]
 
       sc = read_env_file(File.join(config, "depot/sabnzbd.env"))
       lines << "Frugal username: #{sc['USENET_USERNAME']}" if sc["USENET_USERNAME"]

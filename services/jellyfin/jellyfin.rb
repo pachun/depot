@@ -42,7 +42,7 @@ module Jellyfin
   # to RemoteClientBitrateLimit) instead of LAN (always unlimited).
   CLOUDFLARED_PROXY = "127.0.0.1"
   WIZARD_API_VALUE  = %q(MediaBrowser Client="depot", Device="depot-install", DeviceId="depot-install", Version="1.0")
-  # Admin creds are shared across every service (qBit, Sonarr, Radarr,
+  # Admin creds are shared across every service (Sonarr, Radarr,
   # Prowlarr, Jellyseerr, Aviary), so they live under depot/ rather
   # than jellyfin/.
   PROMPT_CACHE      = File.join(Dir.home, "hdds/.config/depot/admin.env")

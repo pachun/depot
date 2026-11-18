@@ -2,8 +2,7 @@
 # finished folders, unpacks any release that arrived as a multi-volume
 # archive, and tells the arr to import the extracted media.
 #
-# No UI. The compose file mounts the sonarr/radarr config dirs and
-# the seeding dir. SONARR_API_KEY and RADARR_API_KEY come from
+# No UI. The compose file mounts the usenet download dir. SONARR_API_KEY and RADARR_API_KEY come from
 # whichever config.xml was written by Sonarr.install / Radarr.install
 # earlier in this run.
 

@@ -23,7 +23,7 @@ services:
     # --protocol http2 forces the tunnel to use HTTP/2 over TCP
     # instead of the QUIC over UDP default. QUIC is faster on a
     # quiet network but UDP has no congestion-control fairness —
-    # when sabnzbd / qBit are saturating the upload pipe with
+    # when sabnzbd is saturating the upload pipe with
     # bulk downloads, cloudflared's QUIC keepalives get starved
     # and all four edge connections drop simultaneously with
     # "no recent network activity" errors, breaking any in-flight

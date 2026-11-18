@@ -1,15 +1,14 @@
 # sonarr — TV automation. Watches new releases of subscribed shows
 # via Prowlarr's indexer aggregation, sends accepted releases to
-# qBittorrent (tagged with category "tv"), waits for download to
-# finish, moves into ~/hdds/media/shows with renamed/organized filename,
-# then pings Jellyfin to rescan.
+# SABnzbd, waits for download to finish, moves into ~/hdds/media/shows
+# with renamed/organized filename, then pings Jellyfin to rescan.
 #
 # First-run install: bring container up, create admin user, set root
 # folder to /tv, apply the opinionated release-policy custom formats
 # (no HEVC/x265, no 2160p, no cam-rips, no banned groups, WEB over
-# Blu-ray so releases carry text subtitles), wire
-# qBittorrent as download client, wire Jellyfin as notification
-# target. Update: just docker-compose up -d.
+# Blu-ray so releases carry text subtitles), wire Jellyfin as
+# notification target. Sabnzbd.install adds the download client.
+# Update: just docker-compose up -d.
 
 module Sonarr
   CONFIG_DIR     = File.join(Dir.home, "hdds/.config/sonarr")
@@ -32,7 +31,6 @@ module Sonarr
 
   def self.install(prompts)
     FileUtils.mkdir_p([CONFIG_DIR, LIBRARY_DIR,
-                       File.join(Dir.home, "hdds/seeding"),
                        File.join(Dir.home, "downloading/usenet")])
 
     cleanup_stale_container("sonarr")
@@ -52,7 +50,6 @@ module Sonarr
 
     arr_opinionate_downloads(BASE_URL, key)
     arr_set_library_directory(BASE_URL, key, CONTAINER_LIBRARY_DIR)
-    arr_connect_to_qbit(BASE_URL, key, "tv")
     connect_to_jellyfin(key)
   end
 
@@ -66,14 +63,11 @@ module Sonarr
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
 
-    # See Radarr.update: a missing torrent client is invisible to Sonarr's
-    # own health checks as long as its usenet client is enabled.
     return unless wait_for_http("#{BASE_URL}/initialize.json", timeout: 30)
 
     key = api_key
     return if key.nil?
 
-    arr_connect_to_qbit(BASE_URL, key, "tv")
     connect_to_jellyfin(key)
   end
 

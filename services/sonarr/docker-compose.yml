@@ -8,25 +8,20 @@ services:
       - TZ=${TZ}
     ports:
       - 8989:8989
-    # Lets sonarr reach prowlarr (9696) and qbittorrent (8080) by name
+    # Lets sonarr reach prowlarr (9696) and sabnzbd by name
     # rather than by docker-bridge IP. See prowlarr/docker-compose.yml
     # for the same rationale.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ${DEPOT_USER_HOME}/hdds/.config/sonarr:/config
-      # Two download-client surfaces — qBit (/seeding, HDD pool) and
-      # SAB (/usenet, SSD). Container path = last segment of host
-      # path everywhere, so qBit's "save_path=/seeding" matches what
-      # sonarr sees at /seeding, and the same translation applies to
-      # /usenet.
-      - ${DEPOT_USER_HOME}/hdds/seeding:/seeding
+      # SAB's finished downloads (SSD). Container path = last segment
+      # of the host path, so the path SAB reports is the path sonarr
+      # sees.
       - ${DEPOT_USER_HOME}/downloading/usenet:/usenet
       # Sonarr's "root folder" — imported/renamed episodes land here.
-      # On the HDD pool with /seeding (same ZFS dataset → hardlinks
-      # work, no double-storage during seeding). /usenet is on a
-      # different filesystem, so SAB imports use copy+delete, which
-      # is fine for one-time-per-file work.
+      # /usenet is on a different filesystem, so SAB imports use
+      # copy+delete, which is fine for one-time-per-file work.
       - ${DEPOT_USER_HOME}/hdds/media/shows:/shows
     # Docker copies the host's /etc/resolv.conf into the container once,
     # at start. After a whole-office power cut the NAS boots before the

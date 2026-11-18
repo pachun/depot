@@ -381,9 +381,8 @@ end
 #              destructive actions ("destroy and create pool"). After
 #              the parsed answer is collected, we ask the confirm
 #              question; mismatch raises Aborted.
-#   completion: :filename to enable tab path completion via Readline
-#              (e.g. the WireGuard .conf path prompt). Default nil =
-#              no completion.
+#   completion: :filename to enable tab path completion via Readline.
+#              Default nil = no completion.
 #   verify:    true asks the user to re-enter their answer once and
 #              re-prompts the whole thing on mismatch. For secret
 #              inputs (passwords) where a typo would lock you out
@@ -586,42 +585,6 @@ def arr_set_library_directory(base_url, api_key, path)
   http(:post, "#{base_url}/api/v3/rootfolder",
        body: { "path" => path },
        headers: { "X-Api-Key" => api_key })
-end
-
-# Add qBittorrent as a download client. tvCategory/movieCategory both
-# get the same value because the arr schema requires both fields;
-# qBit ignores the irrelevant one per release.
-# No credentials: qBittorrent waives auth for the docker-bridge subnet
-# (see QBittorrent.seed_webui_access), which is the only way Radarr and
-# Sonarr reach it. Keeping the link password-free is what lets `update`
-# re-assert it — updates run without the install prompts that hold the
-# admin password.
-def arr_connect_to_qbit(base_url, api_key, category)
-  payload = {
-    "name" => "qBittorrent", "enable" => true, "protocol" => "torrent",
-    "priority" => 1, "removeCompletedDownloads" => true,
-    "removeFailedDownloads" => true,
-    "implementation" => "QBittorrent",
-    "implementationName" => "qBittorrent",
-    "configContract" => "QBittorrentSettings",
-    "fields" => [
-      { "name" => "host", "value" => "host.docker.internal" },
-      { "name" => "port", "value" => 8080 },
-      { "name" => "useSsl", "value" => false },
-      { "name" => "urlBase", "value" => "" },
-      { "name" => "username", "value" => "" },
-      { "name" => "password", "value" => "" },
-      { "name" => "tvCategory", "value" => category },
-      { "name" => "movieCategory", "value" => category },
-      { "name" => "recentTvPriority", "value" => 0 },
-      { "name" => "olderTvPriority", "value" => 0 },
-      { "name" => "recentMoviePriority", "value" => 0 },
-      { "name" => "olderMoviePriority", "value" => 0 },
-      { "name" => "initialState", "value" => 0 },
-    ],
-    "tags" => [],
-  }
-  arr_upsert_by_name(base_url, "/api/v3/downloadclient", api_key, "qBittorrent", payload)
 end
 
 # Add Jellyfin as a notification target so on-import/upgrade/rename
