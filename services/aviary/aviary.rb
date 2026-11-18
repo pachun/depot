@@ -22,6 +22,7 @@ module Aviary
   AVIARY_ENV              = File.join(SECRET_DIR, ".env")
   SECRET_KEY_BASE_FILE    = File.join(SECRET_DIR, "secret_key_base")
   WEBHOOK_SECRET_FILE     = File.join(SECRET_DIR, "sonarr_webhook_secret")
+  ANTHROPIC_API_KEY_FILE  = File.join(SECRET_DIR, "anthropic_api_key")
   AVIARY_DATA_DIR         = File.join(SECRET_DIR, "data")
   TAB_TITLE_FILE          = File.join(SECRET_DIR, "tab_title")
   LOCAL_PORT              = 4000
@@ -165,6 +166,7 @@ module Aviary
     sonarr_api_key        = Sonarr.api_key.to_s
     radarr_api_key        = Radarr.api_key.to_s
     sabnzbd_api_key       = Sabnzbd.api_key_from_ini.to_s
+    anthropic_api_key     = File.file?(ANTHROPIC_API_KEY_FILE) ? File.read(ANTHROPIC_API_KEY_FILE).strip : ""
 
     # Re-write .env from scratch every run (no stale-cache leak —
     # earlier versions cached and once cached, a wiped Jellyfin
@@ -228,6 +230,7 @@ module Aviary
       "SABNZBD_API_KEY"       => sabnzbd_api_key,
       "RADARR_URL"            => "http://host.docker.internal:7878",
       "RADARR_API_KEY"        => radarr_api_key,
+      "ANTHROPIC_API_KEY"     => anthropic_api_key,
       "AVIARY_DATA_DIR"       => AVIARY_DATA_DIR,
       "HOST_UID"              => Process.uid,
       "HOST_GID"              => Process.gid,

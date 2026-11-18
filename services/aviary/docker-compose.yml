@@ -47,6 +47,7 @@ services:
       # touches Jellyseerr directly, so a public URL isn't needed.
       - JELLYSEERR_URL=${JELLYSEERR_URL}
       - JELLYSEERR_API_KEY=${JELLYSEERR_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       # Sonarr — drives the three-tier download buttons (Watch show /
       # Watch season / Play episode) and the per-button download
       # progress polling.

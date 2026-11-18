@@ -156,3 +156,15 @@ We can create a credentials file and use it to answer fresh install prompts, rem
 `depot backup` creates and saves the credentials file on the NAS.
 
 `depot backup name@host` auto scps the file to another machine.
+
+## More like this
+
+Aviary and Perch show a "More like this" row under each show and movie. With
+an Anthropic API key, Claude chooses the titles; without one, the row shows
+TMDB's own recommendations.
+
+Create a key in the [Claude Console](https://platform.claude.com/settings/keys),
+ideally in its own workspace with a monthly spend limit, and save it on the NAS
+at `~/hdds/.config/aviary/anthropic_api_key` with permissions `0600`. Then run
+`depot update aviary`. Each title is chosen once and kept, so the cost is a few
+cents per title the first time and nothing after.
