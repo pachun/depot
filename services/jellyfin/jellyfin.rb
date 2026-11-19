@@ -201,14 +201,18 @@ module Jellyfin
       resp = http(:get, "#{BASE_URL}/System/Info/Public")
       http_ok = resp && resp.code.to_i.between?(200, 299)
 
-      logs = `sudo docker logs jellyfin 2>&1`
-      log_ok = READINESS_LOG_LINES.any? { |line| logs.include?(line) }
+      log_ok = READINESS_LOG_LINES.any? { |line| logs_since_latest_start.include?(line) }
 
       return true if http_ok && log_ok
       sleep 1
     end
     puts "  WARN: Jellyfin not ready after 10 minutes — `sudo docker logs jellyfin --tail 100`"
     false
+  end
+
+  def self.logs_since_latest_start
+    latest_start = `sudo docker inspect jellyfin --format '{{.State.StartedAt}}' 2>/dev/null`.strip
+    `sudo docker logs jellyfin --since #{latest_start} 2>&1`
   end
 
   def self.needs_bootstrap?
@@ -342,6 +346,7 @@ module Jellyfin
     sh!("unzip -q -o #{tmpzip} -d '#{dir}'")
     File.delete(tmpzip)
     sh!("sudo docker restart jellyfin >/dev/null")
+    wait_for_jellyfin_api
   end
 
   # ============================================================
