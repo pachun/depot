@@ -38,12 +38,40 @@ require_relative 'services/helpers'
 # deterministic; the actual install/update order is the SERVICES array.
 Dir[File.join(__dir__, 'services', '*', '*.rb')].sort.each { |f| require f }
 
+# A demo server plays what is copied onto it and nothing else: a plain
+# folder instead of the ZFS pool, and none of the download services.
+# `depot install demo` marks the machine as one, and every later
+# `depot update` reads the mark, so the two kinds never mix.
+DEMO              = "demo"
+SERVER_KIND_FILE  = File.join(Dir.home, "hdds/.config/depot/server_kind")
+NAS_ADMIN_ANSWERS = File.join(Dir.home, "hdds/.config/depot/admin.env")
+
+def marked_as_demo_server?
+  File.file?(SERVER_KIND_FILE) && File.read(SERVER_KIND_FILE).strip == DEMO
+end
+
+def asked_to_install_a_demo_server?
+  ARGV[0] == "install" && ARGV[1] == DEMO
+end
+
+def already_a_nas?
+  File.file?(NAS_ADMIN_ANSWERS) && !marked_as_demo_server?
+end
+
+def mark_as_demo_server
+  abort "This machine is already set up as a NAS; a demo server needs its own machine." if already_a_nas?
+  FileUtils.mkdir_p(File.dirname(SERVER_KIND_FILE))
+  File.write(SERVER_KIND_FILE, DEMO + "\n")
+end
+
+mark_as_demo_server if asked_to_install_a_demo_server?
+
 # Service install order. Storage before Docker (containers need a place
 # to bind-mount volumes from). Docker before any container. Tailscale
 # before any tailscale_serve mapping. Autologin anywhere before the
 # install ends.
 # Jellyfin before Sonarr/Radarr/Jellyseerr/Aviary (they all wire to it).
-SERVICES = [
+NAS_SERVICES = [
   Storage,
   Docker,
   Tailscale,
@@ -67,6 +95,19 @@ SERVICES = [
   Aviary,
   Unpackerr,
 ]
+
+DEMO_SERVICES = [
+  FolderStorage,
+  Docker,
+  Tailscale,
+  Jellyfin,
+  Jellyseerr,
+  Cloudflare,
+  Aviary,
+]
+
+SERVICES = marked_as_demo_server? ? DEMO_SERVICES : NAS_SERVICES
+STORAGE  = SERVICES.first
 
 RUNNING_LATEST_DEPOT = "DEPOT_RUNNING_LATEST"
 
@@ -99,7 +140,7 @@ COMMANDS = {
     action: -> { print_help; exit 0 },
   },
   "install" => {
-    description: "Install every service from scratch",
+    description: "Install every service from scratch (`install demo` for a demo server)",
     needs_sudo: true,
     action: -> {
       # Prompts run OUTSIDE any spinner — they're interactive.

@@ -28,7 +28,7 @@ module Docker
   def self.install(prompts)
     ensure_pacman_installed("docker", "docker-compose")
     sudo!("systemctl enable --now docker.service")
-    ensure_waits_for_zfs
+    ensure_waits_for_zfs if STORAGE.equal?(Storage)
     ensure_waits_for_dns
     if `id -nG #{ENV["USER"]}`.split.include?("docker")
       return
@@ -39,7 +39,7 @@ module Docker
   def self.update
     # The daemon itself updates with pacman -Syu at the OS level; the
     # only script-time work is keeping the boot-ordering dropins current.
-    ensure_waits_for_zfs
+    ensure_waits_for_zfs if STORAGE.equal?(Storage)
     ensure_waits_for_dns
   end
 

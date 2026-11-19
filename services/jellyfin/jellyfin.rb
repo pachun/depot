@@ -104,7 +104,7 @@ module Jellyfin
     end
 
     install_intro_skipper_plugin
-    enable_qsv_transcoding
+    enable_hardware_transcoding
     ensure_remote_streaming_caps
     notice_new_files_within_seconds
     prefer_english_audio_over_file_defaults
@@ -341,15 +341,15 @@ module Jellyfin
   end
 
   # ============================================================
-  # Intel QSV hardware-accelerated transcoding
+  # Hardware-accelerated transcoding
   # ============================================================
 
   # Without this every transcode runs on CPU and 1080p eats every
   # core. Configured via the System/Configuration/encoding REST API.
   # Skips gracefully if the aviary API key isn't in the DB yet
   # (fresh wizard hasn't been done).
-  def self.enable_qsv_transcoding
-    puts "  configuring Jellyfin hardware acceleration (QSV)..."
+  def self.enable_hardware_transcoding
+    puts "  configuring Jellyfin hardware acceleration (#{video_acceleration})..."
     key = api_key_for("aviary")
     if key.nil?
       puts "    skipped: no 'aviary' API key in Jellyfin yet"
@@ -364,7 +364,7 @@ module Jellyfin
     end
 
     patched = current.merge(
-      "HardwareAccelerationType"      => "qsv",
+      "HardwareAccelerationType"      => video_acceleration,
       "EnableHardwareEncoding"        => true,
       "HardwareDecodingCodecs"        => %w[h264 hevc mpeg2video vc1 vp8 vp9],
       "EnableDecodingColorDepth10Hevc" => true,
@@ -372,7 +372,18 @@ module Jellyfin
       "AllowHevcEncoding"             => true,
     )
     http(:post, "#{BASE_URL}/System/Configuration/encoding", body: patched, headers: headers)
-    puts "    enabled QSV + 10-bit HEVC decode"
+    puts "    enabled #{video_acceleration} + 10-bit HEVC decode"
+  end
+
+  INTEL_QUICK_SYNC = "qsv"
+  VAAPI            = "vaapi"
+
+  def self.video_acceleration
+    intel_processor? ? INTEL_QUICK_SYNC : VAAPI
+  end
+
+  def self.intel_processor?
+    File.read("/proc/cpuinfo").include?("GenuineIntel")
   end
 
   # Trust the cloudflared loopback proxy so Jellyfin classifies

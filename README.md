@@ -181,3 +181,25 @@ freely licensed video. Save a JSON file at
 of `lib/aviary/sections.ex` in Aviary. A `live` entry replaces the NHL schedule
 and turns off standings and team pages; a `series` entry replaces Daily Wire
 and is shown to every account. Aviary rereads the file within a minute.
+
+## Demo server
+
+A demo server shows Aviary and Perch with video you are free to share. It runs
+on any spare Arch machine, keeps everything in a plain folder at `~/hdds`
+instead of a ZFS pool, and leaves out the download services, so it plays what
+you copy onto it and nothing else. Aviary and Perch notice there is no
+downloader and do not offer to add titles.
+
+On the spare machine, with Tailscale signed in, follow steps 8 and 9 above,
+then:
+
+```
+depot install demo
+```
+
+Copy films into `~/hdds/media/movies` and shows into `~/hdds/media/shows`,
+named the way Jellyfin expects. To give its live and series sections something
+to show, add a sections file as described above. `depot update` on that machine
+keeps it on the same Aviary as the NAS.
+
+A machine already installed as a NAS cannot be turned into a demo server.

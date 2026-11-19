@@ -63,6 +63,10 @@ module Storage
   # Usable tank capacity in bytes (AVAIL + USED from `zfs list -H -p`).
   # Returns 0 if the pool isn't imported. -p gives parseable bytes
   # rather than the default human "82T" string.
+  def self.usable_bytes
+    usable_tank_bytes
+  end
+
   def self.usable_tank_bytes
     out = `sudo zfs list -H -p -o avail,used #{POOL_NAME} 2>/dev/null`.strip
     return 0 if out.empty?
