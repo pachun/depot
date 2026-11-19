@@ -168,3 +168,16 @@ ideally in its own workspace with a monthly spend limit, and save it on the NAS
 at `~/hdds/.config/aviary/anthropic_api_key` with permissions `0600`. Then run
 `depot update aviary`. Each title is chosen once and kept, so the cost is a few
 cents per title the first time and nothing after.
+
+## Live and series sections
+
+Aviary and Perch have two sections whose name and contents come from the
+server: live events with feeds to watch, and series with episodes. By default
+they are the NHL schedule and the connected Daily Wire membership.
+
+A server can define its own instead, for example a demonstration server with
+freely licensed video. Save a JSON file at
+`~/hdds/.config/aviary/data/sections.json`; its shape is documented at the top
+of `lib/aviary/sections.ex` in Aviary. A `live` entry replaces the NHL schedule
+and turns off standings and team pages; a `series` entry replaces Daily Wire
+and is shown to every account. Aviary rereads the file within a minute.
