@@ -127,8 +127,8 @@ is clean. Do not deploy copied, uncommitted source files or container-only fixes
 
 ## Daily Wire
 
-Aviary and Perch can browse The Ben Shapiro Show and The Sunday Special,
-including member episodes, using a Daily Wire membership connected on the NAS.
+Aviary and Perch can browse The Ben Shapiro Show, The Matt Walsh Show and The
+Andrew Klavan Show, including member episodes, using a Daily Wire membership connected on the NAS.
 The apps use their existing Aviary sign-in; they never need a Daily Wire password
 or access token.
 
