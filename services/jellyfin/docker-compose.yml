@@ -1,6 +1,6 @@
 services:
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    image: lscr.io/linuxserver/jellyfin:${JELLYFIN_IMAGE_TAG}
     container_name: jellyfin
     # PUID / PGID / TZ get substituted from the env that configure.sh
     # passes through sudo. PUID/PGID matter so anything jellyfin writes

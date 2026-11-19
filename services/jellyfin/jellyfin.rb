@@ -30,6 +30,8 @@ module Jellyfin
   TAILSCALE_PORT    = 8443
   INTRO_VERSION     = "1.10.11.21"
   BASE_URL          = "http://localhost:8096"
+  VERSION_THE_NAS_RUNS            = "10.11.11"
+  NEWEST_ALREADY_ON_THIS_MACHINE  = "latest"
   WIZARD_API_HEADER = "X-Emby-Authorization"
   # 0 = no remote bitrate cap. The ~5 Gbps symmetric fiber upload
   # has the headroom to direct-stream source-bitrate REMUXes to
@@ -77,6 +79,7 @@ module Jellyfin
       "PUID" => Process.uid,
       "PGID" => Process.gid,
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
+      "JELLYFIN_IMAGE_TAG" => image_tag,
     })
 
     return unless wait_for_jellyfin_api
@@ -118,6 +121,7 @@ module Jellyfin
       "PUID" => Process.uid,
       "PGID" => Process.gid,
       "TZ"   => `timedatectl show -p Timezone --value`.strip,
+      "JELLYFIN_IMAGE_TAG" => image_tag,
     })
     return unless wait_for_jellyfin_api
     ensure_remote_streaming_caps
@@ -377,6 +381,10 @@ module Jellyfin
 
   INTEL_QUICK_SYNC = "qsv"
   VAAPI            = "vaapi"
+
+  def self.image_tag
+    marked_as_demo_server? ? VERSION_THE_NAS_RUNS : NEWEST_ALREADY_ON_THIS_MACHINE
+  end
 
   def self.video_acceleration
     intel_processor? ? INTEL_QUICK_SYNC : VAAPI
