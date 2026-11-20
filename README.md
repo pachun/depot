@@ -188,7 +188,8 @@ A demo server shows Aviary and Perch with video you are free to share. It runs
 on any spare Arch machine, keeps everything in a plain folder at `~/hdds`
 instead of a ZFS pool, and leaves out the download services, so it plays what
 you copy onto it and nothing else. Aviary and Perch notice there is no
-downloader and do not offer to add titles.
+downloader and do not offer to add titles; Discover and search show what is on
+the server. A demo server also runs with trailers turned off.
 
 On the spare machine, with Tailscale signed in, follow steps 8 and 9 above,
 then:
