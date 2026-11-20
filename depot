@@ -104,6 +104,7 @@ DEMO_SERVICES = [
   Jellyseerr,
   Cloudflare,
   Aviary,
+  DemoContent,
 ]
 
 SERVICES = marked_as_demo_server? ? DEMO_SERVICES : NAS_SERVICES

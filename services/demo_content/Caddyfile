@@ -1,0 +1,6 @@
+:80 {
+	root * /srv
+	header Access-Control-Allow-Origin *
+	header Cache-Control no-cache
+	file_server
+}

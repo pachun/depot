@@ -189,7 +189,13 @@ on any spare Arch machine, keeps everything in a plain folder at `~/hdds`
 instead of a ZFS pool, and leaves out the download services, so it plays what
 you copy onto it and nothing else. Aviary and Perch notice there is no
 downloader and do not offer to add titles; Discover and search show what is on
-the server. A demo server also runs with trailers turned off.
+the server. A demo server also runs with trailers and ratings turned off.
+
+The install stocks the server itself: it downloads freely licensed and
+public-domain films and a series, plays three of the films as a continuous
+live stream, defines the live and series sections, and creates a `guest`
+account whose library and password it restores every hour. It asks for one
+more public hostname, for the live stream.
 
 On the spare machine, with Tailscale signed in, follow steps 8 and 9 above,
 then:

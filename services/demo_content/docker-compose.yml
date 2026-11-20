@@ -1,0 +1,10 @@
+services:
+  demo-live:
+    image: caddy:2
+    container_name: demo-live
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LIVE_PORT}:80"
+    volumes:
+      - ${STREAM_DIR}:/srv:ro
+      - ${CADDYFILE}:/etc/caddy/Caddyfile:ro

@@ -1,0 +1,110 @@
+{
+  "live": {
+    "label": "Live",
+    "events": [
+      {
+        "id": "blender-films",
+        "title": "Blender open movies",
+        "time": "Live now",
+        "images": [
+          "https://image.tmdb.org/t/p/w1280/msqeiEyIRpPAtrCeRGFNZQ9tkJL.jpg"
+        ],
+        "feeds": [
+          {
+            "id": "main",
+            "label": "Watch",
+            "url": "https://__LIVE_HOSTNAME__/live.m3u8"
+          }
+        ]
+      }
+    ]
+  },
+  "series": {
+    "label": "Shorts",
+    "shows": [
+      {
+        "slug": "blender-studio",
+        "title": "Blender Studio",
+        "episodes": [
+          {
+            "id": "wing-it",
+            "title": "Wing It!",
+            "description": "A cautious engineer and an eager would-be pilot end up airborne together in a homemade space shuttle.",
+            "image": "https://image.tmdb.org/t/p/w1280/o2G1kW9pCcRo7NmiZhJBm5LcVpH.jpg",
+            "publishedAt": "2023-09-06T00:00:00Z",
+            "duration": 238,
+            "url": "https://archive.org/download/wing_it/wing_it.mp4"
+          },
+          {
+            "id": "sprite-fright",
+            "title": "Sprite Fright",
+            "description": "Teenagers hiking in a British forest meet mushroom creatures that are less gentle than they look.",
+            "image": "https://image.tmdb.org/t/p/w1280/aCMT1okuiKFnyKHdCOez66rJKyT.jpg",
+            "publishedAt": "2021-10-29T00:00:00Z",
+            "duration": 630,
+            "url": "https://archive.org/download/sprite-fright/Sprite%20Fright%20-%20Open%20Movie%20by%20Blender%20Studio-804p.mp4"
+          },
+          {
+            "id": "agent-327",
+            "title": "Agent 327: Operation Barbershop",
+            "description": "A secret agent follows a lead to an Amsterdam barbershop, unaware that he is being followed too.",
+            "image": "https://image.tmdb.org/t/p/w1280/aupI9kV5CawUp02XWnI2l7Ym9SH.jpg",
+            "publishedAt": "2017-05-12T00:00:00Z",
+            "duration": 232,
+            "url": "https://archive.org/download/agent327operationbarbershop/agent327-1080.mp4"
+          },
+          {
+            "id": "cosmos-laundromat",
+            "title": "Cosmos Laundromat",
+            "description": "A despairing sheep on a lonely island is offered more lives than he bargained for.",
+            "image": "https://image.tmdb.org/t/p/w1280/f2wABsgj2lIR2dkDEfBZX8p4Iyk.jpg",
+            "publishedAt": "2015-08-10T00:00:00Z",
+            "duration": 731,
+            "url": "https://archive.org/download/CosmosLaundromatFirstCycle/Cosmos%20Laundromat%20-%20First%20Cycle%20%281080p%29.mp4"
+          }
+        ]
+      },
+      {
+        "slug": "caminandes",
+        "title": "Caminandes",
+        "episodes": [
+          {
+            "id": "caminandes-llamigos",
+            "title": "Llamigos",
+            "description": "Winter in Patagonia: Koro the llama and a penguin compete for the last berries.",
+            "image": "https://image.tmdb.org/t/p/w1280/tIX2BIhkhoFq1iwtHYzTSbHbe82.jpg",
+            "publishedAt": "2016-01-30T00:00:00Z",
+            "duration": 150,
+            "url": "https://archive.org/download/CaminandesLlamigos/Caminandes_%20Llamigos-1080p.mp4"
+          },
+          {
+            "id": "caminandes-gran-dillama",
+            "title": "Gran Dillama",
+            "description": "Koro finds a fence between him and the greener grass.",
+            "image": "https://image.tmdb.org/t/p/w1280/206A3X9EH42kmdQMECq90SbjHCn.jpg",
+            "publishedAt": "2013-11-22T00:00:00Z",
+            "duration": 146,
+            "url": "https://archive.org/download/Caminandes2GranDillama/02_gran_dillama_1080p.mp4"
+          },
+          {
+            "id": "caminandes-llama-drama",
+            "title": "Llama Drama",
+            "description": "Koro the llama tries to cross a road.",
+            "image": "https://image.tmdb.org/t/p/w1280/mjkoC8Vo7fSHuqrbVQdI6cNwKA2.jpg",
+            "publishedAt": "2013-02-10T00:00:00Z",
+            "duration": 90,
+            "url": "https://archive.org/download/Caminandes1LlamaDrama/01_llama_drama_1080p.mp4"
+          }
+        ]
+      }
+    ]
+  },
+  "credits": [
+    "Big Buck Bunny © 2008 Blender Foundation, bigbuckbunny.org. CC BY 3.0.",
+    "Sintel © Blender Foundation, durian.blender.org. CC BY 3.0.",
+    "Tears of Steel © Blender Foundation, mango.blender.org. CC BY 3.0.",
+    "Cosmos Laundromat, Agent 327: Operation Barbershop, Sprite Fright and Wing It! © Blender Studio, studio.blender.org. Creative Commons Attribution.",
+    "Caminandes © Blender Foundation, caminandes.com. Creative Commons Attribution.",
+    "Night of the Living Dead, His Girl Friday and Sherlock Holmes (1954) are in the public domain, from the Internet Archive."
+  ]
+}

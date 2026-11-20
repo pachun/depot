@@ -243,6 +243,7 @@ module Aviary
       # stacked bar to a real "% of tank used."
       "TANK_BYTES"            => STORAGE.usable_bytes.to_s,
       "TRAILERS"              => marked_as_demo_server? ? "off" : "on",
+      "RATINGS"               => marked_as_demo_server? ? "off" : "on",
       # Hours between last-subscriber-removal and auto-delete of the
       # on-disk media (only when downloaded via Usenet — torrents are
       # left alone to preserve seeding). Bump this for a wider undo
