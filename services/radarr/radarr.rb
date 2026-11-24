@@ -39,6 +39,7 @@ module Radarr
     return if key.nil?
 
     arr_opinionate_downloads(BASE_URL, key)
+    remove_1080p_size_cap(key)
     arr_set_library_directory(BASE_URL, key, CONTAINER_LIBRARY_DIR)
     connect_to_jellyfin(key)
   end
@@ -68,6 +69,14 @@ module Radarr
 
   def self.api_key
     arr_read_api_key(CONFIG_XML)
+  end
+
+  def self.remove_1080p_size_cap(key)
+    headers = { "X-Api-Key" => key, "Content-Type" => "application/json" }
+    definitions = http_get_json("#{BASE_URL}/api/v3/qualitydefinition", headers: headers) || []
+    uncapped_1080p = definitions.select { |d| d["title"].include?("1080p") }
+                                .map { |d| d.merge("maxSize" => nil, "preferredSize" => nil) }
+    http(:put, "#{BASE_URL}/api/v3/qualitydefinition/update", body: uncapped_1080p, headers: headers)
   end
 
   # Jellyfin's per-app key is named 'sonarr' but shared with Radarr.

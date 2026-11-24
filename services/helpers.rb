@@ -669,8 +669,9 @@ ARR_FORMAT_BAD_GROUPS = {
 }.freeze
 
 # HEVC/x265: browsers can't direct-stream; every play needs Jellyfin
-# to transcode to h264, expensive even with QSV. Banning auto-grabs
-# forces 1080p h264.
+# to transcode to h264, expensive even with QSV. Accepted only as a
+# last resort when no h264 release exists, and upgraded away from
+# once one appears.
 ARR_FORMAT_HEVC = {
   "name" => "Codec: HEVC / x265",
   "includeCustomFormatWhenRenaming" => false,
@@ -783,42 +784,43 @@ def arr_cutoff_never_demands_bluray(cutoff, ordered_items)
   web_group ? web_group["id"] : cutoff
 end
 
-# Upsert all banned-format custom formats into the arr, then apply a
+ARR_BANNED_SCORE      = -10000
+ARR_LAST_RESORT_SCORE = -1
+
+# Upsert all release-policy custom formats into the arr, then apply a
 # policy to every quality profile: language=English, upgrades on,
 # WEB releases ranked above Blu-ray at every resolution, banned
-# formats scored at -10000 (disqualifies at search time, shows up in
-# Cutoff Unmet for upgrade). Idempotent.
+# formats scored at ARR_BANNED_SCORE (disqualifies at search time,
+# shows up in Cutoff Unmet for upgrade), last-resort formats scored
+# just below the cutoff so they're grabbed only when nothing better
+# exists and upgraded later. Idempotent.
 def arr_opinionate_downloads(base_url, api_key)
   return unless arr_wait_for_api(base_url, "v3", api_key)
 
-  [ARR_FORMAT_AUDIO_DESCRIPTION, ARR_FORMAT_CAM_TS, ARR_FORMAT_BAD_GROUPS,
-   ARR_FORMAT_RES_2160P, ARR_FORMAT_HEVC, ARR_FORMAT_MULTI_DUAL,
-   ARR_FORMAT_NOT_ENGLISH].each do |fmt|
+  banned_formats      = [ARR_FORMAT_AUDIO_DESCRIPTION, ARR_FORMAT_CAM_TS, ARR_FORMAT_BAD_GROUPS,
+                         ARR_FORMAT_RES_2160P, ARR_FORMAT_MULTI_DUAL, ARR_FORMAT_NOT_ENGLISH]
+  last_resort_formats = [ARR_FORMAT_HEVC]
+
+  (banned_formats + last_resort_formats).each do |fmt|
     arr_upsert_by_name(base_url, "/api/v3/customformat", api_key, fmt["name"], fmt)
   end
 
-  banned_names = [ARR_FORMAT_AUDIO_DESCRIPTION["name"], ARR_FORMAT_CAM_TS["name"],
-                  ARR_FORMAT_BAD_GROUPS["name"], ARR_FORMAT_RES_2160P["name"],
-                  ARR_FORMAT_HEVC["name"], ARR_FORMAT_MULTI_DUAL["name"],
-                  ARR_FORMAT_NOT_ENGLISH["name"]]
-
   cfs = http_get_json("#{base_url}/api/v3/customformat",
                       headers: { "X-Api-Key" => api_key }) || []
-  banned_ids = cfs.select { |cf| banned_names.include?(cf["name"]) }.map { |cf| cf["id"] }
+  score_by_name = banned_formats.to_h { |fmt| [fmt["name"], ARR_BANNED_SCORE] }
+                    .merge(last_resort_formats.to_h { |fmt| [fmt["name"], ARR_LAST_RESORT_SCORE] })
+  score_by_id = cfs.select { |cf| score_by_name.key?(cf["name"]) }
+                   .to_h { |cf| [cf["id"], score_by_name[cf["name"]]] }
 
   profiles = http_get_json("#{base_url}/api/v3/qualityprofile",
                            headers: { "X-Api-Key" => api_key }) || []
   profiles.each do |profile|
     items = (profile["formatItems"] || []).map do |item|
-      if banned_ids.include?(item["format"])
-        item.merge("score" => -10000)
-      else
-        item
-      end
+      score_by_id.key?(item["format"]) ? item.merge("score" => score_by_id[item["format"]]) : item
     end
     existing_ids = items.map { |i| i["format"] }
-    cfs.select { |cf| banned_ids.include?(cf["id"]) && !existing_ids.include?(cf["id"]) }
-      .each { |cf| items << { "format" => cf["id"], "name" => cf["name"], "score" => -10000 } }
+    cfs.select { |cf| score_by_id.key?(cf["id"]) && !existing_ids.include?(cf["id"]) }
+      .each { |cf| items << { "format" => cf["id"], "name" => cf["name"], "score" => score_by_id[cf["id"]] } }
 
     ordered_items = arr_rank_web_above_bluray(profile["items"] || [])
     updated = profile.merge(
@@ -826,7 +828,7 @@ def arr_opinionate_downloads(base_url, api_key)
       "cutoff"            => arr_cutoff_never_demands_bluray(profile["cutoff"], ordered_items),
       "language"          => { "id" => 1, "name" => "English" },
       "upgradeAllowed"    => true,
-      "minFormatScore"    => 0,
+      "minFormatScore"    => ARR_LAST_RESORT_SCORE,
       "cutoffFormatScore" => 0,
       "formatItems"       => items,
     )
