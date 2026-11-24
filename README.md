@@ -19,6 +19,7 @@ You'll also need some accounts:
 - [Tailscale](https://tailscale.com) (free)
 - [Frugal Usenet](https://www.frugalusenet.com) (paid ~$60/yr)
 - [NZBGeek](https://nzbgeek.info) (paid ~$15/yr)
+- [NZBFinder](https://nzbfinder.ws) (paid ~$15/yr, Basic plan — finds older catalog films NZBGeek misses)
 - [OpenSubtitles.com](https://www.opensubtitles.com) (free, optional — improves the hit rate when filling in missing English subtitles)
 
 ## 1. Create a bootable USB drive

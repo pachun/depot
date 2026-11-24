@@ -1,5 +1,5 @@
 # prowlarr — indexer aggregator. Talks to every usenet indexer
-# (NZBGeek, etc.) on Sonarr's/Radarr's behalf, normalizing
+# (NZBGeek, NZBFinder) on Sonarr's/Radarr's behalf, normalizing
 # their wildly-different APIs. The arrs query Prowlarr; Prowlarr fans
 # out to indexers. Configuration is push: register indexers here, plus
 # register Sonarr/Radarr as Applications, and Prowlarr syncs the
@@ -15,24 +15,32 @@ module Prowlarr
   TAILSCALE_PORT = 9697
   BASE_URL       = "http://localhost:9696"
 
-  NZBGEEK_DEFAULT_URL = "https://api.nzbgeek.info"
   TV_USENET_CATS      = [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5060, 5070, 5080].freeze
   MOVIE_USENET_CATS   = [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060].freeze
   ALL_CATS            = (TV_USENET_CATS + MOVIE_USENET_CATS).freeze
   PROMPT_CACHE        = File.join(Dir.home, "hdds/.config/depot/prowlarr.env")
 
+  INDEXERS = [
+    { name: "NZBGeek", url: "https://api.nzbgeek.info", cache_key: "NZBGEEK_API_KEY",
+      key_location: "nzbgeek.info → account → API" },
+    { name: "NZBFinder", url: "https://nzbfinder.ws", cache_key: "NZBFINDER_API_KEY",
+      key_location: "nzbfinder.ws → profile → API/RSS Key" },
+  ].freeze
+
   def self.install_prompt
     cached = read_env_file(PROMPT_CACHE)
-    answers = {}
-    answers[:nzbgeek_api_key] = cached["NZBGEEK_API_KEY"].to_s.empty? ?
-      prompt(preamble: "NZBGeek:",
-             question: "API key (from nzbgeek.info → account → API)") :
-      cached["NZBGEEK_API_KEY"]
-    answers
+    indexer_api_keys = INDEXERS.to_h do |indexer|
+      cached_key = cached[indexer[:cache_key]].to_s
+      api_key = cached_key.empty? ?
+        prompt(preamble: "#{indexer[:name]}:", question: "API key (from #{indexer[:key_location]})") :
+        cached_key
+      [indexer[:cache_key], api_key]
+    end
+    { indexer_api_keys: indexer_api_keys }
   end
 
   def self.install(prompts)
-    write_env_file(PROMPT_CACHE, "NZBGEEK_API_KEY" => prompts[:nzbgeek_api_key])
+    write_env_file(PROMPT_CACHE, prompts[:indexer_api_keys])
 
     FileUtils.mkdir_p(CONFIG_DIR)
     cleanup_stale_container("prowlarr")
@@ -51,7 +59,9 @@ module Prowlarr
     return if key.nil?
     arr_wait_for_api(BASE_URL, "v1", key)
 
-    register_newznab(key, "NZBGeek", NZBGEEK_DEFAULT_URL, prompts[:nzbgeek_api_key])
+    INDEXERS.each do |indexer|
+      register_newznab(key, indexer[:name], indexer[:url], prompts[:indexer_api_keys][indexer[:cache_key]])
+    end
 
     sonarr_key = Sonarr.api_key
     register_application(key, "Sonarr", "http://host.docker.internal:8989", sonarr_key, TV_USENET_CATS) if sonarr_key

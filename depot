@@ -196,7 +196,10 @@ COMMANDS = {
       end
 
       pc = read_env_file(File.join(config, "depot/prowlarr.env"))
-      lines << "NZBGeek API key: #{pc['NZBGEEK_API_KEY']}"  if pc["NZBGEEK_API_KEY"]
+      Prowlarr::INDEXERS.each do |indexer|
+        api_key = pc[indexer[:cache_key]]
+        lines << "#{indexer[:name]} API key: #{api_key}" if api_key
+      end
 
       sc = read_env_file(File.join(config, "depot/sabnzbd.env"))
       lines << "Frugal username: #{sc['USENET_USERNAME']}" if sc["USENET_USERNAME"]
