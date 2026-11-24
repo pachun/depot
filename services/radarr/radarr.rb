@@ -1,7 +1,7 @@
 # radarr — movie automation. Same shape as Sonarr but for movies.
 # Watches subscribed movies via Prowlarr, sends accepted releases to
-# SABnzbd, moves into ~/hdds/media/movies on completion, pings Jellyfin
-# to rescan.
+# qBittorrent (category "movies"), moves into ~/hdds/media/movies on
+# completion, pings Jellyfin to rescan.
 
 module Radarr
   CONFIG_DIR     = File.join(Dir.home, "hdds/.config/radarr")
@@ -21,6 +21,7 @@ module Radarr
 
   def self.install(prompts)
     FileUtils.mkdir_p([CONFIG_DIR, LIBRARY_DIR,
+                       File.join(Dir.home, "hdds/seeding"),
                        File.join(Dir.home, "downloading/usenet")])
 
     cleanup_stale_container("radarr")
@@ -41,6 +42,7 @@ module Radarr
     arr_opinionate_downloads(BASE_URL, key)
     remove_1080p_size_cap(key)
     arr_set_library_directory(BASE_URL, key, CONTAINER_LIBRARY_DIR)
+    arr_connect_to_qbit(BASE_URL, key, "movies")
     connect_to_jellyfin(key)
   end
 
@@ -54,11 +56,16 @@ module Radarr
     })
     forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
 
+    # Re-assert the torrent client every update, not just on install. A
+    # Radarr that has only its usenet client still looks healthy — it
+    # accepts a torrent grab, finds nowhere to send it, and parks the
+    # release at 0% as downloadClientUnavailable forever.
     return unless wait_for_http("#{BASE_URL}/initialize.json", timeout: 30)
 
     key = api_key
     return if key.nil?
 
+    arr_connect_to_qbit(BASE_URL, key, "movies")
     connect_to_jellyfin(key)
   end
 

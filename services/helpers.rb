@@ -381,8 +381,9 @@ end
 #              destructive actions ("destroy and create pool"). After
 #              the parsed answer is collected, we ask the confirm
 #              question; mismatch raises Aborted.
-#   completion: :filename to enable tab path completion via Readline.
-#              Default nil = no completion.
+#   completion: :filename to enable tab path completion via Readline
+#              (e.g. the WireGuard .conf path prompt). Default nil =
+#              no completion.
 #   verify:    true asks the user to re-enter their answer once and
 #              re-prompts the whole thing on mismatch. For secret
 #              inputs (passwords) where a typo would lock you out
@@ -587,6 +588,42 @@ def arr_set_library_directory(base_url, api_key, path)
        headers: { "X-Api-Key" => api_key })
 end
 
+# Add qBittorrent as a download client. tvCategory/movieCategory both
+# get the same value because the arr schema requires both fields;
+# qBit ignores the irrelevant one per release.
+# No credentials: qBittorrent waives auth for the docker-bridge subnet
+# (see QBittorrent.seed_webui_access), which is the only way Radarr and
+# Sonarr reach it. Keeping the link password-free is what lets `update`
+# re-assert it — updates run without the install prompts that hold the
+# admin password.
+def arr_connect_to_qbit(base_url, api_key, category)
+  payload = {
+    "name" => "qBittorrent", "enable" => true, "protocol" => "torrent",
+    "priority" => 1, "removeCompletedDownloads" => true,
+    "removeFailedDownloads" => true,
+    "implementation" => "QBittorrent",
+    "implementationName" => "qBittorrent",
+    "configContract" => "QBittorrentSettings",
+    "fields" => [
+      { "name" => "host", "value" => "host.docker.internal" },
+      { "name" => "port", "value" => 8080 },
+      { "name" => "useSsl", "value" => false },
+      { "name" => "urlBase", "value" => "" },
+      { "name" => "username", "value" => "" },
+      { "name" => "password", "value" => "" },
+      { "name" => "tvCategory", "value" => category },
+      { "name" => "movieCategory", "value" => category },
+      { "name" => "recentTvPriority", "value" => 0 },
+      { "name" => "olderTvPriority", "value" => 0 },
+      { "name" => "recentMoviePriority", "value" => 0 },
+      { "name" => "olderMoviePriority", "value" => 0 },
+      { "name" => "initialState", "value" => 0 },
+    ],
+    "tags" => [],
+  }
+  arr_upsert_by_name(base_url, "/api/v3/downloadclient", api_key, "qBittorrent", payload)
+end
+
 # Add Jellyfin as a notification target so on-import/upgrade/rename
 # events fire a library refresh.
 #
@@ -769,6 +806,21 @@ def arr_rank_web_above_bluray(items)
   end
 end
 
+ARR_NEVER_ACCEPTABLE_QUALITY = /\A(Unknown|WORKPRINT|CAM|TELESYNC|TELECINE|REGIONAL|DVDSCR|BR-DISK|Raw-HD)\z/
+
+# Older films often exist only as DVD rips. Qualities ranked below the
+# cutoff are allowed so they're grabbed when nothing better exists;
+# the cutoff still drives an upgrade once a better release appears.
+def arr_accept_lower_qualities_as_last_resort(ordered_items, cutoff)
+  cutoff_index = ordered_items.index { |i| arr_quality_id(i) == cutoff }
+  return ordered_items if cutoff_index.nil?
+
+  ordered_items.each_with_index.map do |item, index|
+    below_cutoff = index < cutoff_index
+    below_cutoff && arr_quality_name(item) !~ ARR_NEVER_ACCEPTABLE_QUALITY ? item.merge("allowed" => true) : item
+  end
+end
+
 # A cutoff that names a Blu-ray quality would make the arr upgrade a
 # subtitled WEB-DL to an unsubtitled Blu-ray; point it at the WEB
 # group of the same resolution instead. Any other cutoff is left alone.
@@ -822,10 +874,11 @@ def arr_opinionate_downloads(base_url, api_key)
     cfs.select { |cf| score_by_id.key?(cf["id"]) && !existing_ids.include?(cf["id"]) }
       .each { |cf| items << { "format" => cf["id"], "name" => cf["name"], "score" => score_by_id[cf["id"]] } }
 
-    ordered_items = arr_rank_web_above_bluray(profile["items"] || [])
+    ranked_items = arr_rank_web_above_bluray(profile["items"] || [])
+    cutoff = arr_cutoff_never_demands_bluray(profile["cutoff"], ranked_items)
     updated = profile.merge(
-      "items"             => ordered_items,
-      "cutoff"            => arr_cutoff_never_demands_bluray(profile["cutoff"], ordered_items),
+      "items"             => arr_accept_lower_qualities_as_last_resort(ranked_items, cutoff),
+      "cutoff"            => cutoff,
       "language"          => { "id" => 1, "name" => "English" },
       "upgradeAllowed"    => true,
       "minFormatScore"    => ARR_LAST_RESORT_SCORE,

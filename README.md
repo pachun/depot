@@ -17,6 +17,7 @@ Depot runs on a [UGreen NAS](https://www.ugreen.com/), but any x86 NAS with thre
 You'll also need some accounts:
 
 - [Tailscale](https://tailscale.com) (free)
+- [ProtonVPN](https://protonvpn.com) (paid ~$5/mo)
 - [Frugal Usenet](https://www.frugalusenet.com) (paid ~$60/yr)
 - [NZBGeek](https://nzbgeek.info) (paid ~$15/yr)
 - [NZBFinder](https://nzbfinder.ws) (paid ~$15/yr, Basic plan — finds older catalog films NZBGeek misses)
@@ -67,12 +68,24 @@ After reboot, sign in.
 
 Run the displayed `ssh` command from your favorite machine and continue the install from there.
 
-## 6. Enable Tailscale HTTPS certificates
+## 6. Get a ProtonVPN WireGuard config
+
+qBittorrent's seed traffic is routed through ProtonVPN so your ISP can't see it.
+
+You need a paid ProtonVPN plan (the free tier blocks P2P). Then:
+
+1. Sign in at https://account.protonvpn.com/downloads.
+2. **WireGuard configuration**:
+   - tick **NAT-PMP (Port Forwarding)** (required for inbound peers)
+   - pick a P2P-capable server
+   - Create, then save the `PrivateKey` and `Address` lines right away — Proton never shows the private key again.
+
+## 7. Enable Tailscale HTTPS certificates
 
 1. Open https://login.tailscale.com/admin/dns.
 2. Under **HTTPS Certificates**, click **Enable HTTPS…**.
 
-## 7. Enable Funnel for tailnet members
+## 8. Enable Funnel for tailnet members
 
 Aviary's UI is published via Tailscale Funnel so family members not on your tailnet can reach the sign-in page. Without this ACL entry, depot's `tailscale funnel … on` call during install fails.
 
@@ -87,7 +100,7 @@ Paste this into the top level of the JSON at https://login.tailscale.com/admin/a
 ]
 ```
 
-## 8. Install orchard
+## 9. Install orchard
 
 [Orchard](https://github.com/pachun/orchard) contains my dotfiles for convenience when SSHing into the NAS.
 

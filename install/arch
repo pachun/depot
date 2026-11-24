@@ -259,7 +259,7 @@ enable_wheel_sudo() {
   #
   # SETENV tag: Arch's default sudoers has `Defaults env_reset` which
   # silently strips env vars passed via `sudo VAR=val cmd`. depot
-  # relies on passing PUID, PGID, TZ, DEPOT_USER_HOME etc.
+  # relies on passing PUID, PGID, TZ, DEPOT_USER_HOME, WIREGUARD_* etc.
   # through sudo for docker-compose substitution. SETENV lets wheel
   # members override the env reset on the command line. No real
   # privilege expansion — wheel already has full sudo.

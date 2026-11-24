@@ -1,5 +1,5 @@
-# prowlarr — indexer aggregator. Talks to every usenet indexer
-# (NZBGeek, NZBFinder) on Sonarr's/Radarr's behalf, normalizing
+# prowlarr — indexer aggregator. Talks to every usenet and torrent
+# indexer (NZBGeek, NZBFinder, The Pirate Bay, Knaben) on Sonarr's/Radarr's behalf, normalizing
 # their wildly-different APIs. The arrs query Prowlarr; Prowlarr fans
 # out to indexers. Configuration is push: register indexers here, plus
 # register Sonarr/Radarr as Applications, and Prowlarr syncs the
@@ -26,6 +26,8 @@ module Prowlarr
     { name: "NZBFinder", url: "https://nzbfinder.ws", cache_key: "NZBFINDER_API_KEY",
       key_location: "nzbfinder.ws → profile → API/RSS Key" },
   ].freeze
+
+  PUBLIC_TORRENT_INDEXERS = %w[thepiratebay Knaben].freeze
 
   def self.install_prompt
     cached = read_env_file(PROMPT_CACHE)
@@ -62,6 +64,7 @@ module Prowlarr
     INDEXERS.each do |indexer|
       register_newznab(key, indexer[:name], indexer[:url], prompts[:indexer_api_keys][indexer[:cache_key]])
     end
+    register_public_torrent_indexers(key)
 
     sonarr_key = Sonarr.api_key
     register_application(key, "Sonarr", "http://host.docker.internal:8989", sonarr_key, TV_USENET_CATS) if sonarr_key
@@ -111,6 +114,21 @@ module Prowlarr
       "tags" => [],
     }
     arr_upsert_by_name(BASE_URL, "/api/v1/indexer", api_key, name, payload)
+  end
+
+  def self.register_public_torrent_indexers(api_key)
+    headers = { "X-Api-Key" => api_key }
+    schemas = http_get_json("#{BASE_URL}/api/v1/indexer/schema", headers: headers) || []
+    PUBLIC_TORRENT_INDEXERS.each do |definition_name|
+      schema = schemas.find { |s| s["definitionName"] == definition_name }
+      next if schema.nil?
+
+      payload = schema.merge(
+        "enable" => true, "priority" => 25,
+        "appProfileId" => default_app_profile_id(api_key), "tags" => [],
+      )
+      arr_upsert_by_name(BASE_URL, "/api/v1/indexer", api_key, schema["name"], payload)
+    end
   end
 
   def self.register_application(api_key, impl, arr_url, arr_api_key, sync_categories)
