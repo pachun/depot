@@ -10,6 +10,7 @@ module DemoContent
   STREAM_DIR         = File.join(LIVE_DIR, "stream")
   LOOP_FILE          = File.join(LIVE_DIR, "loop.mp4")
   SECTIONS_TEMPLATE  = File.join(SERVICE_DIR, "sections.json")
+  PAGES_TO_PUBLISH   = File.join(SERVICE_DIR, "pages")
   RESTOCK_SCRIPT     = "/usr/local/lib/depot/restock-demo-account.sh"
   UNITS_DIR          = "/etc/systemd/system"
 
@@ -80,6 +81,7 @@ module DemoContent
     have_jellyfin_index_everything
     play_the_films_as_a_live_stream
     define_the_live_and_series_sections
+    publish_the_privacy_and_support_pages
     create_the_account
     keep_the_account_in_order
   end
@@ -215,6 +217,12 @@ module DemoContent
     sections_file = File.join(Aviary::AVIARY_DATA_DIR, "sections.json")
     FileUtils.mkdir_p(File.dirname(sections_file))
     File.write(sections_file, File.read(SECTIONS_TEMPLATE).gsub("__LIVE_HOSTNAME__", live_hostname))
+  end
+
+  def self.publish_the_privacy_and_support_pages
+    published_pages = File.join(Aviary::AVIARY_DATA_DIR, "pages")
+    FileUtils.mkdir_p(published_pages)
+    FileUtils.cp(Dir[File.join(PAGES_TO_PUBLISH, "*.html")], published_pages)
   end
 
   def self.account_id

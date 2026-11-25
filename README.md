@@ -207,7 +207,8 @@ the server. A demo server also runs with trailers and ratings turned off.
 
 The install stocks the server itself: it downloads freely licensed and
 public-domain films and a series, plays three of the films as a continuous
-live stream, defines the live and series sections, and creates a `guest`
+live stream, defines the live and series sections, publishes Perch's privacy
+policy and support page at `/privacy` and `/support`, and creates a `guest`
 account whose library and password it restores every hour. It asks for one
 more public hostname, for the live stream.
 

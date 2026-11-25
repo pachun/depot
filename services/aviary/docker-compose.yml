@@ -73,6 +73,7 @@ services:
       - DATABASE_PATH=/data/aviary.db
       - DAILY_WIRE_TOKEN_FILE=/data/daily-wire/tokens.json
       - SECTIONS_FILE=/data/sections.json
+      - PAGES_DIR=/data/pages
       - TRAILERS=${TRAILERS}
       - RATINGS=${RATINGS}
       - TZ=${TZ}
