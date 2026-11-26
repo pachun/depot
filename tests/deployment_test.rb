@@ -3,6 +3,7 @@ require 'tmpdir'
 require 'fileutils'
 require 'json'
 require 'open3'
+require 'uri'
 
 class DeploymentTest < Minitest::Test
   def setup
@@ -41,11 +42,11 @@ class DeploymentTest < Minitest::Test
     }
   end
 
-  def update(routing, funnel_allowed: true)
+  def update(routing, funnel_allowed: true, service: 'aviary')
     path = File.join(@directory, 'routing.json')
     File.write(path, JSON.generate({ routing: routing, snapshots: [], funnel_allowed: funnel_allowed }))
     output, status = Open3.capture2e(
-      { 'HOME' => @directory, 'DEPOT_TEST_STATE' => path },
+      { 'HOME' => @directory, 'DEPOT_TEST_STATE' => path, 'DEPOT_TEST_SERVICE' => service },
       RbConfig.ruby, File.expand_path('support/update.rb', __dir__),
     )
     [JSON.parse(File.read(path)), output, status]
@@ -106,6 +107,22 @@ class DeploymentTest < Minitest::Test
     refute status.success?, output
     result.fetch('snapshots').each { |snapshot| assert_equal routing, snapshot }
     assert_includes output, 'Port 443 is already used by a different listener'
+  end
+
+  def test_updating_sabnzbd_downloads_shows_back_catalogs_after_movies
+    File.delete(File.join(@directory, 'hdds/.config/depot/server_kind'))
+    sabnzbd_ini = File.join(@directory, 'hdds/.config/sabnzbd/sabnzbd.ini')
+    FileUtils.mkdir_p(File.dirname(sabnzbd_ini))
+    File.write(sabnzbd_ini, "[misc]\napi_key = test-sab-key\n")
+
+    result, output, status = update(shared_routing, service: 'sabnzbd')
+
+    assert status.success?, output
+    category_changes = result.fetch('requests').select do |request|
+      request['path'].include?('mode=set_config') && request['body'].to_s.include?('section=categories')
+    end
+    assert_equal [{ 'section' => 'categories', 'keyword' => 'tv', 'priority' => '-1' }],
+                 category_changes.map { |request| URI.decode_www_form(request['body']).to_h.except('apikey') }
   end
 
   def test_updating_a_production_nas_preserves_its_existing_public_and_private_routes

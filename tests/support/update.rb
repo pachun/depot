@@ -88,12 +88,19 @@ Open3.singleton_class.prepend(SimulatedCapture)
 module AvailableWebServer
   def start(*)
     client = Object.new
-    def client.request(*) = Struct.new(:code, :body).new('200', '[]')
+    def client.request(request)
+      state = JSON.parse(File.read(ENV.fetch('DEPOT_TEST_STATE')))
+      state['requests'] = state.fetch('requests', []) << {
+        'method' => request.method, 'path' => request.path, 'body' => request.body,
+      }
+      File.write(ENV.fetch('DEPOT_TEST_STATE'), JSON.generate(state))
+      Struct.new(:code, :body).new('200', '[]')
+    end
     yield client
   end
 end
 Net::HTTP.singleton_class.prepend(AvailableWebServer)
 
-ARGV.replace(['update', 'aviary'])
+ARGV.replace(['update', ENV.fetch('DEPOT_TEST_SERVICE', 'aviary')])
 ENV['DEPOT_RUNNING_LATEST'] = '1'
 load File.expand_path('../../depot', __dir__)

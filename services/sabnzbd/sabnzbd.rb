@@ -80,6 +80,7 @@ module Sabnzbd
     push_creds_via_api(sab_key, prompts[:usenet_username], prompts[:usenet_password])
     fail_incomplete_posts_before_downloading(sab_key)
     fail_encrypted_posts(sab_key)
+    download_shows_back_catalogs_last(sab_key)
 
     # mode=restart applies config changes in place (sidesteps docker
     # cycle's port-already-bound dance).
@@ -106,6 +107,7 @@ module Sabnzbd
     return unless wait_for_http("#{BASE_URL}/api?mode=version&apikey=#{sab_key}&output=json", timeout: 60)
     fail_incomplete_posts_before_downloading(sab_key)
     fail_encrypted_posts(sab_key)
+    download_shows_back_catalogs_last(sab_key)
   end
 
   def self.summary
@@ -137,7 +139,7 @@ module Sabnzbd
 
         [categories]
         [[tv]]
-        priority = -100
+        priority = -1
         pp = 3
         name = tv
         dir = /usenet/tv
@@ -218,6 +220,19 @@ module Sabnzbd
   def self.fail_encrypted_posts(sab_key)
     abort = 2
     set_misc_option(sab_key, "pause_on_pwrar", abort)
+  end
+
+  # Sonarr hands every TV grab to SABnzbd at the tv category's
+  # priority. Low keeps a show's back catalog behind movies (normal)
+  # and behind the episode someone is about to watch, which Aviary
+  # raises to high. Fargo's 50 remaining episodes once sat ahead of a
+  # movie someone else had asked for (2026-11-26).
+  def self.download_shows_back_catalogs_last(sab_key)
+    low = -1
+    body = URI.encode_www_form(section: "categories", keyword: "tv", priority: low, apikey: sab_key)
+    http(:post, "#{BASE_URL}/api?mode=set_config",
+         body: body,
+         headers: { "Content-Type" => "application/x-www-form-urlencoded" })
   end
 
   def self.set_misc_option(sab_key, keyword, value)
