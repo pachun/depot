@@ -206,7 +206,6 @@ module Aviary
         "https://#{tailscale_host}:#{Jellyfin::TAILSCALE_PORT}"
       end
 
-    free_tailscale_port(TAILSCALE_PORT)
     compose_up!("aviary", build: true, env: {
       "TZ"                    => `timedatectl show -p Timezone --value`.strip,
       "SRC"                   => SOURCE_DIR,
@@ -268,11 +267,6 @@ module Aviary
     puts "  waiting for aviary endpoint..."
     wait_for_http("http://localhost:#{LOCAL_PORT}/", timeout: 60)
     sh!("sudo docker exec aviary bin/aviary eval 'Aviary.Release.migrate()'")
-    forward_port_to_tailscale(local_port: LOCAL_PORT, tailscale_port: TAILSCALE_PORT)
-    # Public access for non-tailnet family. Activates only if the
-    # tailnet's ACL grants this device funnel capability (admin console
-    # → ACL → nodeAttrs target this machine, attr "funnel"). Otherwise
-    # a silent no-op. See README for the one-time admin console step.
     forward_port_to_internet(local_port: LOCAL_PORT)
   end
 

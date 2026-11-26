@@ -253,18 +253,32 @@ def forward_port_to_tailscale(local_port:, tailscale_port:)
   sudo!("tailscale serve --bg --https=#{tailscale_port} http://localhost:#{local_port}")
 end
 
-# Expose a serve mapping to the public internet via Tailscale Funnel.
-# Reachability still uses the tailnet's https://<hostname>.<tailnet>.ts.net/
-# URL — funnel doesn't generate a separate hostname. The operator
-# decides who gets the URL.
-#
-# Whether this actually works is entirely controlled by the tailnet's
-# ACL (admin console → ACL → nodeAttrs grants `funnel` to this device).
-# If the ACL doesn't grant it, this command fails silently and the
-# tailnet binding from forward_port_to_tailscale is unaffected.
 def forward_port_to_internet(local_port:)
-  system("sudo tailscale funnel --bg http://localhost:#{local_port}",
-         out: File::NULL, err: File::NULL)
+  output, status = capture("tailscale serve status --json")
+  raise "Could not read existing Tailscale routes" unless status.success?
+
+  configuration = JSON.parse(output)
+  listener = configuration.dig("TCP", "443")
+  if listener && listener != { "HTTPS" => true }
+    raise "Port 443 is already used by a different listener"
+  end
+  host = configuration.fetch("Web", {}).keys.find { |name| name.end_with?(":443") }
+  public = configuration.fetch("AllowFunnel", {})[host] == true
+  handlers = configuration.dig("Web", host, "Handlers") || {}
+  targets = ["http://localhost:#{local_port}", "http://127.0.0.1:#{local_port}"]
+  if handlers["/"] && !targets.any? { |target| handlers["/"] == { "Proxy" => target } }
+    raise "Port 443 root route belongs to another service"
+  end
+  if !public && handlers.keys.any? { |path| path != "/" }
+    raise "Refusing to expose other private routes on port 443"
+  end
+
+  unless system("sudo tailscale funnel --bg --set-path=/ http://localhost:#{local_port}",
+                out: File::NULL, err: File::NULL)
+    raise "Could not update Funnel. Existing public routes were left unchanged" if public
+
+    forward_port_to_tailscale(local_port: local_port, tailscale_port: 443)
+  end
 end
 
 # Print the tailnet HTTPS URL for the given port. Empty string if
